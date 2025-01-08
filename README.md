@@ -1,4 +1,5 @@
 # 🌐 **Unified Threat Detection and Response System (UTDRS)**  
+
 *A Comprehensive Cybersecurity Solution for Kenyan SMEs*  
 
 ---
@@ -10,6 +11,7 @@
 ---
 
 ## 🔍 **Overview**  
+
 The **UTDRS** is an innovative **AI-powered system** tailored to protect **Small and Medium-sized Enterprises (SMEs)** in Kenya from advanced cyber threats.  
 It combines **real-time threat detection**, **automated response**, and an **intuitive dashboard** to strengthen cybersecurity resilience.
 
@@ -42,38 +44,50 @@ It combines **real-time threat detection**, **automated response**, and an **int
 ## 🚀 **Getting Started**
 
 ### **Prerequisites**
+
 Ensure you have the following installed:
+
 - Python 3.9+  
 - Node.js 14+  
 - MongoDB  
 - Docker (optional)  
 
 ### **Setup Instructions**
+
 1. **Clone the repository**:  
+
    ```bash
    git clone https://github.com/your-username/utdrs.git
    cd utdrs
    ```
+
 2. **Install dependencies**:  
+
    ```bash
    # Backend
    cd backend && pip install -r requirements.txt
    # Frontend
    cd ../frontend && npm install
    ```
+
 3. **Run the backend**:  
+
    ```bash
    python backend/app.py
    ```
+
 4. **Run the frontend**:  
+
    ```bash
    npm start
    ```
+
 5. **Access the system**: Open `http://localhost:3000` in your browser.
 
 ---
 
 ## 📂 **Project Structure**  
+
 ```plaintext
 UTDRS/
 ├── backend/      # Python APIs and AI models
@@ -88,11 +102,13 @@ UTDRS/
 ## 📸 **Screenshots**  
 
 ### **Threat Detection Dashboard**  
+
 <div align="center">
   <img src="https://via.placeholder.com/800x400?text=Threat+Detection+Dashboard" alt="Threat Detection Dashboard">
 </div>
 
 ### **Real-Time Threat Map**  
+
 <div align="center">
   <img src="https://via.placeholder.com/800x400?text=Real-Time+Threat+Map" alt="Real-Time Threat Map">
 </div>
@@ -100,25 +116,34 @@ UTDRS/
 ---
 
 ## 🤝 **Contributing**  
+
 We welcome contributions from the community! To contribute:  
+
 1. Fork the repo.  
 2. Create a new branch:  
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
+
 3. Make your changes and commit:  
+
    ```bash
    git commit -m "Add feature: your-feature-name"
    ```
+
 4. Push the branch:  
+
    ```bash
    git push origin feature/your-feature-name
    ```
+
 5. Open a pull request and describe your changes.  
 
 ---
 
 ## 📜 **License**  
+
 This project is licensed under the **MIT License**. See `LICENSE` for more details.  
 
 ---
