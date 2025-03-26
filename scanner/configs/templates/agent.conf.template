@@ -1,0 +1,6 @@
+[main]
+server_url = ${SCANNER_ENDPOINT}
+host_id = ${HOST_ID}
+
+[heartbeat]
+interval = ${HB_INTERVAL:-300}
