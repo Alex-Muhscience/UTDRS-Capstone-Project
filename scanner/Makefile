@@ -1,19 +1,22 @@
 # Compiler and flags
-CC = cc
+CC = gcc
 CFLAGS = -Wall -Wextra -O2 -fstack-protector-strong -D_FORTIFY_SOURCE=2 \
          -Iinclude -Iinclude/common -Iinclude/server -Iinclude/agent
 
-# External library paths
-JANSSON_INC ?= /mingw64/include
-JANSSON_LIB ?= /mingw64/lib
-SQLITE_INC ?= /mingw64/include
-SQLITE_LIB ?= /mingw64/lib
+# External library paths (MSYS2 defaults)
+JANSSON_INC = /mingw64/include
+JANSSON_LIB = /mingw64/lib
+SQLITE_INC = /mingw64/include
+SQLITE_LIB = /mingw64/lib
+OPENSSL_INC = /mingw64/include
+OPENSSL_LIB = /mingw64/lib
 
-# Update CFLAGS with external library include paths
-CFLAGS += -I$(JANSSON_INC) -I$(SQLITE_INC)
+# Include paths for external libraries
+CFLAGS += -I$(JANSSON_INC) -I$(SQLITE_INC) -I$(OPENSSL_INC)
 
-# Linker flags
-LDFLAGS = -lcrypto -lssl -lpthread -ljansson -lsqlite3
+# Linker flags and paths
+LDFLAGS = -L$(JANSSON_LIB) -L$(SQLITE_LIB) -L$(OPENSSL_LIB) \
+          -lcrypto -lssl -lpthread -ljansson -lsqlite3
 
 # Windows-specific settings
 ifeq ($(OS),Windows_NT)
@@ -33,19 +36,29 @@ endif
 # Targets
 TARGETS = bin/agent$(EXE_EXT) bin/server$(EXE_EXT)
 
+# Source files
+AGENT_SOURCES = src/agent/main.c src/agent/scanner.c src/agent/transport.c
+SERVER_SOURCES = src/server/main.c src/server/api.c src/server/storage.c
+COMMON_SOURCES = src/common/crypto.c src/common/tls.c
+
+# Object files
+AGENT_OBJS = $(AGENT_SOURCES:.c=.o)
+SERVER_OBJS = $(SERVER_SOURCES:.c=.o)
+COMMON_OBJS = $(COMMON_SOURCES:.c=.o)
+
 # Default target
 all: | bindir $(TARGETS)
 
 # Create the bin directory
 bindir:
-	$(MKDIR)
+	@$(MKDIR)
 
 # Build agent executable
-bin/agent$(EXE_EXT): src/agent/main.o src/agent/scanner.o src/agent/transport.o src/common/crypto.o
+bin/agent$(EXE_EXT): $(AGENT_OBJS) $(filter src/common/crypto.o, $(COMMON_OBJS))
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
 # Build server executable
-bin/server$(EXE_EXT): src/server/main.o src/server/api.o src/server/storage.o src/common/crypto.o src/common/tls.o
+bin/server$(EXE_EXT): $(SERVER_OBJS) $(filter-out src/agent/%, $(COMMON_OBJS))
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
 # Compile source files into object files
@@ -54,6 +67,7 @@ bin/server$(EXE_EXT): src/server/main.o src/server/api.o src/server/storage.o sr
 
 # Clean up build artifacts
 clean:
-	$(RM) src/agent/*.o src/server/*.o src/common/*.o $(TARGETS)
+	$(RM) $(AGENT_OBJS) $(SERVER_OBJS) $(COMMON_OBJS) $(TARGETS)
 
+# Phony targets
 .PHONY: all clean bindir

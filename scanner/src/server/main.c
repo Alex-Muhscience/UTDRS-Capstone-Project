@@ -6,6 +6,7 @@
 #include "server/storage.h"
 #include "agent/auth.h"
 #include "server/api.h"
+#include "common/tls.h"  // Added for TLS functions
 
 // Platform-specific headers
 #ifdef _WIN32
@@ -16,10 +17,12 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #endif
 
 #define PORT 8443
 #define MAX_CONN_QUEUE 100
+#define THREAD_STACK_SIZE (256 * 1024)  // 256KB stack size per thread
 
 volatile sig_atomic_t running = 1;
 
@@ -28,13 +31,12 @@ void handle_signal(int sig) {
     running = 0;
 }
 
-// ... rest of the code remains unchanged ...
 int create_server_socket(int port) {
-    #ifdef _WIN32
+#ifdef _WIN32
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         fprintf(stderr, "WSAStartup failed\n");
-        return EXIT_FAILURE;
+        return -1;
     }
 #endif
 
@@ -44,6 +46,7 @@ int create_server_socket(int port) {
         return -1;
     }
 
+    // Set socket options
     int optval = 1;
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, 
                   (const char*)&optval, sizeof(optval)) < 0) {
@@ -52,6 +55,7 @@ int create_server_socket(int port) {
         return -1;
     }
 
+    // Configure server address
     struct sockaddr_in addr = {
         .sin_family = AF_INET,
         .sin_port = htons(port),
@@ -77,6 +81,7 @@ void* client_thread_wrapper(void* arg) {
     SSL* ssl = (SSL*)arg;
     if (ssl) {
         handle_client_connection(ssl);
+        SSL_shutdown(ssl);
         SSL_free(ssl);
     }
     return NULL;
@@ -89,11 +94,13 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, handle_signal);
     signal(SIGTERM, handle_signal);
 
-    if (init_storage() != 0) {  // Fixed typo from cleanup_storage to init_storage
+    // Initialize storage
+    if (init_storage() != 0) {
         fprintf(stderr, "Failed to initialize storage\n");
         return EXIT_FAILURE;
     }
 
+    // Initialize TLS context
     SSL_CTX *ctx = init_tls_server_context(
         "configs/certs/ca.crt",
         "configs/certs/server.crt",
@@ -104,18 +111,20 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+    // Create server socket
     int sock = create_server_socket(PORT);
     if (sock < 0) {
         SSL_CTX_free(ctx);
         cleanup_storage();
-        #ifdef _WIN32
+#ifdef _WIN32
         WSACleanup();
-        #endif
+#endif
         return EXIT_FAILURE;
     }
 
     printf("Server started on port %d\n", PORT);
 
+    // Main server loop
     while (running) {
         struct sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
@@ -125,24 +134,33 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
+        // Create SSL connection
         SSL *ssl = SSL_new(ctx);
         SSL_set_fd(ssl, client_sock);
 
+        // Create thread attributes for larger stack size
+        pthread_attr_t thread_attr;
+        pthread_attr_init(&thread_attr);
+        pthread_attr_setstacksize(&thread_attr, THREAD_STACK_SIZE);
+
+        // Handle client in new thread
         pthread_t thread;
-        if (pthread_create(&thread, NULL, client_thread_wrapper, ssl) != 0) {
+        if (pthread_create(&thread, &thread_attr, client_thread_wrapper, ssl) != 0) {
             perror("pthread_create");
             SSL_free(ssl);
             close(client_sock);
         } else {
             pthread_detach(thread);
         }
+        pthread_attr_destroy(&thread_attr);
     }
 
+    // Cleanup
     close(sock);
     SSL_CTX_free(ctx);
     cleanup_storage();
-    #ifdef _WIN32
+#ifdef _WIN32
     WSACleanup();
-    #endif
+#endif
     return EXIT_SUCCESS;
 }
