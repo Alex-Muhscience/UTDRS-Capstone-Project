@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/include",
+                "${workspaceFolder}/include/common",
+                "${workspaceFolder}/include/server",
+                "${workspaceFolder}/include/agent",
+                "${workspaceFolder}/src",
+                "C:/MinGW/include"  // Adjust if using different compiler
+            ],
+            "defines": [
+                "WINDOWS",
+                "_WIN32_WINNT=0x0600"
+            ],
+            "compilerPath": "C:/MinGW/bin/gcc.exe",  // Update if needed
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-gcc-x64"
+        }
+    ],
+    "version": 4
+}

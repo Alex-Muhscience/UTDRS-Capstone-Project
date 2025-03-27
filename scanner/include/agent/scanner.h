@@ -1,26 +1,18 @@
+// include/agent/scanner.h
 #ifndef DEVICE_SCANNER_SCANNER_H
 #define DEVICE_SCANNER_SCANNER_H
 
 #include "../common/types.h"
 
-/**
- * @brief Perform comprehensive system scan
- * @return JSON-encoded scan results (must be freed by caller)
- */
-char* perform_system_scan(void);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-/**
- * @brief Perform targeted network scan 
- * @param timeout_sec Maximum scan duration
- * @return Network scan results
- */
-scan_result_t perform_network_scan(int timeout_sec);
+scan_result_t* perform_scan(void);
+void free_scan_result(scan_result_t *result);
 
-/**
- * @brief Check for critical vulnerabilities
- * @param level Scan intensity (1-3)
- * @return List of detected vulnerabilities
- */
-vuln_report_t check_vulnerabilities(int level);
+#ifdef __cplusplus
+}
+#endif
 
 #endif // DEVICE_SCANNER_SCANNER_H

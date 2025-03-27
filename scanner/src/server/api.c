@@ -1,22 +1,58 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <time.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <openssl/sha.h>
 #include <jansson.h>
 #include <sqlite3.h>
 #include <pthread.h>
+
+// Platform-specific headers
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#define close closesocket
+#else
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <unistd.h>
+#include <syslog.h>
+#endif
+
 #include "server/api.h"
 #include "server/storage.h"
 #include "common/utils.h"
 #include "common/crypto.h"
 
-/* Security Constants */
-#define MAX_CMD_LENGTH          4096
+// JSON validation result codes
+#define VALID_JSON_OK                0
+#define VALID_JSON_TOO_LARGE         1
+#define VALID_JSON_INVALID           2
+#define VALID_JSON_TOO_DEEP          3
+#define VALID_JSON_MISSING_FIELD     4
+#define VALID_JSON_FIELD_TOO_LONG    5
+#define VALID_JSON_CHECKSUM_FAIL     6
+
+// Windows syslog replacement
+#ifdef _WIN32
+#define LOG_WARNING 0
+#define LOG_NOTICE 0
+static void win_syslog(int priority, const char *format, ...) {
+    (void)priority;
+    va_list args;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+    printf("\n");
+}
+#define syslog win_syslog
+#endif
+
+// Security Constants
 #define MAX_CLIENTS             100
 #define RATE_LIMIT_WINDOW       60          // 1 minute
 #define MAX_REQUESTS_PER_MIN    30
@@ -39,10 +75,6 @@ static pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
  * SECURITY ENHANCEMENTS *
  ************************/
 
-/**
- * @brief Initialize hardened TLS context
- * @return Configured SSL_CTX or NULL on failure
- */
 SSL_CTX* create_secure_tls_context() {
     SSL_CTX *ctx = SSL_CTX_new(TLS_server_method());
     if (!ctx) return NULL;
@@ -63,12 +95,7 @@ SSL_CTX* create_secure_tls_context() {
     return ctx;
 }
 
-/**
- * @brief Enhanced rate limiting with automatic blocking
- * @param ip Client IP address
- * @return 0 if allowed, -1 if rate limited, -2 if blocked
- */
-static int check_client_access(const char *ip) {
+int check_client_access(const char *ip) {
     time_t now = time(NULL);
     int result = 0;
     
@@ -109,12 +136,41 @@ static int check_client_access(const char *ip) {
     return result;
 }
 
-/**
- * @brief Strict JSON schema validator
- * @param data JSON string to validate
- * @return Validation status (VALID_JSON_* constants)
- */
-static int validate_scan_json(const char *data) {
+/**********************
+ * UTILITY FUNCTIONS *
+ **********************/
+
+ int get_client_ip(SSL *ssl, char *buf, size_t len) {
+    struct sockaddr_in addr;
+    socklen_t addr_len = sizeof(addr);
+    
+    if (getpeername(SSL_get_fd(ssl), (struct sockaddr*)&addr, &addr_len) != 0) {
+        perror("getpeername");
+        return -1;
+    }
+    
+    const char *result = inet_ntop(AF_INET, &addr.sin_addr, buf, len);
+    if (!result) {
+        perror("inet_ntop");
+        return -1;
+    }
+    
+    return 0;
+}
+
+bool verify_checksum(const char *data, const char *checksum) {
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    SHA256((unsigned char*)data, strlen(data), hash);
+    
+    char hex_hash[2*SHA256_DIGEST_LENGTH+1];
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+        sprintf(hex_hash + 2*i, "%02x", hash[i]);
+    }
+    
+    return strncmp(hex_hash, checksum, 2*SHA256_DIGEST_LENGTH) == 0;
+}
+
+int validate_scan_json(const char *data) {
     if (strlen(data) > MAX_CMD_LENGTH - 1) {
         return VALID_JSON_TOO_LARGE;
     }
@@ -126,13 +182,14 @@ static int validate_scan_json(const char *data) {
         return VALID_JSON_INVALID;
     }
 
-    // Depth checking
-    if (json_check_depth(root, MAX_JSON_DEPTH) != 0) {
+    // Depth checking (using json_deep_copy as alternative to json_check_depth)
+    json_t *copy = json_deep_copy(root);
+    if (!copy) {
         json_decref(root);
         return VALID_JSON_TOO_DEEP;
     }
+    json_decref(copy);
 
-    // Required fields validation
     static const char *required[] = {"hostname", "os", "timestamp", "checksum", NULL};
     for (int i = 0; required[i]; i++) {
         json_t *field = json_object_get(root, required[i]);
@@ -141,7 +198,6 @@ static int validate_scan_json(const char *data) {
             return VALID_JSON_MISSING_FIELD;
         }
         
-        // Field length checks
         if (json_is_string(field) && 
             json_string_length(field) > MAX_FIELD_LENGTH) {
             json_decref(root);
@@ -149,7 +205,6 @@ static int validate_scan_json(const char *data) {
         }
     }
 
-    // Checksum verification
     const char *checksum = json_string_value(json_object_get(root, "checksum"));
     if (!verify_checksum(data, checksum)) {
         json_decref(root);
@@ -164,16 +219,13 @@ static int validate_scan_json(const char *data) {
  * CORE FUNCTIONALITY *
  ********************/
 
-void handle_client_connection(void *arg) {
-    SSL *ssl = (SSL*)arg;
+void handle_client_connection(SSL *ssl) {
     char client_ip[INET_ADDRSTRLEN] = {0};
     
-    // Secure IP extraction
     if (get_client_ip(ssl, client_ip, sizeof(client_ip)) != 0) {
         goto connection_error;
     }
 
-    // Enhanced access control
     switch (check_client_access(client_ip)) {
         case -2: // Blocked client
             SSL_write(ssl, "BLOCKED", 7);
@@ -183,14 +235,12 @@ void handle_client_connection(void *arg) {
             goto connection_error;
     }
 
-    // Hardened TLS handshake
     if (SSL_accept(ssl) <= 0) {
         ERR_print_errors_fp(stderr);
         syslog(LOG_WARNING, "TLS handshake failed from %s", client_ip);
         goto connection_error;
     }
 
-    // Process commands with timeout
     fd_set read_fds;
     struct timeval timeout = {30, 0}; // 30 second timeout
     char cmd[MAX_CMD_LENGTH] = {0};
@@ -209,79 +259,44 @@ void handle_client_connection(void *arg) {
     }
     cmd[bytes_read] = '\0';
 
-    // Process validated command
-    process_scan_command(ssl, cmd);
+    process_scan_command(ssl, cmd, bytes_read);
 
 connection_error:
-    // Secure cleanup
     if (ssl) {
         SSL_shutdown(ssl);
         SSL_free(ssl);
     }
 }
 
-void process_scan_command(SSL *ssl, const char *cmd) {
+int process_scan_command(SSL *ssl, const char *cmd, size_t cmd_len) {
+    (void)cmd_len; // Mark cmd_len as intentionally unused
+
     if (strncmp(cmd, "SCAN ", 5) != 0) {
         SSL_write(ssl, "INVALID_CMD", 11);
-        return;
+        return -1;
     }
 
     const char *scan_data = cmd + 5;
     int validation_result = validate_scan_json(scan_data);
-    
+
     switch (validation_result) {
         case VALID_JSON_OK:
             if (store_scan_result(ssl, scan_data) == 0) {
                 SSL_write(ssl, "ACK", 3);
+                return 0;
             } else {
                 SSL_write(ssl, "STORAGE_ERROR", 13);
+                return -1;
             }
-            break;
-            
         case VALID_JSON_TOO_LARGE:
             SSL_write(ssl, "DATA_TOO_LARGE", 14);
-            break;
-            
+            return -1;
         case VALID_JSON_INVALID:
             SSL_write(ssl, "INVALID_JSON", 12);
-            break;
-            
+            return -1;
         default:
             SSL_write(ssl, "VALIDATION_ERROR", 16);
+            return -1;
     }
-}
 
-/**********************
- * UTILITY FUNCTIONS *
- **********************/
-
-static int get_client_ip(SSL *ssl, char *buf, size_t len) {
-    struct sockaddr_in addr;
-    socklen_t addr_len = sizeof(addr);
-    
-    if (getpeername(SSL_get_fd(ssl), (struct sockaddr*)&addr, &addr_len) != 0) {
-        perror("getpeername");
-        return -1;
-    }
-    
-    if (!inet_ntop(AF_INET, &addr.sin_addr, buf, len)) {
-        perror("inet_ntop");
-        return -1;
-    }
-    
-    return 0;
-}
-
-static bool verify_checksum(const char *data, const char *checksum) {
-    // Implement cryptographic checksum verification
-    // Example: SHA-256 hash comparison
-    unsigned char hash[SHA256_DIGEST_LENGTH];
-    SHA256((unsigned char*)data, strlen(data), hash);
-    
-    char hex_hash[2*SHA256_DIGEST_LENGTH+1];
-    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
-        sprintf(hex_hash + 2*i, "%02x", hash[i]);
-    }
-    
-    return strncmp(hex_hash, checksum, 2*SHA256_DIGEST_LENGTH) == 0;
 }

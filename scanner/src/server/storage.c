@@ -1,3 +1,15 @@
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#define close closesocket
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#endif
+
+#include <openssl/ssl.h> // For SSL_get_fd
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,6 +18,10 @@
 #include <jansson.h>
 #include "server/storage.h"
 #include "common/utils.h"
+
+#ifdef _WIN32
+#define _WIN32_WINNT 0x0600 // Enable Windows Vista+ features (required for inet_ntop)
+#endif
 
 static sqlite3 *db = NULL;
 

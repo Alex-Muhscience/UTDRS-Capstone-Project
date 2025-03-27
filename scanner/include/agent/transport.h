@@ -1,18 +1,20 @@
-#ifndef TRANSPORT_H
-#define TRANSPORT_H
+#ifndef DEVICE_SCANNER_TRANSPORT_H
+#define DEVICE_SCANNER_TRANSPORT_H
 
 #include <openssl/ssl.h>
 
-// Establishes secure connection to server
-SSL* connect_to_server(SSL_CTX *ctx, const char *host, int port);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-// Writes entire buffer with retry logic
-int ssl_write_all(SSL *ssl, const void *buf, size_t len);
-
-// Verifies server certificate
+SSL_CTX* init_tls_client_context(const char* ca_cert, const char* cert, const char* key);
+SSL* connect_to_server(SSL_CTX* ctx, const char* host, int port);
+ssize_t ssl_write_all(SSL *ssl, const void *buf, size_t len);
 int verify_server_certificate(SSL *ssl, const char *host);
-
-// Properly closes connection
 void disconnect(SSL *ssl);
 
-#endif // TRANSPORT_H
+#ifdef __cplusplus
+}
+#endif
+
+#endif // DEVICE_SCANNER_TRANSPORT_H

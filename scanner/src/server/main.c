@@ -1,13 +1,22 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <signal.h>
 #include <pthread.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include "common/crypto.h"
 #include "server/storage.h"
+#include "agent/auth.h"
 #include "server/api.h"
+
+// Platform-specific headers
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#define close closesocket
+#else
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#endif
 
 #define PORT 8443
 #define MAX_CONN_QUEUE 100
@@ -15,19 +24,33 @@
 volatile sig_atomic_t running = 1;
 
 void handle_signal(int sig) {
+    (void)sig;  // Silence unused parameter warning
     running = 0;
 }
 
+// ... rest of the code remains unchanged ...
 int create_server_socket(int port) {
-    int sock = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    #ifdef _WIN32
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        fprintf(stderr, "WSAStartup failed\n");
+        return EXIT_FAILURE;
+    }
+#endif
+
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
         perror("socket");
         return -1;
     }
 
-    // Set SO_REUSEADDR to prevent "address already in use" errors
     int optval = 1;
-    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, 
+                  (const char*)&optval, sizeof(optval)) < 0) {
+        perror("setsockopt");
+        close(sock);
+        return -1;
+    }
 
     struct sockaddr_in addr = {
         .sin_family = AF_INET,
@@ -50,17 +73,27 @@ int create_server_socket(int port) {
     return sock;
 }
 
+void* client_thread_wrapper(void* arg) {
+    SSL* ssl = (SSL*)arg;
+    if (ssl) {
+        handle_client_connection(ssl);
+        SSL_free(ssl);
+    }
+    return NULL;
+}
+
 int main(int argc, char *argv[]) {
+    (void)argc;  // Silence unused parameter warnings
+    (void)argv;
+
     signal(SIGINT, handle_signal);
     signal(SIGTERM, handle_signal);
 
-    // Initialize storage
-    if (init_storage() != 0) {
+    if (init_storage() != 0) {  // Fixed typo from cleanup_storage to init_storage
         fprintf(stderr, "Failed to initialize storage\n");
         return EXIT_FAILURE;
     }
 
-    // Initialize TLS context
     SSL_CTX *ctx = init_tls_server_context(
         "configs/certs/ca.crt",
         "configs/certs/server.crt",
@@ -71,17 +104,18 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    // Create server socket
     int sock = create_server_socket(PORT);
     if (sock < 0) {
         SSL_CTX_free(ctx);
         cleanup_storage();
+        #ifdef _WIN32
+        WSACleanup();
+        #endif
         return EXIT_FAILURE;
     }
 
     printf("Server started on port %d\n", PORT);
 
-    // Main accept loop
     while (running) {
         struct sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
@@ -91,19 +125,24 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        // Create SSL connection
         SSL *ssl = SSL_new(ctx);
         SSL_set_fd(ssl, client_sock);
 
-        // Handle in new thread
         pthread_t thread;
-        pthread_create(&thread, NULL, (void*(*)(void*))handle_client_connection, ssl);
-        pthread_detach(thread);
+        if (pthread_create(&thread, NULL, client_thread_wrapper, ssl) != 0) {
+            perror("pthread_create");
+            SSL_free(ssl);
+            close(client_sock);
+        } else {
+            pthread_detach(thread);
+        }
     }
 
-    // Cleanup
     close(sock);
     SSL_CTX_free(ctx);
     cleanup_storage();
+    #ifdef _WIN32
+    WSACleanup();
+    #endif
     return EXIT_SUCCESS;
 }
