@@ -133,7 +133,7 @@ result->networks[i].interface_name[copy_len] = '\0';
                 size_t idx = 0;
                 for (struct ifaddrs *ifa = ifaddr; ifa != NULL && idx < result->network_count; ifa = ifa->ifa_next) {
                     if (ifa->ifa_addr && ifa->ifa_addr->sa_family == AF_INET) {
-                        strncpy(result->networks[idx].interface, ifa->ifa_name, MAX_INTERFACE_LEN);
+                        strncpy(result->networks[idx].interface_name, ifa->ifa_name, MAX_INTERFACE_LEN);
                         inet_ntop(AF_INET,
                                  &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr,
                                  result->networks[idx].ip_address,
