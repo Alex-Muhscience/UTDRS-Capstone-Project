@@ -1,55 +1,55 @@
-#ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#define close closesocket
-#else
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#endif
-
-#include <openssl/ssl.h> // For SSL_get_fd
-
+#include "server/storage.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <sqlite3.h>
+#include <mongoc/mongoc.h>
+#include <bson/bson.h> // Include this for BCON_STRING and other BSON APIs
+#include <openssl/ssl.h> // For SSL_get_fd
 #include <jansson.h>
-#include "server/storage.h"
+#include <ws2tcpip.h> // For InetNtop
 #include "common/utils.h"
 
-#ifdef _WIN32
-#define _WIN32_WINNT 0x0600 // Enable Windows Vista+ features (required for inet_ntop)
-#endif
+static mongoc_client_pool_t *client_pool = NULL;
 
-static sqlite3 *db = NULL;
-
-int init_storage() {
-    if (sqlite3_open("scans.db", &db) != SQLITE_OK) {
-        fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));
+int init_storage(mongoc_client_pool_t *pool) {
+    if (!pool) {
+        fprintf(stderr, "Invalid client pool\n");
         return -1;
     }
 
-    const char *sql = 
-        "CREATE TABLE IF NOT EXISTS scans ("
-        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-        "client_ip TEXT NOT NULL,"
-        "timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,"
-        "data TEXT NOT NULL);";
+    client_pool = pool;
 
-    char *err_msg = NULL;
-    if (sqlite3_exec(db, sql, NULL, NULL, &err_msg) != SQLITE_OK) {
-        fprintf(stderr, "SQL error: %s\n", err_msg);
-        sqlite3_free(err_msg);
+    // Test connection by popping a client from the pool
+    mongoc_client_t *client = mongoc_client_pool_pop(client_pool);
+    if (!client) {
+        fprintf(stderr, "Failed to get client from pool\n");
         return -1;
     }
 
+    bson_t *ping = BCON_NEW("ping", BCON_INT32(1));
+    bson_error_t error;
+    bool ok = mongoc_client_command_simple(
+        client, "admin", ping, NULL, NULL, &error
+    );
+    bson_destroy(ping);
+    mongoc_client_pool_push(client_pool, client);
+
+    if (!ok) {
+        fprintf(stderr, "MongoDB connection failed: %s\n", error.message);
+        return -1;
+    }
+
+    printf("Connected to MongoDB Atlas\n");
     return 0;
 }
 
 int store_scan_result(SSL *ssl, const char *data) {
-    // Validate JSON first
+    if (!ssl || !data) {
+        fprintf(stderr, "Invalid parameters\n");
+        return -1;
+    }
+
+    // Validate JSON
     json_error_t error;
     json_t *root = json_loads(data, 0, &error);
     if (!root) {
@@ -62,35 +62,55 @@ int store_scan_result(SSL *ssl, const char *data) {
     char client_ip[INET_ADDRSTRLEN];
     struct sockaddr_in addr;
     socklen_t addr_len = sizeof(addr);
-    getpeername(SSL_get_fd(ssl), (struct sockaddr*)&addr, &addr_len);
-    inet_ntop(AF_INET, &addr.sin_addr, client_ip, sizeof(client_ip));
-
-    // Prepare SQL statement
-    sqlite3_stmt *stmt;
-    const char *sql = "INSERT INTO scans (client_ip, data) VALUES (?, ?);";
-    
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-        fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(db));
+    if (getpeername(SSL_get_fd(ssl), (struct sockaddr*)&addr, &addr_len) == -1) {
+        perror("getpeername failed");
         return -1;
     }
 
-    sqlite3_bind_text(stmt, 1, client_ip, -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 2, data, -1, SQLITE_STATIC);
+    // Use InetNtop instead of inet_ntop
+    if (!InetNtop(AF_INET, &addr.sin_addr, client_ip, sizeof(client_ip))) {
+        fprintf(stderr, "Failed to convert IP address\n");
+        return -1;
+    }
 
-    int result = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
+    // Get a client from the pool
+    mongoc_client_t *client = mongoc_client_pool_pop(client_pool);
+    if (!client) {
+        fprintf(stderr, "Failed to get client from pool\n");
+        return -1;
+    }
 
-    if (result != SQLITE_DONE) {
-        fprintf(stderr, "Insert failed: %s\n", sqlite3_errmsg(db));
+    // Create MongoDB document
+    bson_t *doc = BCON_NEW(
+        "client_ip", BCON_STRING(client_ip),
+        "data", BCON_STRING(data),
+        "timestamp", BCON_DATE_TIME((int64_t)(time(NULL)) * 1000)
+    );
+
+    mongoc_collection_t *collection = mongoc_client_get_collection(
+        client, "utdrs_db", "scans"
+    );
+
+    bson_error_t db_error;
+    bool ok = mongoc_collection_insert_one(
+        collection, doc, NULL, NULL, &db_error
+    );
+
+    bson_destroy(doc);
+    mongoc_collection_destroy(collection);
+    mongoc_client_pool_push(client_pool, client);
+
+    if (!ok) {
+        fprintf(stderr, "MongoDB insert failed: %s\n", db_error.message);
         return -1;
     }
 
     return 0;
 }
 
-void cleanup_storage() {
-    if (db) {
-        sqlite3_close(db);
-        db = NULL;
+void cleanup_storage(void) {
+    if (client_pool) {
+        mongoc_client_pool_destroy(client_pool);
+        client_pool = NULL;
     }
 }

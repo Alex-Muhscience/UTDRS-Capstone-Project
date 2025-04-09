@@ -30,6 +30,7 @@ UTDRS_System/
 ## Prerequisites
 
 ### Windows (MSYS2/MinGW)
+
 ```bash
 pacman -S mingw-w64-x86_64-gcc \
           mingw-w64-x86_64-openssl \
@@ -39,6 +40,7 @@ pacman -S mingw-w64-x86_64-gcc \
 ```
 
 ### Linux (Ubuntu/Debian)
+
 ```bash
 sudo apt-get install gcc libssl-dev libjansson-dev libsqlite3-dev make
 ```
@@ -46,12 +48,14 @@ sudo apt-get install gcc libssl-dev libjansson-dev libsqlite3-dev make
 ## Building
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/yourusername/utdrs-device-scanner.git
 cd utdrs-device-scanner
 ```
 
 2. Generate TLS certificates (or place your own in `configs/certs/`):
+
 ```bash
 mkdir -p configs/certs
 openssl req -x509 -newkey rsa:4096 -keyout configs/certs/server.key -out configs/certs/server.crt -days 365 -nodes -subj "/CN=localhost"
@@ -59,6 +63,7 @@ cp configs/certs/server.crt configs/certs/ca.crt  # For testing only
 ```
 
 3. Build the project:
+
 ```bash
 make clean && make
 ```
@@ -66,12 +71,14 @@ make clean && make
 ## Usage
 
 ### Starting the Server
+
 ```bash
 ./bin/server.exe  # Windows
 ./bin/server      # Linux
 ```
 
 ### Running an Agent
+
 ```bash
 ./bin/agent.exe --server-address 127.0.0.1 --server-port 8443  # Windows
 ./bin/agent --server-address 127.0.0.1 --server-port 8443      # Linux
@@ -80,6 +87,7 @@ make clean && make
 ## Configuration
 
 Edit `configs/server.conf`:
+
 ```ini
 [network]
 port = 8443
@@ -94,6 +102,7 @@ ca_cert = configs/certs/ca.crt
 ## API Documentation
 
 ### Server Endpoints
+
 - `POST /api/v1/scan` - Submit device scan results
 - `GET /api/v1/devices` - List all scanned devices
 - `GET /api/v1/device/{id}` - Get specific device details
@@ -109,6 +118,7 @@ ca_cert = configs/certs/ca.crt
 ## Development
 
 ### Code Structure
+
 | Directory       | Purpose                          |
 |-----------------|----------------------------------|
 | `src/agent/`    | Client-side scanning logic       |
@@ -117,12 +127,15 @@ ca_cert = configs/certs/ca.crt
 | `include/`      | Header files                     |
 
 ### Testing
+
 Run unit tests:
+
 ```bash
 make test
 ```
 
 ### Debug Build
+
 ```bash
 make DEBUG=1
 ```
@@ -130,12 +143,14 @@ make DEBUG=1
 ## Deployment
 
 ### Docker (Recommended)
+
 ```bash
 docker build -t utdrs-server .
 docker run -p 8443:8443 utdrs-server
 ```
 
 ### Systemd Service (Linux)
+
 ```ini
 # /etc/systemd/system/utdrs.service
 [Unit]
@@ -153,6 +168,7 @@ WantedBy=multi-user.target
 ## Troubleshooting
 
 **Common Issues:**
+
 1. **Certificate errors**: Verify paths in `configs/server.conf`
 2. **Connection refused**: Check server is running and firewall settings
 3. **Missing dependencies**: Run `make deps` to verify requirements
@@ -172,10 +188,9 @@ MIT License - See [LICENSE](LICENSE) for details.
 ---
 
 **Maintainer**: Alex Muhscience  
-**Contact**: info.ak.computerscience@gmail.com  
+**Contact**: <info.ak.computerscience@gmail.com>  
 **Version**: 1.0.0  
 **Last Updated**: 2025-3-27
-
 
 This README includes:
 
