@@ -15,7 +15,6 @@ A secure, cross-platform device scanning and management system with TLS encrypti
 
 ## Architecture
 
-```
 UTDRS_System/
 ├── agent/              # Client components
 ├── server/             # Server components
@@ -25,7 +24,6 @@ UTDRS_System/
 ├── docs/               # Documentation
 ├── include/            # Header files
 └── tests/              # Unit tests
-```
 
 ## Prerequisites
 

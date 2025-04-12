@@ -6,5 +6,6 @@
         "*.embeddedhtml": "html",
         "*.html": "html",
         "crypto.h": "c"
-    }
+    },
+    "cmake.sourceDirectory": "D:/Personal_Projects/UTDRS Device Scanner/libbson"
 }
