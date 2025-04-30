@@ -1,6 +1,6 @@
 # 🛡️ UTDRS Frontend - Unified Threat Detection and Response System
 
-![UTDRS Logo](src\assets\image.jpg)
+![UTDRS Logo](/src/assets/image.jpg)
 
 Welcome to the **Unified Threat Detection and Response System (UTDRS)** frontend, a modern, responsive, Multi-Page Application (MPA) built with **React**, **Tailwind CSS**, and **Vite**. Designed for small and medium enterprises (SMEs), UTDRS provides real-time cybersecurity monitoring, threat detection, and response management. This frontend integrates seamlessly with a Flask/FastAPI backend and MongoDB database, delivering a sleek, cybersecurity-inspired interface for **Admins** (system managers) and **Users** (SME cybersecurity personnel).
 
