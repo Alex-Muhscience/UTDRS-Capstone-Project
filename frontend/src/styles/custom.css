@@ -1,0 +1,48 @@
+/* Custom animations */
+@keyframes pulse-slow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  
+  .animate-pulse-slow {
+    animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: #1E293B;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #3B82F6;
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: #2563EB;
+  }
+  
+  /* Custom tooltips */
+  .recharts-tooltip-cursor {
+    fill: rgba(30, 41, 59, 0.5);
+  }
+  
+  .recharts-default-tooltip {
+    background-color: #1E293B !important;
+    border: 1px solid #334155 !important;
+    border-radius: 0.375rem !important;
+  }
+  
+  .recharts-tooltip-item {
+    color: #F8FAFC !important;
+  }
+  
+  /* Custom modal backdrop */
+  .modal-backdrop {
+    background-color: rgba(2, 6, 23, 0.7);
+  }
