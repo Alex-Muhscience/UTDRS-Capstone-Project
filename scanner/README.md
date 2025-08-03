@@ -6,12 +6,14 @@ A secure, cross-platform device scanning and management system with TLS encrypti
 
 ## Features
 
-- **Secure Communication**: TLS 1.2+ encrypted connections
-- **Cross-Platform**: Works on Windows and Linux
-- **Centralized Management**: Server-client architecture
-- **Device Discovery**: Comprehensive network scanning
-- **Secure Storage**: Encrypted scan result storage
-- **Rate Limiting**: Protection against brute force attacks
+- ✅ **MongoDB Integration**: Full database connectivity with MongoDB C Driver 1.30.3
+- ✅ **JSON Processing**: Complete JSON validation with Jansson 2.14 library
+- ✅ **Secure Communication**: TLS 1.2+ encrypted connections
+- ✅ **Cross-Platform**: Works on Windows and Linux
+- ✅ **Centralized Management**: Server-client architecture
+- ✅ **Device Discovery**: Comprehensive network scanning
+- ✅ **Rate Limiting**: Protection against brute force attacks (30 req/min)
+- ✅ **Built Successfully**: Ready-to-run executables available
 
 ## Architecture
 
@@ -27,23 +29,52 @@ UTDRS_System/
 
 ## Prerequisites
 
-### Windows (MSYS2/MinGW)
+### Windows (MinGW-w64)
 
-```bash
-pacman -S mingw-w64-x86_64-gcc \
-          mingw-w64-x86_64-openssl \
-          mingw-w64-x86_64-jansson \
-          mingw-w64-x86_64-sqlite3 \
-          make
-```
+**Required Dependencies:**
+- MinGW-w64 GCC compiler
+- MongoDB C Driver 1.30.3 (built from source)
+- Jansson 2.14 JSON library (built from source)
+- OpenSSL (for TLS support)
+- Make utility
+
+**Installation Status:**
+- ✅ MongoDB C Driver: Installed at `D:\mongodb-c-driver\mongodb-c-driver-1.30.3\build-install`
+- ✅ Jansson Library: Installed at `D:\jansson\install`
+- ✅ GCC Compiler: Available in PATH
+- ✅ Make Utility: Available in PATH
 
 ### Linux (Ubuntu/Debian)
 
 ```bash
 sudo apt-get install gcc libssl-dev libjansson-dev libsqlite3-dev make
+sudo apt-get install libmongoc-1.0-0 libmongoc-dev
 ```
 
 ## Building
+
+### Windows MinGW Build
+
+1. Ensure all dependencies are properly installed (see Prerequisites)
+
+2. Navigate to project directory:
+
+```bash
+cd "D:\Personal_Projects\UTDRS Device Scanner"
+```
+
+3. Clean and build:
+
+```bash
+make clean
+make
+```
+
+**Build Output:**
+- `bin/agent.exe` - Client scanning component
+- `bin/server.exe` - Server management component
+
+### Linux Build
 
 1. Clone the repository:
 
@@ -52,15 +83,7 @@ git clone https://github.com/yourusername/utdrs-device-scanner.git
 cd utdrs-device-scanner
 ```
 
-2. Generate TLS certificates (or place your own in `configs/certs/`):
-
-```bash
-mkdir -p configs/certs
-openssl req -x509 -newkey rsa:4096 -keyout configs/certs/server.key -out configs/certs/server.crt -days 365 -nodes -subj "/CN=localhost"
-cp configs/certs/server.crt configs/certs/ca.crt  # For testing only
-```
-
-3. Build the project:
+2. Build the project:
 
 ```bash
 make clean && make

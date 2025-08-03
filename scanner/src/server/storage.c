@@ -26,12 +26,13 @@ int init_storage(mongoc_client_pool_t *pool) {
         return -1;
     }
 
-    bson_t *ping = BCON_NEW("ping", BCON_INT32(1));
+    bson_t ping = BSON_INITIALIZER;
+    BSON_APPEND_INT32(&ping, "ping", 1);
     bson_error_t error;
     bool ok = mongoc_client_command_simple(
-        client, "admin", ping, NULL, NULL, &error
+        client, "admin", &ping, NULL, NULL, &error
     );
-    bson_destroy(ping);
+    bson_destroy(&ping);
     mongoc_client_pool_push(client_pool, client);
 
     if (!ok) {
@@ -81,11 +82,10 @@ int store_scan_result(SSL *ssl, const char *data) {
     }
 
     // Create MongoDB document
-    bson_t *doc = BCON_NEW(
-        "client_ip", BCON_STRING(client_ip),
-        "data", BCON_STRING(data),
-        "timestamp", BCON_DATE_TIME((int64_t)(time(NULL)) * 1000)
-    );
+    bson_t *doc = bson_new();
+    BSON_APPEND_UTF8(doc, "client_ip", client_ip);
+    BSON_APPEND_UTF8(doc, "data", data);
+    BSON_APPEND_DATE_TIME(doc, "timestamp", (int64_t)(time(NULL)) * 1000);
 
     mongoc_collection_t *collection = mongoc_client_get_collection(
         client, "utdrs_db", "scans"

@@ -50,52 +50,6 @@ void cleanup_resources() {
 #endif
 }
 
-int init_mongodb_connection() {
-    mongoc_init();
-    
-    const char *uri_str = getenv("MONGODB_URI");
-    if (!uri_str) {
-        LOG_ERR("MONGODB_URI environment variable not set");
-        return -1;
-    }
-
-    mongoc_uri_t *uri = mongoc_uri_new_with_error(uri_str, NULL);
-    if (!uri) {
-        LOG_ERR("Invalid MongoDB URI");
-        return -1;
-    }
-
-    // Configure connection pool with limits
-    mongoc_uri_set_option_as_int32(uri, MONGOC_URI_MAXPOOLSIZE, 100);
-    mongoc_uri_set_option_as_int32(uri, MONGOC_URI_MINPOOLSIZE, 5);
-    
-    mongodb_pool = mongoc_client_pool_new(uri);
-    mongoc_client_pool_set_error_api(mongodb_pool, 2); // Enable error API
-    mongoc_uri_destroy(uri);
-
-    // Test connection
-    mongoc_client_t *client = mongoc_client_pool_pop(mongodb_pool);
-    if (!client) {
-        LOG_ERR("Failed to create MongoDB client");
-        return -1;
-    }
-
-    bson_t *ping = BCON_NEW("ping", BCON_INT32(1));
-    bson_error_t error;
-    bool ok = mongoc_client_command_simple(
-        client, "admin", ping, NULL, NULL, &error
-    );
-    bson_destroy(ping);
-    mongoc_client_pool_push(mongodb_pool, client);
-
-    if (!ok) {
-        LOG_ERR("MongoDB connection failed: %s", error.message);
-        return -1;
-    }
-
-    LOG_INFO("Connected to MongoDB Atlas");
-    return 0;
-}
 
 int create_server_socket(int port) {
 #ifdef _WIN32

@@ -3,21 +3,14 @@
         {
             "name": "Win32",
             "includePath": [
-                "${workspaceFolder}/include",
-                "${workspaceFolder}/include/common",
-                "${workspaceFolder}/include/server",
-                "${workspaceFolder}/include/agent",
-                "${workspaceFolder}/src",
-                "C:/MinGW/include",
-                "${workspaceFolder}/mongo-c-driver-1.21.0/src/libbson/src"
+                "${workspaceFolder}/**",
+                "C:/msys64/mingw64/include/libmongoc-1.0",
+                "C:/msys64/mingw64/include/libbson-1.0"
             ],
-            "defines": [
-                "WINDOWS",
-                "_WIN32_WINNT=0x0600"
-            ],
+            "defines": [],
             "compilerPath": "C:/msys64/mingw64/bin/gcc.exe",
-            "cStandard": "c17",
-            "cppStandard": "c++17",
+            "cStandard": "c11",
+            "cppStandard": "c++14",
             "intelliSenseMode": "windows-gcc-x64"
         }
     ],

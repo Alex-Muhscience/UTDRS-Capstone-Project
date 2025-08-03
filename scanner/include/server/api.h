@@ -23,6 +23,12 @@ extern "C" {
 int api_init(void);
 
 /**
+ * @brief Initialize MongoDB connection
+ * @return 0 on success, -1 on failure
+ */
+int init_mongodb_connection(void);
+
+/**
  * @brief Clean up API resources
  */
 void api_cleanup(void);

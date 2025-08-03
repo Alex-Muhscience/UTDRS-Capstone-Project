@@ -49,8 +49,7 @@ atomic_int running = 1;
 
 /* Load configuration from file */
 int load_config(const char *config_path, agent_config_t *config) {
-    (void)config_path;
-    // Set defaults
+    // Set defaults first
     strcpy(config->server_host, DEFAULT_SERVER_HOST);
     config->server_port = DEFAULT_SERVER_PORT;
     config->scan_interval = DEFAULT_SCAN_INTERVAL;
@@ -60,8 +59,49 @@ int load_config(const char *config_path, agent_config_t *config) {
     strcpy(config->agent_cert_path, "configs/certs/agent.crt");
     strcpy(config->agent_key_path, "configs/certs/agent.key");
 
-    // TODO: Implement actual config file parsing
-    // For now we just use defaults
+    // Try to load from config file
+    FILE *file = fopen(config_path, "r");
+    if (!file) {
+        log_info("Config file not found, using defaults");
+        return 0;
+    }
+
+    char line[512];
+    while (fgets(line, sizeof(line), file)) {
+        // Skip comments and empty lines
+        if (line[0] == '#' || line[0] == '\n') continue;
+        
+        // Remove trailing newline
+        line[strcspn(line, "\n")] = '\0';
+        
+        // Parse key=value pairs
+        char *equals = strchr(line, '=');
+        if (!equals) continue;
+        
+        *equals = '\0';
+        char *key = line;
+        char *value = equals + 1;
+        
+        if (strcmp(key, "server_host") == 0) {
+            strncpy(config->server_host, value, sizeof(config->server_host) - 1);
+        } else if (strcmp(key, "server_port") == 0) {
+            config->server_port = atoi(value);
+        } else if (strcmp(key, "scan_interval") == 0) {
+            config->scan_interval = (unsigned)atoi(value);
+        } else if (strcmp(key, "connect_retry_delay") == 0) {
+            config->connect_retry_delay = (unsigned)atoi(value);
+        } else if (strcmp(key, "max_retries") == 0) {
+            config->max_retries = (unsigned)atoi(value);
+        } else if (strcmp(key, "ca_cert_path") == 0) {
+            strncpy(config->ca_cert_path, value, sizeof(config->ca_cert_path) - 1);
+        } else if (strcmp(key, "agent_cert_path") == 0) {
+            strncpy(config->agent_cert_path, value, sizeof(config->agent_cert_path) - 1);
+        } else if (strcmp(key, "agent_key_path") == 0) {
+            strncpy(config->agent_key_path, value, sizeof(config->agent_key_path) - 1);
+        }
+    }
+    
+    fclose(file);
     return 0;
 }
 
@@ -260,7 +300,7 @@ int main(void) {
             last_scan = now;
 
             // Serialize scan data
-            int serialize_scan_result(scan_result_t *result, char **out_buf, size_t *out_len) ;{
+            if (serialize_scan_result(scan_result, &serialized_data, &data_len) != 0) {
                 log_error("Failed to serialize scan data");
                 cleanup_resources(NULL, ssl, scan_result);
                 continue;

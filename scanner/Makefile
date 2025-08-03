@@ -1,77 +1,47 @@
-# Compiler and flags
 CC = gcc
 CFLAGS = -Wall -Wextra -O2 -fstack-protector-strong -D_FORTIFY_SOURCE=2 \
-         -Iinclude -Iinclude/common -Iinclude/server -Iinclude/agent
+         -D__USE_MINGW_ANSI_STDIO=1 \
+         -Iinclude -Iinclude/common -Iinclude/server -Iinclude/agent \
+         -I"C:\Program Files\OpenSSL-Win64\include" \
+         -ID:/mongo-install/include/libmongoc-1.0 -ID:/mongo-install/include/libbson-1.0 \
+         -ID:/jansson-install/include
 
-# Hardcoded library paths and flags
-JANSSON_CFLAGS = -I/mingw64/include
-JANSSON_LIBS = -L/mingw64/lib -ljansson
-SQLITE_CFLAGS = -I/mingw64/include
-SQLITE_LIBS = -L/mingw64/lib -lsqlite3
-OPENSSL_CFLAGS = -I/mingw64/include
-OPENSSL_LIBS = -L/mingw64/lib -lcrypto -lssl
-MONGOC_CFLAGS = -I/mingw64/include/libmongoc-1.0 -I/mingw64/include/libbson-1.0
-MONGOC_LIBS = -L/mingw64/lib -lmongoc-1.0 -lbson-1.0
+LDFLAGS = -L"C:\Program Files\OpenSSL-Win64\lib\VC\x64\MD" \
+          -LD:/mongo-install/lib -LD:/jansson-install/lib -lws2_32 -liphlpapi -lssl -lcrypto
 
-CFLAGS += $(JANSSON_CFLAGS) $(SQLITE_CFLAGS) $(OPENSSL_CFLAGS) $(MONGOC_CFLAGS)
+TARGET_AGENT = bin/agent.exe
+TARGET_SERVER = bin/server.exe
 
-# Windows-specific settings
-ifeq ($(OS),Windows_NT)
-    CFLAGS += -D_WIN32_WINNT=0x0600 -DWINDOWS
-    AGENT_LIBS = $(OPENSSL_LIBS) -lpthread $(JANSSON_LIBS) $(SQLITE_LIBS) -liphlpapi -lws2_32
-    SERVER_LIBS = $(OPENSSL_LIBS) -lpthread $(JANSSON_LIBS) $(SQLITE_LIBS) $(MONGOC_LIBS) -liphlpapi -lws2_32
-    RM = rm -f
-    EXE_EXT = .exe
-    MKDIR = mkdir -p bin
-else
-    CFLAGS += -DLINUX
-    LDFLAGS += -Wl,-z,now,-z,relro
-    AGENT_LIBS = $(OPENSSL_LIBS) -lpthread $(JANSSON_LIBS) $(SQLITE_LIBS)
-    SERVER_LIBS = $(OPENSSL_LIBS) -lpthread $(JANSSON_LIBS) $(SQLITE_LIBS) $(MONGOC_LIBS)
-    EXE_EXT =
-    RM = rm -f
-    MKDIR = mkdir -p bin
-endif
+AGENT_SOURCES = src/agent/main.c src/agent/scanner.c src/agent/transport.c src/agent/auth.c \
+                src/common/crypto.c src/common/logging.c src/common/utils.c
+SERVER_SOURCES = src/server/main.c src/server/api.c src/server/storage.c \
+                 src/common/crypto.c src/common/logging.c src/common/utils.c
 
-# Targets
-TARGETS = bin/agent$(EXE_EXT) bin/server$(EXE_EXT)
+AGENT_OBJECTS = $(AGENT_SOURCES:.c=.o)
+SERVER_OBJECTS = $(SERVER_SOURCES:.c=.o)
 
-# Source files
-AGENT_SOURCES = $(wildcard src/agent/*.c)
-SERVER_SOURCES = $(wildcard src/server/*.c)
-COMMON_SOURCES = $(wildcard src/common/*.c)
+all: $(TARGET_AGENT) $(TARGET_SERVER)
 
-# Object files
-AGENT_OBJS = $(AGENT_SOURCES:.c=.o)
-SERVER_OBJS = $(SERVER_SOURCES:.c=.o)
-COMMON_OBJS = $(COMMON_SOURCES:.c=.o)
+$(TARGET_AGENT): $(AGENT_OBJECTS) | bin
+	@echo "Linking $@"
+	$(CC) $(CFLAGS) -o $@ $(AGENT_OBJECTS) $(LDFLAGS)
 
-# Default target
-all: | bindir $(TARGETS)
+$(TARGET_SERVER): $(SERVER_OBJECTS) | bin
+	@echo "Linking $@"
+	$(CC) $(CFLAGS) -o $@ $(SERVER_OBJECTS) $(LDFLAGS) -lmongoc-1.0 -lbson-1.0 -ljansson
 
-# Create the bin directory
-bindir:
-	@$(MKDIR)
+bin:
+	if not exist bin mkdir bin
 
-# Build agent executable (without MongoDB)
-bin/agent$(EXE_EXT): $(AGENT_OBJS) $(filter src/common/crypto.o, $(COMMON_OBJS))
-	$(CC) $(CFLAGS) $^ -o $@ $(AGENT_LIBS)
-
-# Build server executable (with MongoDB)
-bin/server$(EXE_EXT): $(SERVER_OBJS) $(filter-out src/agent/%, $(COMMON_OBJS))
-	$(CC) $(CFLAGS) $^ -o $@ $(SERVER_LIBS)
-
-# Compile source files into object files
 %.o: %.c
+	@echo "Compiling $<"
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Clean up build artifacts
 clean:
-	$(RM) $(AGENT_OBJS) $(SERVER_OBJS) $(COMMON_OBJS) $(TARGETS)
+	if exist src\agent\*.o del /q src\agent\*.o
+	if exist src\common\*.o del /q src\common\*.o
+	if exist src\server\*.o del /q src\server\*.o
+	if exist bin\agent.exe del /q bin\agent.exe
+	if exist bin\server.exe del /q bin\server.exe
 
-# Distclean target to remove all generated files
-distclean: clean
-	$(RM) -r bin
-
-# Phony targets
-.PHONY: all clean bindir distclean
+.PHONY: all clean
