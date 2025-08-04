@@ -53,8 +53,8 @@ def get_auth_headers():
 @patch("utils.security.get_current_user")
 def test_get_alerts(mock_get_current_user, mock_get_alerts):
     # Setup mocks
-    mock_get_current_user.return_value = AsyncMock(return_value=mock_user_data)()
-    mock_get_alerts.return_value = AsyncMock(return_value=[mock_alert_data])()
+    mock_get_current_user.return_value = mock_user_data
+    mock_get_alerts.return_value = [mock_alert_data]
 
     # Test get alerts
     response = client.get("/api/v1/alerts/", headers=get_auth_headers())
@@ -69,11 +69,9 @@ def test_get_alerts(mock_get_current_user, mock_get_alerts):
 @patch("utils.security.get_current_user")
 def test_create_alert(mock_get_current_user, mock_get_alert_by_id, mock_create_alert):
     # Setup mocks
-    mock_get_current_user.return_value = AsyncMock(return_value=mock_user_data)()
-    mock_create_alert.return_value = AsyncMock(
-        return_value=str(mock_alert_data["_id"])
-    )()
-    mock_get_alert_by_id.return_value = AsyncMock(return_value=mock_alert_data)()
+    mock_get_current_user.return_value = mock_user_data
+    mock_create_alert.return_value = str(mock_alert_data["_id"])
+    mock_get_alert_by_id.return_value = mock_alert_data
 
     # Test create alert
     response = client.post(
@@ -101,8 +99,8 @@ def test_create_alert(mock_get_current_user, mock_get_alert_by_id, mock_create_a
 @patch("utils.security.get_current_user")
 def test_get_alert_by_id(mock_get_current_user, mock_get_alert_by_id):
     # Setup mocks
-    mock_get_current_user.return_value = AsyncMock(return_value=mock_user_data)()
-    mock_get_alert_by_id.return_value = AsyncMock(return_value=mock_alert_data)()
+    mock_get_current_user.return_value = mock_user_data
+    mock_get_alert_by_id.return_value = mock_alert_data
 
     # Test get alert by ID
     response = client.get(
@@ -118,8 +116,8 @@ def test_get_alert_by_id(mock_get_current_user, mock_get_alert_by_id):
 @patch("utils.security.get_current_user")
 def test_get_alert_not_found(mock_get_current_user, mock_get_alert_by_id):
     # Setup mocks
-    mock_get_current_user.return_value = AsyncMock(return_value=mock_user_data)()
-    mock_get_alert_by_id.return_value = AsyncMock(return_value=None)()
+    mock_get_current_user.return_value = mock_user_data
+    mock_get_alert_by_id.return_value = None
 
     # Test get non-existent alert
     response = client.get(
@@ -135,14 +133,14 @@ def test_get_alert_not_found(mock_get_current_user, mock_get_alert_by_id):
 @patch("utils.security.get_current_user")
 def test_update_alert(mock_get_current_user, mock_get_alert_by_id, mock_update_alert):
     # Setup mocks
-    mock_get_current_user.return_value = AsyncMock(return_value=mock_user_data)()
+    mock_get_current_user.return_value = mock_user_data
 
     updated_alert = mock_alert_data.copy()
     updated_alert["status"] = "in_progress"
     updated_alert["notes"] = "Investigating this alert"
 
-    mock_update_alert.return_value = AsyncMock(return_value=updated_alert)()
-    mock_get_alert_by_id.return_value = AsyncMock(return_value=updated_alert)()
+    mock_update_alert.return_value = updated_alert
+    mock_get_alert_by_id.return_value = updated_alert
 
     # Test update alert
     response = client.put(

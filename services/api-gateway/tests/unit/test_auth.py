@@ -23,12 +23,12 @@ mock_user_data = {
 }
 
 
-@patch("core.database.repositories.user_repository.UserRepository.find_by_username")
-@patch("core.database.repositories.user_repository.UserRepository.update_last_login")
-def test_login_success(mock_update_last_login, mock_find_by_username):
+@patch("core.database.repositories.user_repository.UserRepository")
+def test_login_success(mock_user_repo_class):
     # Setup mocks
-    mock_find_by_username.return_value = AsyncMock(return_value=mock_user_data)()
-    mock_update_last_login.return_value = AsyncMock(return_value=True)()
+    mock_user_repo = mock_user_repo_class.return_value
+    mock_user_repo.find_by_username.return_value = mock_user_data
+    mock_user_repo.update_last_login.return_value = True
 
     # Test login
     response = client.post(
@@ -41,10 +41,11 @@ def test_login_success(mock_update_last_login, mock_find_by_username):
     assert response.json()["user"]["username"] == "testuser"
 
 
-@patch("core.database.repositories.user_repository.UserRepository.find_by_username")
-def test_login_wrong_password(mock_find_by_username):
+@patch("core.database.repositories.user_repository.UserRepository")
+def test_login_wrong_password(mock_user_repo_class):
     # Setup mocks
-    mock_find_by_username.return_value = AsyncMock(return_value=mock_user_data)()
+    mock_user_repo = mock_user_repo_class.return_value
+    mock_user_repo.find_by_username.return_value = mock_user_data
 
     # Test login with wrong password
     response = client.post(
@@ -55,10 +56,11 @@ def test_login_wrong_password(mock_find_by_username):
     assert "Incorrect username or password" in response.json()["detail"]
 
 
-@patch("core.database.repositories.user_repository.UserRepository.find_by_username")
-def test_login_user_not_found(mock_find_by_username):
+@patch("core.database.repositories.user_repository.UserRepository")
+def test_login_user_not_found(mock_user_repo_class):
     # Setup mocks
-    mock_find_by_username.return_value = AsyncMock(return_value=None)()
+    mock_user_repo = mock_user_repo_class.return_value
+    mock_user_repo.find_by_username.return_value = None
 
     # Test login with non-existent user
     response = client.post(
@@ -69,18 +71,14 @@ def test_login_user_not_found(mock_find_by_username):
     assert "Incorrect username or password" in response.json()["detail"]
 
 
-@patch("core.database.repositories.user_repository.UserRepository.find_by_username")
-@patch("core.database.repositories.user_repository.UserRepository.find_by_email")
-@patch("core.database.repositories.user_repository.UserRepository.create_user")
-@patch("core.database.repositories.user_repository.UserRepository.find_by_id")
-def test_register_success(
-    mock_find_by_id, mock_create_user, mock_find_by_email, mock_find_by_username
-):
+@patch("core.database.repositories.user_repository.UserRepository")
+def test_register_success(mock_user_repo_class):
     # Setup mocks
-    mock_find_by_username.return_value = AsyncMock(return_value=None)()
-    mock_find_by_email.return_value = AsyncMock(return_value=None)()
-    mock_create_user.return_value = AsyncMock(return_value=str(mock_user_data["_id"]))()
-    mock_find_by_id.return_value = AsyncMock(return_value=mock_user_data)()
+    mock_user_repo = mock_user_repo_class.return_value
+    mock_user_repo.find_by_username.return_value = None
+    mock_user_repo.find_by_email.return_value = None
+    mock_user_repo.create_user.return_value = str(mock_user_data["_id"])
+    mock_user_repo.find_by_id.return_value = mock_user_data
 
     # Test registration
     response = client.post(
@@ -99,10 +97,11 @@ def test_register_success(
     assert response.json()["email"] == "test@example.com"  # From the mock
 
 
-@patch("core.database.repositories.user_repository.UserRepository.find_by_username")
-def test_register_username_exists(mock_find_by_username):
+@patch("core.database.repositories.user_repository.UserRepository")
+def test_register_username_exists(mock_user_repo_class):
     # Setup mocks
-    mock_find_by_username.return_value = AsyncMock(return_value=mock_user_data)()
+    mock_user_repo = mock_user_repo_class.return_value
+    mock_user_repo.find_by_username.return_value = mock_user_data
 
     # Test registration with existing username
     response = client.post(
