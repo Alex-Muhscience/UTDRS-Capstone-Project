@@ -1,13 +1,18 @@
-from fastapi import FastAPI, Depends
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.routes import auth, alerts, events, assets, detection, simulation, health
-from core.database.connection import connect_to_mongo, close_mongo_connection
-from config.production import settings  # Use production config for production
-from api.middleware.security import SecurityMiddleware, RequestValidationMiddleware, rate_limit_handler
-from api.middleware.error_handler import ErrorHandlerMiddleware
 from slowapi import Limiter
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+
+from api.middleware.error_handler import ErrorHandlerMiddleware
+from api.middleware.security import (
+    RequestValidationMiddleware,
+    SecurityMiddleware,
+    rate_limit_handler,
+)
+from api.routes import alerts, assets, auth, detection, events, health, simulation
+from config.production import settings  # Use production config for production
+from core.database.connection import close_mongo_connection, connect_to_mongo
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -39,13 +44,28 @@ app.add_event_handler("shutdown", close_mongo_connection)
 
 # Include API routes
 app.include_router(health.router, prefix=settings.API_PREFIX, tags=["health"])
-app.include_router(auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["authentication"])
-app.include_router(alerts.router, prefix=f"{settings.API_PREFIX}/alerts", tags=["alerts"])
-app.include_router(events.router, prefix=f"{settings.API_PREFIX}/events", tags=["events"])
-app.include_router(assets.router, prefix=f"{settings.API_PREFIX}/assets", tags=["assets"])
-app.include_router(detection.router, prefix=f"{settings.API_PREFIX}/detection", tags=["detection"])
-app.include_router(simulation.router, prefix=f"{settings.API_PREFIX}/simulation", tags=["simulation"])
+app.include_router(
+    auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["authentication"]
+)
+app.include_router(
+    alerts.router, prefix=f"{settings.API_PREFIX}/alerts", tags=["alerts"]
+)
+app.include_router(
+    events.router, prefix=f"{settings.API_PREFIX}/events", tags=["events"]
+)
+app.include_router(
+    assets.router, prefix=f"{settings.API_PREFIX}/assets", tags=["assets"]
+)
+app.include_router(
+    detection.router, prefix=f"{settings.API_PREFIX}/detection", tags=["detection"]
+)
+app.include_router(
+    simulation.router, prefix=f"{settings.API_PREFIX}/simulation", tags=["simulation"]
+)
+
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to the UTDRS API Gateway. Visit /api/v1/docs for documentation."}
+    return {
+        "message": "Welcome to the UTDRS API Gateway. Visit /api/v1/docs for documentation."
+    }

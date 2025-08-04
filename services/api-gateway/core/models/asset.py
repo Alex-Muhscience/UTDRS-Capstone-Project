@@ -1,8 +1,11 @@
 from datetime import datetime
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, IPvAnyAddress
+from typing import Any, Dict, List, Optional
+
 from bson import ObjectId
+from pydantic import BaseModel, Field, IPvAnyAddress
+
 from core.models.user import PyObjectId
+
 
 class AssetBase(BaseModel):
     name: str
@@ -16,8 +19,10 @@ class AssetBase(BaseModel):
     department: Optional[str] = None
     criticality: str = "medium"  # critical, high, medium, low
 
+
 class AssetCreate(AssetBase):
     pass
+
 
 class AssetUpdate(BaseModel):
     name: Optional[str] = None
@@ -33,6 +38,7 @@ class AssetUpdate(BaseModel):
     tags: Optional[List[str]] = None
     notes: Optional[str] = None
 
+
 class AssetInDB(AssetBase):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -42,13 +48,11 @@ class AssetInDB(AssetBase):
     tags: List[str] = []
     notes: Optional[str] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
-    
+
     class Config:
         allow_population_by_field_name = True
         arbitrary_types_allowed = True
-        json_encoders = {
-            ObjectId: str
-        }
+        json_encoders = {ObjectId: str}
         schema_extra = {
             "example": {
                 "_id": "60d5ec2dcb43a5e37d0c7513",
@@ -68,9 +72,13 @@ class AssetInDB(AssetBase):
                 "vulnerabilities": ["CVE-2021-34527", "CVE-2022-21907"],
                 "tags": ["domain-controller", "production"],
                 "notes": "Primary domain controller for production environment",
-                "metadata": {"backup_schedule": "daily", "patching_window": "Sunday 01:00-03:00"}
+                "metadata": {
+                    "backup_schedule": "daily",
+                    "patching_window": "Sunday 01:00-03:00",
+                },
             }
         }
+
 
 class Asset(AssetBase):
     id: str = Field(..., alias="_id")
@@ -81,7 +89,7 @@ class Asset(AssetBase):
     tags: List[str] = []
     notes: Optional[str] = None
     metadata: Dict[str, Any] = {}
-    
+
     class Config:
         allow_population_by_field_name = True
         schema_extra = {
@@ -103,6 +111,9 @@ class Asset(AssetBase):
                 "vulnerabilities": ["CVE-2021-34527", "CVE-2022-21907"],
                 "tags": ["domain-controller", "production"],
                 "notes": "Primary domain controller for production environment",
-                "metadata": {"backup_schedule": "daily", "patching_window": "Sunday 01:00-03:00"}
+                "metadata": {
+                    "backup_schedule": "daily",
+                    "patching_window": "Sunday 01:00-03:00",
+                },
             }
         }

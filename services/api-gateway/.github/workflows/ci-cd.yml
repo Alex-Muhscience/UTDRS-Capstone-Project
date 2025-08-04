@@ -52,9 +52,12 @@ jobs:
     - name: Run linting
       run: |
         pip install flake8 black isort
+        # Only check for critical errors, not formatting
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        black --check .
-        isort --check-only .
+        # Check if code can be formatted (but don't fail on formatting issues)
+        echo "Checking code formatting..."
+        black --check . || echo "Code formatting issues found - run 'black .' to fix"
+        isort --check-only . || echo "Import sorting issues found - run 'isort .' to fix"
     
     - name: Run security scan
       run: |

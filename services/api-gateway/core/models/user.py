@@ -1,7 +1,9 @@
 from datetime import datetime
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, EmailStr, Field, validator
+from typing import Any, Dict, List, Optional
+
 from bson import ObjectId
+from pydantic import BaseModel, EmailStr, Field, validator
+
 
 class PyObjectId(ObjectId):
     @classmethod
@@ -18,6 +20,7 @@ class PyObjectId(ObjectId):
     def __modify_schema__(cls, field_schema):
         field_schema.update(type="string")
 
+
 class UserBase(BaseModel):
     username: str
     email: EmailStr
@@ -26,8 +29,10 @@ class UserBase(BaseModel):
     role: str = "analyst"  # admin, analyst, responder, readonly
     active: bool = True
 
+
 class UserCreate(UserBase):
     password: str
+
 
 class UserInDB(UserBase):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
@@ -40,9 +45,7 @@ class UserInDB(UserBase):
     class Config:
         allow_population_by_field_name = True
         arbitrary_types_allowed = True
-        json_encoders = {
-            ObjectId: str
-        }
+        json_encoders = {ObjectId: str}
         schema_extra = {
             "example": {
                 "_id": "60d5ec2dcb43a5e37d0c7513",
@@ -56,9 +59,10 @@ class UserInDB(UserBase):
                 "lastLogin": "2023-04-01T10:00:00.000Z",
                 "createdAt": "2023-01-01T00:00:00.000Z",
                 "updatedAt": "2023-04-01T10:00:00.000Z",
-                "preferences": {"theme": "dark", "alertsPerPage": 20}
+                "preferences": {"theme": "dark", "alertsPerPage": 20},
             }
         }
+
 
 class User(UserBase):
     id: str = Field(..., alias="_id")
@@ -81,9 +85,10 @@ class User(UserBase):
                 "lastLogin": "2023-04-01T10:00:00.000Z",
                 "createdAt": "2023-01-01T00:00:00.000Z",
                 "updatedAt": "2023-04-01T10:00:00.000Z",
-                "preferences": {"theme": "dark", "alertsPerPage": 20}
+                "preferences": {"theme": "dark", "alertsPerPage": 20},
             }
         }
+
 
 class UserUpdate(BaseModel):
     firstName: Optional[str] = None

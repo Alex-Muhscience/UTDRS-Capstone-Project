@@ -1,8 +1,11 @@
 from datetime import datetime
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional
+
 from bson import ObjectId
+from pydantic import BaseModel, Field
+
 from core.models.user import PyObjectId
+
 
 class AlertBase(BaseModel):
     title: str
@@ -15,9 +18,11 @@ class AlertBase(BaseModel):
     asset_ids: List[str] = []
     event_ids: List[str] = []
 
+
 class AlertCreate(AlertBase):
     created_by: Optional[str] = None
-    
+
+
 class AlertUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
@@ -29,6 +34,7 @@ class AlertUpdate(BaseModel):
     notes: Optional[str] = None
     assigned_to: Optional[str] = None
 
+
 class AlertInDB(AlertBase):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -37,13 +43,11 @@ class AlertInDB(AlertBase):
     assigned_to: Optional[str] = None
     notes: Optional[str] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
-    
+
     class Config:
         allow_population_by_field_name = True
         arbitrary_types_allowed = True
-        json_encoders = {
-            ObjectId: str
-        }
+        json_encoders = {ObjectId: str}
         schema_extra = {
             "example": {
                 "_id": "60d5ec2dcb43a5e37d0c7513",
@@ -61,9 +65,10 @@ class AlertInDB(AlertBase):
                 "created_by": "60d5ec2dcb43a5e37d0c7517",
                 "assigned_to": "60d5ec2dcb43a5e37d0c7518",
                 "notes": "Investigating the source of these login attempts",
-                "metadata": {"ip_address": "192.168.1.1", "country": "Unknown"}
+                "metadata": {"ip_address": "192.168.1.1", "country": "Unknown"},
             }
         }
+
 
 class Alert(AlertBase):
     id: str = Field(..., alias="_id")
@@ -73,7 +78,7 @@ class Alert(AlertBase):
     assigned_to: Optional[str] = None
     notes: Optional[str] = None
     metadata: Dict[str, Any] = {}
-    
+
     class Config:
         allow_population_by_field_name = True
         schema_extra = {
@@ -93,6 +98,6 @@ class Alert(AlertBase):
                 "created_by": "60d5ec2dcb43a5e37d0c7517",
                 "assigned_to": "60d5ec2dcb43a5e37d0c7518",
                 "notes": "Investigating the source of these login attempts",
-                "metadata": {"ip_address": "192.168.1.1", "country": "Unknown"}
+                "metadata": {"ip_address": "192.168.1.1", "country": "Unknown"},
             }
         }

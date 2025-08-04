@@ -1,8 +1,11 @@
 from datetime import datetime
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional
+
 from bson import ObjectId
+from pydantic import BaseModel, Field
+
 from core.models.user import PyObjectId
+
 
 class EventBase(BaseModel):
     timestamp: datetime
@@ -17,14 +20,17 @@ class EventBase(BaseModel):
     description: str
     raw_data: Dict[str, Any] = {}
 
+
 class EventCreate(EventBase):
     pass
+
 
 class EventUpdate(BaseModel):
     description: Optional[str] = None
     tags: Optional[List[str]] = None
     severity: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+
 
 class EventInDB(EventBase):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
@@ -33,13 +39,11 @@ class EventInDB(EventBase):
     tags: List[str] = []
     severity: Optional[str] = None  # critical, high, medium, low, info
     metadata: Dict[str, Any] = Field(default_factory=dict)
-    
+
     class Config:
         allow_population_by_field_name = True
         arbitrary_types_allowed = True
-        json_encoders = {
-            ObjectId: str
-        }
+        json_encoders = {ObjectId: str}
         schema_extra = {
             "example": {
                 "_id": "60d5ec2dcb43a5e37d0c7513",
@@ -58,9 +62,10 @@ class EventInDB(EventBase):
                 "updated_at": "2023-04-01T10:00:01.000Z",
                 "tags": ["authentication", "failure"],
                 "severity": "medium",
-                "metadata": {"location": "HQ", "department": "IT"}
+                "metadata": {"location": "HQ", "department": "IT"},
             }
         }
+
 
 class Event(EventBase):
     id: str = Field(..., alias="_id")
@@ -69,7 +74,7 @@ class Event(EventBase):
     tags: List[str] = []
     severity: Optional[str] = None
     metadata: Dict[str, Any] = {}
-    
+
     class Config:
         allow_population_by_field_name = True
         schema_extra = {
@@ -90,6 +95,6 @@ class Event(EventBase):
                 "updated_at": "2023-04-01T10:00:01.000Z",
                 "tags": ["authentication", "failure"],
                 "severity": "medium",
-                "metadata": {"location": "HQ", "department": "IT"}
+                "metadata": {"location": "HQ", "department": "IT"},
             }
         }
