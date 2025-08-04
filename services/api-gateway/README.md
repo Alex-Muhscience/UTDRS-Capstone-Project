@@ -2,8 +2,8 @@
 
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104.1-green.svg)](https://fastapi.tiangolo.com/)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Security](https://img.shields.io/badge/security-enhanced-brightgreen.svg)](#security-features)
+[![SaaS](https://img.shields.io/badge/type-SaaS-orange.svg)](#about)
 
 A production-ready API Gateway for the Unified Threat Detection and Response System (UTDRS). This gateway provides secure, scalable, and monitored access to threat detection and response capabilities with enterprise-grade features including rate limiting, structured logging, comprehensive error handling, and security middleware.
 
@@ -266,6 +266,10 @@ docker-compose up
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## License
+## Copyright and Proprietary Notice
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+© 2024 UTDRS. All rights reserved.
+
+This software is proprietary and confidential. Unauthorized copying, distribution, or use of this software, via any medium, is strictly prohibited without the express written permission of the copyright owner.
+
+This project is part of a Software as a Service (SaaS) platform and contains trade secrets and proprietary information.
