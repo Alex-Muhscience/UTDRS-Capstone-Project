@@ -51,13 +51,10 @@ jobs:
     
     - name: Run linting
       run: |
-        pip install flake8 black isort
-        # Only check for critical errors, not formatting
+        pip install flake8
+        # Only check for critical syntax and import errors
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # Check if code can be formatted (but don't fail on formatting issues)
-        echo "Checking code formatting..."
-        black --check . || echo "Code formatting issues found - run 'black .' to fix"
-        isort --check-only . || echo "Import sorting issues found - run 'isort .' to fix"
+        echo "✅ Critical linting checks passed"
     
     - name: Run security scan
       run: |
@@ -75,7 +72,7 @@ jobs:
         pytest tests/ -v --cov=. --cov-report=xml --cov-report=html
     
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         file: ./coverage.xml
