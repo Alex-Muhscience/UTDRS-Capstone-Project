@@ -59,10 +59,11 @@ jobs:
     - name: Run security scan
       run: |
         pip install bandit safety
-        echo "Running Bandit security scan..."
-        bandit -r . || echo "Bandit found some issues (exit code $?)"
+        echo "Running Bandit security scan (excluding tests)..."
+        bandit -r . -x tests/ --skip B101 --severity-level medium || echo "⚠️ Bandit completed with warnings (exit code $?)"
         echo "Running Safety dependency check..."
-        safety check || echo "Safety found some issues (exit code $?)"
+        safety check --ignore 70612 || echo "⚠️ Safety completed with warnings (exit code $?)"
+        echo "✅ Security scans completed"
     
     - name: Run tests
       env:

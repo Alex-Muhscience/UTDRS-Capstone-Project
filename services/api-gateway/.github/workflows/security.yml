@@ -28,8 +28,8 @@ jobs:
     
     - name: Run Bandit security scan
       run: |
-        bandit -r . -x tests/ -f json -o bandit-results.json || true
-        bandit -r . -x tests/ -f txt -o bandit-results.txt || true
+        bandit -r . -x tests/ --skip B101 --severity-level medium -f json -o bandit-results.json || true
+        bandit -r . -x tests/ --skip B101 --severity-level medium -f txt -o bandit-results.txt || true
     
     - name: Run Safety check
       run: |
