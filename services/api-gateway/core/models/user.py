@@ -17,8 +17,10 @@ class PyObjectId(ObjectId):
         return ObjectId(v)
 
     @classmethod
-    def __modify_schema__(cls, field_schema):
-        field_schema.update(type="string")
+    def __get_pydantic_json_schema__(cls, core_schema, handler):
+        json_schema = handler(core_schema)
+        json_schema.update(type="string")
+        return json_schema
 
 
 class UserBase(BaseModel):
@@ -43,10 +45,10 @@ class UserInDB(UserBase):
     preferences: Dict[str, Any] = Field(default_factory=dict)
 
     class Config:
-        allow_population_by_field_name = True
+        populate_by_name = True
         arbitrary_types_allowed = True
         json_encoders = {ObjectId: str}
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "_id": "60d5ec2dcb43a5e37d0c7513",
                 "username": "analyst1",
@@ -72,8 +74,8 @@ class User(UserBase):
     preferences: Dict[str, Any] = {}
 
     class Config:
-        allow_population_by_field_name = True
-        schema_extra = {
+        populate_by_name = True
+        json_schema_extra = {
             "example": {
                 "_id": "60d5ec2dcb43a5e37d0c7513",
                 "username": "analyst1",

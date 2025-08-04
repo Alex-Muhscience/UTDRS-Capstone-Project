@@ -11,7 +11,7 @@ from api.middleware.security import (
     rate_limit_handler,
 )
 from api.routes import alerts, assets, auth, detection, events, health, simulation
-from config.production import settings  # Use production config for production
+from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
 
 app = FastAPI(

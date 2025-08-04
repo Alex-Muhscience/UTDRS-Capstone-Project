@@ -1,7 +1,8 @@
 import os
 from typing import Optional
 
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -18,6 +19,8 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     API_PREFIX: str = "/api/v1"
     PROJECT_NAME: str = "UTDRS API Gateway"
+    VERSION: str = "1.0.0"
+    ALLOWED_HOSTS: list = ["*"]
 
     # Integration services
     CORE_ENGINE_URL: Optional[str] = None
