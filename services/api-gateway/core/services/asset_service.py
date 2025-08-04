@@ -92,7 +92,7 @@ class AssetService:
                 logger.debug(f"Updated last seen timestamp for asset {asset_id}")
             else:
                 logger.warning(
-                    f"Failed to update last seen timestamp for asset {asset_id}"
+                    "Failed to update last seen timestamp for asset %s", asset_id
                 )
             return result
         except Exception as e:

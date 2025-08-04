@@ -1,0 +1,13 @@
+[bandit]
+# Bandit configuration file
+# https://bandit.readthedocs.io/en/latest/config.html
+
+# Skip B101 (assert_used) for test files - assert statements are expected in tests
+skips = B101
+tests = B101
+
+# Exclude test directories and files from B101 checks
+exclude_dirs = tests
+
+# Additional patterns to exclude
+exclude = */tests/*,*test*.py
