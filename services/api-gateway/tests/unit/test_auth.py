@@ -9,7 +9,7 @@ from app import app
 client = TestClient(app)
 
 mock_user_data = {
-    "_id": ObjectId("60d5ec2dcb43a5e37d0c7513"),
+    "_id": str(ObjectId("60d5ec2dcb43a5e37d0c7513")),
     "username": "testuser",
     "email": "test@example.com",
     "firstName": "Test",
@@ -20,15 +20,18 @@ mock_user_data = {
     "createdAt": datetime.utcnow(),
     "updatedAt": datetime.utcnow(),
     "preferences": {},
+    "id": str(ObjectId("60d5ec2dcb43a5e37d0c7513")),
 }
 
 
+@patch("api.routes.auth.verify_password")
 @patch("api.routes.auth.UserRepository")
-def test_login_success(mock_user_repo_class):
+def test_login_success(mock_user_repo_class, mock_verify_password):
     # Setup mocks
     mock_user_repo = mock_user_repo_class.return_value
     mock_user_repo.find_by_username = AsyncMock(return_value=mock_user_data)
     mock_user_repo.update_last_login = AsyncMock(return_value=True)
+    mock_verify_password.return_value = True
 
     # Test login
     response = client.post(
@@ -41,11 +44,13 @@ def test_login_success(mock_user_repo_class):
     assert response.json()["user"]["username"] == "testuser"
 
 
+@patch("api.routes.auth.verify_password")
 @patch("api.routes.auth.UserRepository")
-def test_login_wrong_password(mock_user_repo_class):
+def test_login_wrong_password(mock_user_repo_class, mock_verify_password):
     # Setup mocks
     mock_user_repo = mock_user_repo_class.return_value
     mock_user_repo.find_by_username = AsyncMock(return_value=mock_user_data)
+    mock_verify_password.return_value = False
 
     # Test login with wrong password
     response = client.post(
