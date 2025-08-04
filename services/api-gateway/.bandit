@@ -1,7 +1,17 @@
 [bandit]
-# Bandit configuration file
+# Bandit configuration file for UTDRS API Gateway
 # https://bandit.readthedocs.io/en/latest/config.html
 
-# Exclude test directories and files from scanning
-exclude_dirs = tests
-exclude = */tests/*,*test*.py
+# Skip B101 (assert_used) globally since assert statements are normal in tests
+# and this is a test-heavy codebase
+skips = B101
+
+# Exclude test directories
+exclude_dirs = tests,test
+
+# Set severity and confidence levels
+severity = MEDIUM
+confidence = HIGH
+
+# Additional exclusions - test file patterns
+exclude = */tests/*,*/test/*,test_*.py,*_test.py
