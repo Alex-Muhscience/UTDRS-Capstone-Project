@@ -1,62 +1,109 @@
-import { useState } from 'react';
-import { FiAlertTriangle, FiFilter, FiDownload } from 'react-icons/fi';
-import { severityColors } from '../../utils/helpers';
+import { useState, useEffect } from 'react';
+import { FiAlertTriangle, FiFilter, FiDownload, FiRefreshCw } from 'react-icons/fi';
+import api from '../../api/userApi';
+import { toast } from 'react-toastify';
+import Loader from '../shared/Loader';
 import Modal from '../shared/Modal';
 
 export default function Vulnerabilities() {
-  const [vulnerabilities, setVulnerabilities] = useState([
-    {
-      id: 'CVE-2025-1234',
-      name: 'Remote Code Execution in Apache Server',
-      severity: 'critical',
-      cvssScore: 9.8,
-      affectedDevices: 5,
-      patchStatus: 'unpatched',
-      description: 'Allows attackers to execute arbitrary code through specially crafted requests'
-    },
-    {
-      id: 'CVE-2025-5678',
-      name: 'Privilege Escalation in Windows Service',
-      severity: 'high',
-      cvssScore: 7.5,
-      affectedDevices: 3,
-      patchStatus: 'available',
-      description: 'Local users can gain elevated privileges due to improper access controls'
-    },
-    {
-      id: 'CVE-2025-9012',
-      name: 'Cross-Site Scripting in Web Application',
-      severity: 'medium',
-      cvssScore: 6.1,
-      affectedDevices: 2,
-      patchStatus: 'patched',
-      description: 'Stored XSS vulnerability allows injection of malicious scripts'
-    }
-  ]);
+  const [vulnerabilities, setVulnerabilities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedVuln, setSelectedVuln] = useState(null);
   const [filters, setFilters] = useState({
     severity: 'all',
     patchStatus: 'all'
   });
 
-  const filteredVulnerabilities = vulnerabilities.filter(vuln => {
+  useEffect(() => {
+    fetchVulnerabilities();
+  }, [filters]);
+
+  const fetchVulnerabilities = async () => {
+    try {
+      setLoading(true);
+      const response = await api.getVulnerabilities(filters);
+      setVulnerabilities(response.data);
+    } catch (error) {
+      toast.error('Failed to fetch vulnerabilities');
+      console.error('Vulnerabilities error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await fetchVulnerabilities();
+      toast.success('Vulnerabilities refreshed');
+    } catch (error) {
+      toast.error('Failed to refresh vulnerabilities');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleRemediate = async (vulnId) => {
+    try {
+      await api.remediateVulnerability(vulnId, { action: 'patch' });
+      toast.success('Remediation action initiated');
+      await fetchVulnerabilities();
+    } catch (error) {
+      toast.error('Failed to initiate remediation');
+    }
+  };
+
+  if (loading) {
     return (
-      (filters.severity === 'all' || vuln.severity === filters.severity) &&
-      (filters.patchStatus === 'all' || vuln.patchStatus === filters.patchStatus)
+      <div className="flex items-center justify-center h-64">
+        <Loader size="lg" />
+      </div>
     );
-  });
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-white">Vulnerabilities</h2>
-        <div className="flex space-x-3">
-          <button className="inline-flex items-center px-3 py-2 border border-dark-light text-sm font-medium rounded-md shadow-sm text-white bg-dark-light hover:bg-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyber-blue">
-            <FiFilter className="mr-2" /> Filter
-          </button>
-          <button className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-cyber-blue hover:bg-cyber-blue-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyber-blue">
-            <FiDownload className="mr-2" /> Export
-          </button>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-cyber-blue hover:bg-cyber-blue-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyber-blue"
+        >
+          <FiRefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Refreshing...' : 'Refresh'}
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-dark-light rounded-lg shadow p-4 border border-dark-light flex gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-1">Severity</label>
+          <select
+            value={filters.severity}
+            onChange={(e) => setFilters({ ...filters, severity: e.target.value })}
+            className="bg-dark border border-dark-light text-white text-sm rounded-lg focus:ring-cyber-blue focus:border-cyber-blue block w-full p-2"
+          >
+            <option value="all">All Severities</option>
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-1">Patch Status</label>
+          <select
+            value={filters.patchStatus}
+            onChange={(e) => setFilters({ ...filters, patchStatus: e.target.value })}
+            className="bg-dark border border-dark-light text-white text-sm rounded-lg focus:ring-cyber-blue focus:border-cyber-blue block w-full p-2"
+          >
+            <option value="all">All Status</option>
+            <option value="unpatched">Unpatched</option>
+            <option value="available">Patch Available</option>
+            <option value="patched">Patched</option>
+          </select>
         </div>
       </div>
 
@@ -89,7 +136,7 @@ export default function Vulnerabilities() {
               </tr>
             </thead>
             <tbody className="bg-dark-light divide-y divide-dark-light">
-              {filteredVulnerabilities.map((vuln) => (
+              {vulnerabilities.map((vuln) => (
                 <tr key={vuln.id} className="hover:bg-dark">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-cyber-blue">
                     {vuln.id}

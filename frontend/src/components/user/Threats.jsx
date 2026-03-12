@@ -1,71 +1,117 @@
-import { useState } from 'react';
-import { FiAlertTriangle, FiFilter, FiDownload } from 'react-icons/fi';
-import { severityColors } from '../../utils/helpers';
+import { useState, useEffect } from 'react';
+import { FiAlertTriangle, FiFilter, FiDownload, FiRefreshCw } from 'react-icons/fi';
+import api from '../../api/userApi';
+import { toast } from 'react-toastify';
+import Loader from '../shared/Loader';
 import Modal from '../shared/Modal';
 
 export default function Threats() {
-  const [threats, setThreats] = useState([
-    {
-      id: 1,
-      name: 'Malware Infection',
-      severity: 'critical',
-      source: 'External',
-      detectedAt: '2025-04-28T14:30:00Z',
-      status: 'open',
-      description: 'Detected potential malware payload in network traffic'
-    },
-    {
-      id: 2,
-      name: 'Phishing Attempt',
-      severity: 'high',
-      source: 'Email',
-      detectedAt: '2025-04-27T09:15:00Z',
-      status: 'investigating',
-      description: 'Employee reported suspicious email with malicious link'
-    },
-    {
-      id: 3,
-      name: 'Brute Force Attack',
-      severity: 'medium',
-      source: 'External IP',
-      detectedAt: '2025-04-25T22:45:00Z',
-      status: 'mitigated',
-      description: 'Multiple failed login attempts detected on admin portal'
-    }
-  ]);
+  const [threats, setThreats] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedThreat, setSelectedThreat] = useState(null);
   const [filters, setFilters] = useState({
     severity: 'all',
     status: 'all'
   });
 
-  const filteredThreats = threats.filter(threat => {
-    return (
-      (filters.severity === 'all' || threat.severity === filters.severity) &&
-      (filters.status === 'all' || threat.status === filters.status)
-    );
-  });
+  useEffect(() => {
+    fetchThreats();
+  }, [filters]);
 
-  const handleStatusChange = (threatId, newStatus) => {
-    setThreats(threats.map(threat => 
-      threat.id === threatId ? { ...threat, status: newStatus } : threat
-    ));
-    if (selectedThreat?.id === threatId) {
-      setSelectedThreat({ ...selectedThreat, status: newStatus });
+  const fetchThreats = async () => {
+    try {
+      setLoading(true);
+      const response = await api.getThreats(filters);
+      setThreats(response.data);
+    } catch (error) {
+      toast.error('Failed to fetch threats');
+      console.error('Threats error:', error);
+    } finally {
+      setLoading(false);
     }
   };
+
+  const handleRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await fetchThreats();
+      toast.success('Threats refreshed');
+    } catch (error) {
+      toast.error('Failed to refresh threats');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleStatusChange = async (threatId, newStatus) => {
+    try {
+      await api.respondToThreat(threatId, newStatus);
+      setThreats(threats.map(threat => 
+        threat._id === threatId ? { ...threat, status: newStatus } : threat
+      ));
+      if (selectedThreat?._id === threatId) {
+        setSelectedThreat({ ...selectedThreat, status: newStatus });
+      }
+      toast.success('Threat status updated');
+    } catch (error) {
+      toast.error('Failed to update threat status');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader size="lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-white">Threats & Incidents</h2>
         <div className="flex space-x-3">
-          <button className="inline-flex items-center px-3 py-2 border border-dark-light text-sm font-medium rounded-md shadow-sm text-white bg-dark-light hover:bg-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyber-blue">
-            <FiFilter className="mr-2" /> Filter
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-cyber-blue hover:bg-cyber-blue-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyber-blue"
+          >
+            <FiRefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh'}
           </button>
-          <button className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-cyber-blue hover:bg-cyber-blue-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyber-blue">
-            <FiDownload className="mr-2" /> Export
-          </button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-dark-light rounded-lg shadow p-4 border border-dark-light flex gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-1">Severity</label>
+          <select
+            value={filters.severity}
+            onChange={(e) => setFilters({ ...filters, severity: e.target.value })}
+            className="bg-dark border border-dark-light text-white text-sm rounded-lg focus:ring-cyber-blue focus:border-cyber-blue block w-full p-2"
+          >
+            <option value="all">All Severities</option>
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-1">Status</label>
+          <select
+            value={filters.status}
+            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            className="bg-dark border border-dark-light text-white text-sm rounded-lg focus:ring-cyber-blue focus:border-cyber-blue block w-full p-2"
+          >
+            <option value="all">All Status</option>
+            <option value="open">Open</option>
+            <option value="investigating">Investigating</option>
+            <option value="mitigated">Mitigated</option>
+            <option value="resolved">Resolved</option>
+          </select>
         </div>
       </div>
 
@@ -95,7 +141,7 @@ export default function Threats() {
               </tr>
             </thead>
             <tbody className="bg-dark-light divide-y divide-dark-light">
-              {filteredThreats.map((threat) => (
+              {threats.map((threat) => (
                 <tr key={threat.id} className="hover:bg-dark">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -103,18 +149,23 @@ export default function Threats() {
                         <FiAlertTriangle className="h-5 w-5 text-danger" />
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-white">{threat.name}</div>
+                        <div className="text-sm font-medium text-white">{threat.type}</div>
                         <div className="text-sm text-gray-300 truncate max-w-xs">{threat.description}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${severityColors[threat.severity]}`}>
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      threat.severity === 'critical' ? 'bg-danger text-white' :
+                      threat.severity === 'high' ? 'bg-warning text-white' :
+                      threat.severity === 'medium' ? 'bg-cyber-blue text-white' :
+                      'bg-gray-600 text-white'
+                    }`}>
                       {threat.severity}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                    {threat.source}
+                    {threat.source || 'Unknown'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                     {new Date(threat.detectedAt).toLocaleString()}
