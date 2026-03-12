@@ -46,3 +46,50 @@
   .modal-backdrop {
     background-color: rgba(2, 6, 23, 0.7);
   }
+
+  /* Login page styles */
+  .login-grid-bg {
+    background-image:
+      linear-gradient(rgba(56, 189, 248, 0.3) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56, 189, 248, 0.3) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  .login-card {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(30, 41, 59, 0.5));
+    border: 1px solid rgba(51, 65, 85, 0.5);
+    backdrop-filter: blur(20px);
+    box-shadow:
+      0 0 0 1px rgba(56, 189, 248, 0.03),
+      0 20px 50px -12px rgba(0, 0, 0, 0.4);
+  }
+
+  .login-input {
+    background: rgba(2, 6, 23, 0.4);
+  }
+
+  .login-input:focus {
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.15);
+  }
+
+  .login-btn {
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.15);
+  }
+
+  .login-btn:hover:not(:disabled) {
+    box-shadow: 0 0 30px rgba(56, 189, 248, 0.25);
+    transform: translateY(-1px);
+  }
+
+  .login-btn:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  @keyframes login-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  .login-float {
+    animation: login-float 4s ease-in-out infinite;
+  }
