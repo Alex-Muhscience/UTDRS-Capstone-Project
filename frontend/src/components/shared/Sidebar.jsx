@@ -2,7 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { 
   FiHome, FiUsers, FiShield, FiActivity, FiFileText, FiLifeBuoy, FiSettings,
-  FiServer, FiAlertTriangle, FiBarChart2, FiLayers
+  FiServer, FiAlertTriangle, FiBarChart2, FiLayers, FiUser
 } from 'react-icons/fi'
 
 export default function Sidebar() {
@@ -51,6 +51,7 @@ export default function Sidebar() {
                     ${isActive || location.pathname.startsWith(link.path) 
                       ? 'bg-dark-light text-white' 
                       : 'text-gray-300 hover:bg-dark-light hover:text-white'
+                    }
                   `}
                 >
                   <link.icon className="mr-3 flex-shrink-0 h-6 w-6" />
@@ -75,7 +76,6 @@ export default function Sidebar() {
           </div>
         </div>
       </div>
-    </div>
     </div>
   )
 }
