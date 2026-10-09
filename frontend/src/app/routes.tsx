@@ -1,5 +1,6 @@
 import type { RouteObject } from "react-router"
 
+import { RequireAdmin } from "@/auth/RequireAdmin"
 import { GuestOnly, RequireAuth } from "@/auth/RequireAuth"
 import { AppLayout } from "@/components/layout/AppLayout"
 import { AlertDetailPage } from "@/pages/alerts/AlertDetailPage"
@@ -17,6 +18,7 @@ import { ProfilePage } from "@/pages/profile/ProfilePage"
 import { RuleDetailPage } from "@/pages/rules/RuleDetailPage"
 import { RulesPage } from "@/pages/rules/RulesPage"
 import { SimulationsPage } from "@/pages/simulations/SimulationsPage"
+import { UsersPage } from "@/pages/users/UsersPage"
 
 export const routes: RouteObject[] = [
   {
@@ -46,6 +48,7 @@ export const routes: RouteObject[] = [
               { path: "rules/:ruleId", element: <RuleDetailPage /> },
               { path: "simulations", element: <SimulationsPage /> },
               { path: "profile", element: <ProfilePage /> },
+              { element: <RequireAdmin />, children: [{ path: "users", element: <UsersPage /> }] },
               { path: "*", element: <NotFoundPage /> },
             ],
           },

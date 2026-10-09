@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router"
 import { toast } from "sonner"
 
 import { useCreateRule, useRules } from "@/api/queries"
+import { useIsAdmin } from "@/auth/context"
 import { SeverityBadge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
 import { Card } from "@/components/ui/Card"
@@ -108,6 +109,7 @@ function NewRuleDialog({ open, onClose }: { open: boolean; onClose: () => void }
 
 export function RulesPage() {
   const navigate = useNavigate()
+  const isAdmin = useIsAdmin()
   const [creating, setCreating] = useState(false)
   const { filters, page, setFilter, setPage } = useUrlFilters(FILTERS)
   const rules = useRules({ status: filters.status, severity: filters.severity, search: filters.q, page })
@@ -119,9 +121,11 @@ export function RulesPage() {
         title="Detection rules"
         description="The rule catalogue: what each detection looks for, its severity and whether it is live."
         actions={
-          <Button variant="primary" onClick={() => setCreating(true)}>
-            <Plus className="size-4" aria-hidden /> New rule
-          </Button>
+          isAdmin && (
+            <Button variant="primary" onClick={() => setCreating(true)}>
+              <Plus className="size-4" aria-hidden /> New rule
+            </Button>
+          )
         }
       />
       <p className="mb-4 flex gap-2 rounded-lg border border-border bg-surface px-4 py-3 text-sm text-muted">
@@ -158,7 +162,7 @@ export function RulesPage() {
         ) : rules.data.rows.length === 0 ? (
           <EmptyState
             title={filtered ? "No matching rules" : "No rules yet"}
-            action={!filtered && <Button onClick={() => setCreating(true)}>Create a rule</Button>}
+            action={!filtered && isAdmin && <Button onClick={() => setCreating(true)}>Create a rule</Button>}
           >
             {filtered ? "Try a different filter or search." : "Rules describe what the detectors should look for."}
           </EmptyState>

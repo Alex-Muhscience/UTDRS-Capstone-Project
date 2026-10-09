@@ -4,14 +4,14 @@ import { Link, useParams } from "react-router"
 import { toast } from "sonner"
 
 import type { Alert } from "@/api/client"
-import { analysisOf, useAlert, useAlertTag, useAssignAlert, useEventsById, useUpdateAlertStatus } from "@/api/queries"
+import { analysisOf, displayName, useAlert, useAlertTag, useAssignAlert, useEventsById, useUpdateAlertStatus, useUsers } from "@/api/queries"
 import { useUser } from "@/auth/context"
 import { Badge, SeverityBadge, StatusBadge } from "@/components/ui/Badge"
 import { BackLink } from "@/components/ui/BackLink"
 import { Button } from "@/components/ui/Button"
 import { Card } from "@/components/ui/Card"
 import { DescriptionList } from "@/components/ui/DescriptionList"
-import { Field, Textarea } from "@/components/ui/Field"
+import { Field, Select, Textarea } from "@/components/ui/Field"
 import { JsonBlock } from "@/components/ui/JsonBlock"
 import { PageHeader } from "@/components/ui/PageHeader"
 import { EmptyState, ErrorState, SkeletonRows } from "@/components/ui/States"
@@ -61,7 +61,17 @@ function Triage({ alert }: { alert: Alert }) {
   const [note, setNote] = useState("")
   const updateStatus = useUpdateAlertStatus(alert.id)
   const assign = useAssignAlert(alert.id)
+  const users = useUsers()
   const transitions = TRANSITIONS[alert.status] ?? []
+  const people = (users.data ?? []).filter((person) => person.active)
+  const assignee = users.data?.find((person) => person.id === alert.assigned_to)
+
+  function assignTo(userId: string, label: string) {
+    assign.mutate(userId, {
+      onSuccess: () => toast.success(`Alert assigned to ${label}`),
+      onError: (error) => toast.error(error.message),
+    })
+  }
 
   function move(status: AlertStatus) {
     updateStatus.mutate(
@@ -104,23 +114,36 @@ function Triage({ alert }: { alert: Alert }) {
             </Button>
           ))}
         </div>
-        <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
-          <span className="text-sm text-muted">
-            {alert.assigned_to === user.id ? "Assigned to you" : alert.assigned_to ? "Assigned to another analyst" : "Unassigned"}
-          </span>
-          {alert.assigned_to !== user.id && (
-            <Button
-              size="sm"
-              loading={assign.isPending}
-              onClick={() =>
-                assign.mutate(user.id, {
-                  onSuccess: () => toast.success("Alert assigned to you"),
-                  onError: (error) => toast.error(error.message),
-                })
-              }
-            >
-              <UserRoundCheck className="size-3.5" aria-hidden /> Assign to me
-            </Button>
+        <div className="space-y-3 border-t border-border pt-4">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm text-muted">
+              {alert.assigned_to === user.id
+                ? "Assigned to you"
+                : alert.assigned_to
+                  ? `Assigned to ${assignee ? displayName(assignee) : "a former user"}`
+                  : "Unassigned"}
+            </span>
+            {alert.assigned_to !== user.id && (
+              <Button size="sm" loading={assign.isPending} onClick={() => assignTo(user.id, "you")}>
+                <UserRoundCheck className="size-3.5" aria-hidden /> Assign to me
+              </Button>
+            )}
+          </div>
+          {people.length > 1 && (
+            <Select
+              aria-label="Assign to someone else"
+              value=""
+              disabled={assign.isPending}
+              placeholder="Assign to someone else…"
+              options={people
+                .filter((person) => person.id !== alert.assigned_to)
+                .map((person) => ({ value: person.id, label: displayName(person) }))}
+              onChange={(event) => {
+                const person = people.find((candidate) => candidate.id === event.target.value)
+                if (person) assignTo(person.id, displayName(person))
+              }}
+              className="h-8 text-xs"
+            />
           )}
         </div>
       </div>

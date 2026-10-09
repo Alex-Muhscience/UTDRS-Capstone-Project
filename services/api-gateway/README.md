@@ -42,7 +42,8 @@ All routes are under `/api/v1`. Interactive documentation is served at `/api/v1/
 | Area | Endpoints |
 |---|---|
 | Health | `GET /health`, `GET /health/db` |
-| Auth | `POST /auth/register`, `POST /auth/login` (form: `username`, `password`), `GET /auth/me`, `PUT /auth/me`, `POST /auth/me/change-password` |
+| Auth | `GET /auth/config` (whether registration is open), `POST /auth/register`, `POST /auth/login` (form: `username`, `password`), `GET /auth/me`, `PUT /auth/me`, `POST /auth/me/change-password` |
+| Users | `GET /users/` (filters: `role`, `active`), `GET /users/{id}`; admins only: `POST /users/` (returns a temporary password once), `PATCH /users/{id}` (`role`, `active`), `POST /users/{id}/reset-password` |
 | Alerts | `GET /alerts/` (`status` and `severity` filters combine), `GET /alerts/summary`, `POST /alerts/`, `GET`/`PUT /alerts/{id}`, `PATCH /alerts/{id}/status` (`status`, optional `notes`), `PATCH /alerts/{id}/assign`, `PATCH /alerts/{id}/events/{event_id}`, `POST`/`DELETE /alerts/{id}/tags/{tag}`, `GET /alerts/assigned/{user_id}`, `GET /alerts/search/` |
 | Events | `GET /events/` (filters: `event_type`, `asset_id`, `user_id`, `ip_address`), `POST /events/`, `GET`/`PUT /events/{id}`, `GET /events/recent/`, `GET /events/timerange/`, `PATCH /events/{id}/severity`, tags, `GET /events/search/` |
 | Assets | `GET /assets/` (filters: `asset_type`, `status`, `criticality`, `department`), `POST /assets/`, `GET`/`PUT /assets/{id}`, lookup by `name`, `ip` or `mac`, `PATCH /assets/{id}/vulnerabilities/add` and `/remove`, `PATCH /assets/{id}/lastseen`, tags, search |
@@ -55,9 +56,12 @@ Allowed values: alert status `open`, `in_progress`, `resolved`, `closed`, `false
 
 ## Accounts and security
 
-- **Registration is open and always creates an active analyst**, whatever role is sent. Users can change their own name, email and password (8 to 72 bytes, bcrypt's limit), but not their role or active flag.
+- **Two roles.** Administrators manage users, detection rules and simulations: every write to `/detection/rules…`, `/simulation/…` and `/users/…` requires the admin role (403 otherwise). Analysts triage alerts and work with events and assets. Everyone signed in can read everything, including the team directory (`GET /users/`), so alerts can show and change who they are assigned to.
+- **The first administrator** comes from settings: on every start, `ADMIN_USERNAME` is made an active admin, created with `ADMIN_PASSWORD` if it does not exist. The password is only used at creation. This is also how to restore admin access.
+- **Registration** (`ALLOW_REGISTRATION`, on by default) always creates an active analyst, whatever role is sent. With it off, only administrators create accounts, and each new account gets a temporary password, shown once. Administrators can also reset a password to a new temporary one.
+- **Account changes take effect at once**: a deactivated account cannot sign in, and its existing tokens are rejected (401). Administrators cannot change their own role or deactivate themselves, so whoever makes a change remains an administrator.
+- **Users** can change their own name, email and password (8 to 72 bytes, bcrypt's limit), but not their role or active flag.
 - **Tokens** are HS256 JWTs signed with `JWT_SECRET`, valid for `ACCESS_TOKEN_EXPIRE_MINUTES` (30 by default). Passwords are hashed with bcrypt.
-- **Roles are stored but not yet enforced per route**: any signed-in, active user can use every endpoint. Admin-only routes are on the [roadmap](../../README.md#roadmap).
 - **Middleware**: a request ID on every response (`X-Request-ID`), security headers (`nosniff`, `DENY` framing, a strict referrer policy, and `Content-Security-Policy: default-src 'self'` except on the docs pages, which need Swagger UI's CDN), a Host header allow-list (`ALLOWED_HOSTS`), a 10 MB request size limit, and a central error handler that does not leak internals.
 - **CORS** is limited to `CORS_ORIGINS`. The dashboard does not need it when it is served from the same origin (its dev server, preview server and Docker image all proxy `/api`).
 - **Rate limiting**: SlowAPI is set up but no route sets a limit yet. Limiting sign-in attempts needs the client's real address from the proxy in front, and is on the roadmap.
@@ -72,6 +76,10 @@ Settings come from the environment or a `.env` file in this directory (see [`.en
 | `MONGODB_URI` | required | MongoDB connection string |
 | `DB_NAME` | `utdrs` | The gateway's database. Never the engine's: the two store differently shaped documents in collections with the same names. |
 | `JWT_SECRET` | required | Long random secret for signing tokens |
+| `ADMIN_USERNAME` | unset | The first administrator; made an active admin on every start |
+| `ADMIN_PASSWORD` | unset | Its password, used only when creating it (8 to 72 bytes) |
+| `ADMIN_EMAIL` | `<username>@localhost.localdomain` | |
+| `ALLOW_REGISTRATION` | `true` | Whether anyone can register an analyst account |
 | `JWT_ALGORITHM` | `HS256` | |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | |
 | `CORE_ENGINE_URL` | unset | Base URL of the core engine. Unset: events are stored but not analysed. |
@@ -87,7 +95,7 @@ Settings come from the environment or a `.env` file in this directory (see [`.en
 ```bash
 python3.12 -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
-cp .env.example .env        # then set JWT_SECRET (and CORE_ENGINE_URL, INTERNAL_API_TOKEN)
+cp .env.example .env        # then set JWT_SECRET and ADMIN_PASSWORD (and CORE_ENGINE_URL, INTERNAL_API_TOKEN)
 uvicorn app:app --reload --port 8000
 ```
 
@@ -100,9 +108,10 @@ docker run -d --name utdrs-mongo -p 27017:27017 mongo:7      # once
 MONGODB_URI=mongodb://localhost:27017 python -m pytest
 ```
 
-36 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
+46 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
 
 - `tests/e2e/test_flows.py`: registration and sign-in, events, alerts (filters, ordering, summary, status errors), assets, rules, role and password rules, response headers. Against a real MongoDB, with no mocks.
+- `tests/e2e/test_users.py`: role checks on rules and simulations, the team directory, account administration (create, role changes, deactivation, password resets), self-lockout protection, closed registration and the startup administrator.
 - `tests/e2e/test_detection_pipeline.py`: the event-to-alert pipeline against a fake engine (`httpx.MockTransport`), including an unreachable engine and the detection status.
 - `tests/unit`: auth and alert routes with mocked repositories, and health. `tests/integration`: the ASGI app over HTTP (health, authentication required).
 

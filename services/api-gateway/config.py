@@ -26,6 +26,16 @@ class Settings(BaseSettings):
     # e.g. CORS_ORIGINS='["https://dashboard.example.com"]'. Never "*" with credentials.
     CORS_ORIGINS: List[str] = ["http://localhost:3001", "http://localhost:5173"]
 
+    # Accounts
+    # When false, only administrators can create accounts (POST /users/).
+    ALLOW_REGISTRATION: bool = True
+    # The first administrator: on startup, this account is created as an admin if it
+    # does not exist, or made an active admin if it does. Its password is only used
+    # when creating it, so a password changed later is kept.
+    ADMIN_USERNAME: Optional[str] = None
+    ADMIN_EMAIL: Optional[str] = None
+    ADMIN_PASSWORD: Optional[str] = None
+
     # Integration services
     # When CORE_ENGINE_URL is set, every ingested event is sent to the core engine for
     # detection, and any threat it finds becomes an alert here.
@@ -33,7 +43,6 @@ class Settings(BaseSettings):
     CORE_ENGINE_TIMEOUT_SECONDS: float = 10.0
     # Shared secret sent to the core engine as X-Internal-Token (must match its setting).
     INTERNAL_API_TOKEN: Optional[str] = None
-    RESPONSE_SERVICE_URL: Optional[str] = None
 
 
 settings = Settings()
