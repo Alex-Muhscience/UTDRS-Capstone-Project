@@ -131,7 +131,11 @@ int init_mongodb_connection() {
     return 0;
 }
 
-void cleanup_mongodb() {
+mongoc_client_pool_t *get_mongodb_pool(void) {
+    return mongodb_pool;
+}
+
+void cleanup_mongodb(void) {
     if (mongodb_pool) {
         mongoc_client_pool_destroy(mongodb_pool);
         mongodb_pool = NULL;
@@ -350,10 +354,8 @@ void handle_client_connection(SSL *ssl) {
     process_scan_command(ssl, cmd, bytes_read);
 
 connection_error:
-    if (ssl) {
-        SSL_shutdown(ssl);
-        SSL_free(ssl);
-    }
+    // The caller owns the connection and shuts it down (client_thread_wrapper).
+    return;
 }
 
 int store_scan_with_retry(SSL *ssl, const char *scan_data) {

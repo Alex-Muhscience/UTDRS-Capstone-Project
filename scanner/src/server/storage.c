@@ -117,8 +117,6 @@ int store_scan_result(SSL *ssl, const char *data) {
 }
 
 void cleanup_storage(void) {
-    if (client_pool) {
-        mongoc_client_pool_destroy(client_pool);
-        client_pool = NULL;
-    }
+    // The pool belongs to the API module, which closes it (cleanup_mongodb).
+    client_pool = NULL;
 }
