@@ -108,6 +108,58 @@ def test_alert_lifecycle(client, auth):
     assert response.json()["status"] == "in_progress"
 
 
+def _create_alert(client, auth, **fields):
+    alert = {"title": "Test alert", "description": "-", "severity": "low", "source": "SIEM", "type": "intrusion"}
+    response = client.post("/api/v1/alerts/", json={**alert, **fields}, headers=auth)
+    assert response.status_code == 201, response.text
+    return _id(response.json())
+
+
+def test_alerts_are_listed_newest_first_and_filters_combine(client, auth):
+    tag = uuid.uuid4().hex[:8]
+    first = _create_alert(client, auth, severity="critical", tags=[tag])
+    second = _create_alert(client, auth, severity="critical", tags=[tag])
+    _create_alert(client, auth, severity="low", tags=[tag])
+    client.patch(f"/api/v1/alerts/{first}/status", params={"status": "resolved"}, headers=auth)
+
+    response = client.get(
+        "/api/v1/alerts/", params={"status": "open", "severity": "critical"}, headers=auth
+    )
+    assert response.status_code == 200, response.text
+    alerts = response.json()
+    assert all(a["status"] == "open" and a["severity"] == "critical" for a in alerts)
+    ids = [a["id"] for a in alerts]
+    assert second in ids and first not in ids
+
+    newest = client.get("/api/v1/alerts/", params={"limit": 3}, headers=auth).json()
+    assert [a["tags"] for a in newest] == [[tag]] * 3
+    assert newest[1]["id"] == second
+
+
+def test_alert_summary_counts_by_status_and_open_severity(client, auth):
+    before = client.get("/api/v1/alerts/summary", headers=auth).json()
+    _create_alert(client, auth, severity="high")
+    resolved = _create_alert(client, auth, severity="high")
+    client.patch(f"/api/v1/alerts/{resolved}/status", params={"status": "resolved"}, headers=auth)
+
+    after = client.get("/api/v1/alerts/summary", headers=auth).json()
+    assert after["total"] == before["total"] + 2
+    assert after["by_status"].get("resolved", 0) == before["by_status"].get("resolved", 0) + 1
+    assert after["open_by_severity"]["high"] == before["open_by_severity"].get("high", 0) + 1
+
+
+def test_alert_status_errors_are_client_errors(client, auth):
+    alert_id = _create_alert(client, auth)
+    response = client.patch(
+        f"/api/v1/alerts/{alert_id}/status", params={"status": "bogus"}, headers=auth
+    )
+    assert response.status_code == 400
+    response = client.patch(
+        "/api/v1/alerts/000000000000000000000000/status", params={"status": "closed"}, headers=auth
+    )
+    assert response.status_code == 404
+
+
 def test_asset_lifecycle(client, auth):
     asset = {"name": f"web-{uuid.uuid4().hex[:6]}", "asset_type": "server", "ip_address": "10.0.0.5"}
     response = client.post("/api/v1/assets/", json=asset, headers=auth)
@@ -135,6 +187,27 @@ def test_detection_rule_lifecycle(client, auth):
     response = client.get(f"/api/v1/detection/rules/{rule_id}", headers=auth)
     assert response.status_code == 200, response.text
     assert response.json()["severity"] == "high"
+
+    response = client.patch(
+        f"/api/v1/detection/rules/{rule_id}/status", params={"status": "testing"}, headers=auth
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "testing"
+
+    response = client.patch(
+        f"/api/v1/detection/rules/{rule_id}/status", params={"status": "bogus"}, headers=auth
+    )
+    assert response.status_code == 400
+
+
+def test_detection_status_without_a_core_engine(client, auth, monkeypatch):
+    from core.services import core_engine_client
+
+    monkeypatch.setattr(core_engine_client, "get_core_engine_client", lambda: None)
+    status = client.get("/api/v1/detection/", headers=auth).json()
+    assert status["status"] == "standalone"
+    assert status["core_engine"] == {"configured": False, "reachable": False}
+    assert status["total_rules"] >= status["enabled_rules"] + status["testing_rules"]
 
 
 def test_registration_cannot_choose_a_role(client):
@@ -170,3 +243,10 @@ def test_password_length_is_enforced(client, password):
         json={"username": f"u_{suffix}", "email": f"u_{suffix}@example.com", "password": password},
     )
     assert response.status_code == 422
+
+
+def test_api_docs_may_load_swagger_ui_but_the_api_stays_locked_down(client):
+    docs = client.get("/api/v1/docs")
+    assert docs.status_code == 200
+    assert "https://cdn.jsdelivr.net" in docs.headers["content-security-policy"]
+    assert client.get("/api/v1/health").headers["content-security-policy"] == "default-src 'self'"

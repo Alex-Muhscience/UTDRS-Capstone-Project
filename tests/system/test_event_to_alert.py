@@ -80,3 +80,33 @@ def test_routine_activity_raises_nothing(api):
     )
     assert response.status_code == 201, response.text
     assert wait_for_analysis(api, response.json()["id"])["status"] == "clean"
+
+
+def test_a_signature_rule_raises_an_alert(api):
+    response = api.post(
+        "/events/",
+        json={
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "event_type": "dns",
+            "source": "dns-resolver",
+            "source_ip": "10.0.40.112",
+            "description": "DNS query for a blocklisted domain",
+            "raw_data": {"domain": "evil.net"},
+        },
+    )
+    assert response.status_code == 201, response.text
+    analysis = wait_for_analysis(api, response.json()["id"])
+    assert analysis["status"] == "threat", analysis
+    alert = api.get(f"/alerts/{analysis['alert_id']}").json()
+    assert alert["title"] == "DNS Query to Suspicious Domain"
+    assert alert["type"] == "signature"
+
+
+def test_lists_only_show_the_gateways_own_records(api):
+    # The engine stores events and alerts of its own; they must not leak into the
+    # gateway's lists (which would also fail validation).
+    for path in ("/events/", "/alerts/", "/events/recent/"):
+        response = api.get(path, params={"limit": 500})
+        assert response.status_code == 200, f"{path}: {response.text[:300]}"
+        assert all("description" in row for row in response.json())
+    assert all(alert["source"] == "core-engine" for alert in api.get("/alerts/").json())

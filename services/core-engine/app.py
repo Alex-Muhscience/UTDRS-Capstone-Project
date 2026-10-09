@@ -7,6 +7,7 @@ from api.routes import detections, health, rules
 from api.security import require_internal_token
 from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
+from core.rules.rule_loader import RuleManager
 
 # Configure logging
 logging.basicConfig(
@@ -19,6 +20,8 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await connect_to_mongo()
+    added = await RuleManager().load_predefined_rules()
+    logger.info(f"Detection rules ready ({added} predefined rules added)")
     yield
     await close_mongo_connection()
 

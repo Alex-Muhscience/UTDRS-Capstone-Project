@@ -52,6 +52,32 @@ def test_a_threat_produces_a_stored_alert(client):
     assert response.json()["title"] == alert["title"]
 
 
+def test_predefined_rules_are_loaded_once_at_startup(client):
+    from core.rules.predefined.rules import get_predefined_rules
+    from core.rules.rule_loader import RuleManager
+
+    names = {rule["name"] for rule in get_predefined_rules()}
+    stored = {rule["name"] for rule in client.get("/rules/", params={"limit": 500}).json()}
+    assert names <= stored
+    # Loading again adds nothing: rules are matched by name.
+    assert client.portal.call(RuleManager().load_predefined_rules) == 0
+
+
+def test_a_signature_rule_produces_an_alert(client):
+    failed_login = {
+        "source": "vpn-gw",
+        "event_type": "authentication",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "data": {"status": "failed", "user_id": "admin", "source_ip": "185.220.101.4"},
+    }
+    response = client.post("/detections/process", json=failed_login)
+    assert response.status_code == 200, response.text
+    alert = response.json()
+    assert alert["detection_type"] == "signature"
+    assert alert["title"] == "Multiple Failed Login Attempts"
+    assert "T1110" in alert["details"]["mitre_techniques"]
+
+
 def test_a_benign_event_produces_no_alert(client):
     benign = {
         "source": "endpoint_agent",
