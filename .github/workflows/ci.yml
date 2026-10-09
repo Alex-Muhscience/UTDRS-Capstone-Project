@@ -205,20 +205,54 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python -m py_compile data-processor.py config.py
 
-  docker:
-    name: Docker images
+  compose:
+    name: Docker Compose stack
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - image: api-gateway
-            context: services/api-gateway
-          - image: core-engine
-            context: services/core-engine
-          - image: dashboard
-            context: frontend
-          - image: scanner-server
-            context: scanner
     steps:
       - uses: actions/checkout@v5
-      - run: docker build -t utdrs-${{ matrix.image }}:ci ${{ matrix.context }}
+      - name: Secrets for this run
+        run: |
+          cp .env.example .env
+          sed -i "s|^JWT_SECRET=$|JWT_SECRET=$(openssl rand -hex 32)|; s|^INTERNAL_API_TOKEN=$|INTERNAL_API_TOKEN=$(openssl rand -hex 32)|; s|^DEMO_PASSWORD=$|DEMO_PASSWORD=$(openssl rand -hex 12)|" .env
+      - name: Development certificates for the scanner
+        working-directory: scanner/configs
+        run: |
+          mkdir -p certs && cd certs
+          openssl req -x509 -newkey rsa:2048 -nodes -keyout ca.key -out ca.crt -days 2 -subj "/CN=UTDRS CI CA"
+          openssl req -newkey rsa:2048 -nodes -keyout server.key -out server.csr -subj "/CN=localhost"
+          openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 2 -extfile <(printf "subjectAltName=DNS:localhost")
+          openssl req -newkey rsa:2048 -nodes -keyout agent.key -out agent.csr -subj "/CN=agent-ci"
+          openssl x509 -req -in agent.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out agent.crt -days 2
+          chmod 644 server.key
+      - run: docker compose --profile pipeline --profile scanner up -d --build --wait
+      - run: docker compose run --rm seed
+      - name: Every service answers
+        run: |
+          curl -fsS http://localhost:8080/ | grep -q '<div id="root">'
+          curl -fsS http://localhost:8080/api/v1/health
+          curl -fsS http://localhost:8000/api/v1/health
+          curl -fsS http://localhost:5000/health
+          reply=$( (printf 'SCAN not-json'; sleep 2) | timeout 10 openssl s_client -quiet -connect localhost:8443 -servername localhost \
+            -cert scanner/configs/certs/agent.crt -key scanner/configs/certs/agent.key -CAfile scanner/configs/certs/ca.crt 2>/dev/null || true)
+          echo "scanner replied: $reply"
+          echo "$reply" | grep -q INVALID_JSON
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci && npx playwright install --with-deps chromium
+        working-directory: frontend
+      - name: End-to-end tests against the containers
+        run: npx playwright test
+        working-directory: frontend
+        env:
+          E2E_BASE_URL: http://localhost:8080
+      - if: failure()
+        run: docker compose --profile pipeline --profile scanner logs --no-color --tail 200
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: compose-playwright-report
+          path: frontend/playwright-report
+          retention-days: 7

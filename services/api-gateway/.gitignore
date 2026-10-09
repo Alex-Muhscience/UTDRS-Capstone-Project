@@ -190,9 +190,6 @@ $RECYCLE.BIN/
 logs/
 data/
 
-# Docker
-.dockerignore
-
 # Production secrets
 .env.production
 secrets/
