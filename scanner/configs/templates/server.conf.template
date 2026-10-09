@@ -1,0 +1,9 @@
+[main]
+listen_ip = ${LISTEN_IP}
+listen_port = ${LISTEN_PORT:-8443}
+max_connections = ${MAX_CONNS:-500}
+
+[tls]
+cert_file = ${CERT_PATH}/server.crt
+key_file = ${KEY_PATH}/server.key
+ca_file = ${CA_PATH}/ca.crt
