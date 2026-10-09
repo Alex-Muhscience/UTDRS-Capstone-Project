@@ -6,7 +6,7 @@ import { api, ApiError, setAuthToken, unwrap } from "@/api/client"
 import { AuthContext, type AuthStatus, type AuthValue, type Registration } from "./context"
 import { clearSession, readSession, saveSession, UNAUTHORIZED_EVENT, type Session } from "./session"
 
-const EXPIRED = "Your session has expired. Sign in again to continue."
+const EXPIRED = "Your session has ended. Sign in again to continue."
 
 function initialSession(): Session | null {
   const session = readSession()

@@ -1,11 +1,16 @@
 import { toast } from "sonner"
 
 import { useUpdateRuleStatus } from "@/api/queries"
+import { useIsAdmin } from "@/auth/context"
+import { StatusBadge } from "@/components/ui/Badge"
 import { Select } from "@/components/ui/Field"
 import { RULE_STATUSES } from "@/lib/constants"
 
+/** Admins switch a rule's status here; everyone else sees the status. */
 export function RuleStatusSelect({ ruleId, status, name }: { ruleId: string; status: string; name: string }) {
   const update = useUpdateRuleStatus()
+  const isAdmin = useIsAdmin()
+  if (!isAdmin) return <StatusBadge status={status} />
   return (
     <Select
       aria-label={`Status of ${name}`}

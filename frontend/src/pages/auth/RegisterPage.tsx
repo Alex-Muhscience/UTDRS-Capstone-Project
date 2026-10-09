@@ -2,6 +2,7 @@ import { CircleAlert } from "lucide-react"
 import { useState, type FormEvent } from "react"
 import { Link } from "react-router"
 
+import { useAuthConfig } from "@/api/queries"
 import { useAuth } from "@/auth/context"
 import { Button } from "@/components/ui/Button"
 import { Field, Input } from "@/components/ui/Field"
@@ -10,6 +11,7 @@ import { AuthLayout } from "./AuthLayout"
 
 export function RegisterPage() {
   const { register } = useAuth()
+  const config = useAuthConfig()
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -31,6 +33,16 @@ export function RegisterPage() {
       setError(caught instanceof Error ? caught.message : "Registration failed.")
       setPending(false)
     }
+  }
+
+  if (config.data?.allow_registration === false) {
+    return (
+      <AuthLayout title="Registration is closed" subtitle="Accounts on this deployment are created by an administrator.">
+        <Link to="/login" className="text-sm font-medium text-accent hover:underline">
+          Back to sign in
+        </Link>
+      </AuthLayout>
+    )
   }
 
   return (

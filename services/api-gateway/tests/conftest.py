@@ -7,6 +7,7 @@ and end-to-end) only run when MONGODB_URI is provided; each run then uses its ow
 throwaway database, dropped at the end.
 """
 import os
+import secrets
 import uuid
 
 import pytest
@@ -16,6 +17,9 @@ RUN_DB_TESTS = bool(os.environ.get("MONGODB_URI"))
 os.environ.setdefault("MONGODB_URI", "mongodb://localhost:27017")
 os.environ.setdefault("JWT_SECRET", "test-secret-key-not-for-production")
 os.environ.setdefault("DB_NAME", f"utdrs_test_{uuid.uuid4().hex[:8]}")
+# The administrator created at startup; the password is generated per run.
+os.environ.setdefault("ADMIN_USERNAME", "admin")
+os.environ.setdefault("ADMIN_PASSWORD", secrets.token_urlsafe(16))
 os.environ["UTDRS_RUN_DB_TESTS"] = "1" if RUN_DB_TESTS else ""
 
 requires_mongodb = pytest.mark.skipif(not RUN_DB_TESTS, reason="MONGODB_URI not set")

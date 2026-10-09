@@ -2,21 +2,21 @@
 """
 Fill a running UTDRS stack with demo data, through the API gateway only.
 
-Creates an analyst account, assets, detection rules, a simulation, and a day of
-security events. The events go through the core engine like any other, so the
-alerts you see are the engine's real verdicts, not inserted rows. Some alerts are
-then moved through triage so every status is represented.
+Signs in as an administrator (rules and simulations are admin-only) and creates
+assets, detection rules, a simulation, and a day of security events. The events go
+through the core engine like any other, so the alerts you see are the engine's real
+verdicts, not inserted rows. Some alerts are then moved through triage so every
+status is represented. Each run adds another batch.
 
-    python3 scripts/seed-demo.py [--gateway http://localhost:8000] [--username demo]
+    ADMIN_USERNAME=admin ADMIN_PASSWORD=... python3 scripts/seed-demo.py [--gateway http://localhost:8000]
 
-The password is taken from DEMO_PASSWORD, or generated and printed. Standard
-library only, so it runs with any Python 3.9+.
+Use the administrator the gateway was started with (its ADMIN_USERNAME and
+ADMIN_PASSWORD settings). Standard library only, so it runs with any Python 3.9+.
 """
 import argparse
 import json
 import os
 import random
-import secrets
 import sys
 import time
 import urllib.error
@@ -52,14 +52,10 @@ class Gateway:
             raise SystemExit(f"{method} {path} failed: {error.code} {error.read().decode()[:300]}")
 
     def sign_in(self, username, password):
-        try:
-            self.request("POST", "/auth/register", body={
-                "username": username, "email": f"{username}@example.com", "password": password,
-                "firstName": "Demo", "lastName": "Analyst",
-            })
-        except SystemExit:
-            pass  # Already registered: sign in with the given password.
-        self.token = self.request("POST", "/auth/login", form={"username": username, "password": password})["access_token"]
+        login = self.request("POST", "/auth/login", form={"username": username, "password": password})
+        if login["user"]["role"] != "admin":
+            raise SystemExit(f"{username} is not an administrator; use the gateway's ADMIN_USERNAME account")
+        self.token = login["access_token"]
 
 
 ASSETS = [
@@ -115,10 +111,12 @@ def events(now):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--gateway", default=os.environ.get("GATEWAY_URL", "http://localhost:8000"))
-    parser.add_argument("--username", default="demo")
+    parser.add_argument("--username", default=os.environ.get("ADMIN_USERNAME", "admin"))
     args = parser.parse_args()
 
-    password = os.environ.get("DEMO_PASSWORD") or secrets.token_urlsafe(12)
+    password = os.environ.get("ADMIN_PASSWORD")
+    if not password:
+        raise SystemExit("Set ADMIN_PASSWORD (and ADMIN_USERNAME) to the gateway's administrator account")
     api = Gateway(args.gateway)
     api.sign_in(args.username, password)
 
@@ -165,7 +163,7 @@ def main():
           f"and {len(alert_ids)} alerts raised by the core engine.")
     if pending:
         print(f"{len(pending)} events were still awaiting analysis; is the core engine connected?", file=sys.stderr)
-    print(f"Sign in as {args.username!r} with password {password!r}")
+    print(f"Sign in to the dashboard as {args.username!r}, or register an analyst account.")
 
 
 if __name__ == "__main__":

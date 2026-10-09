@@ -37,6 +37,16 @@ class PasswordChange(BaseModel):
     _check_new_password = field_validator("new_password")(validate_password_length)
 
 
+class AuthConfig(BaseModel):
+    allow_registration: bool
+
+
+@router.get("/config", response_model=AuthConfig)
+async def auth_config() -> Any:
+    """What the sign-in page needs to know, such as whether anyone can register."""
+    return AuthConfig(allow_registration=settings.ALLOW_REGISTRATION)
+
+
 @router.post("/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> Any:
     """OAuth2 compatible token login, get an access token for future requests."""
@@ -57,6 +67,12 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> Any:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    if not user.get("active", True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account has been deactivated; ask an administrator",
+        )
+
     # Update last login
     await user_repo.update_last_login(str(user["_id"]))
 
@@ -71,7 +87,12 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> Any:
 
 @router.post("/register", response_model=User)
 async def register(user_in: UserCreate) -> Any:
-    """Register a new user."""
+    """Register a new user, as an analyst. Closed when ALLOW_REGISTRATION is false."""
+    if not settings.ALLOW_REGISTRATION:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Registration is closed; ask an administrator for an account",
+        )
     user_repo = UserRepository()
 
     # Check if username already exists

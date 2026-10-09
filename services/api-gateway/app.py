@@ -12,14 +12,16 @@ from api.middleware.security import (
     SecurityMiddleware,
     rate_limit_handler,
 )
-from api.routes import alerts, assets, auth, detection, events, health, simulation
+from api.routes import alerts, assets, auth, detection, events, health, simulation, users
 from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
+from core.services.bootstrap import ensure_admin
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await connect_to_mongo()
+    await ensure_admin()
     yield
     await close_mongo_connection()
 
@@ -58,6 +60,7 @@ app.include_router(health.router, prefix=settings.API_PREFIX, tags=["health"])
 app.include_router(
     auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["authentication"]
 )
+app.include_router(users.router, prefix=f"{settings.API_PREFIX}/users", tags=["users"])
 app.include_router(
     alerts.router, prefix=f"{settings.API_PREFIX}/alerts", tags=["alerts"]
 )

@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router"
 
-import { useAlerts } from "@/api/queries"
+import { displayName, useAlerts, useUsers } from "@/api/queries"
 import { useUser } from "@/auth/context"
 import { SeverityBadge, StatusBadge } from "@/components/ui/Badge"
 import { Card } from "@/components/ui/Card"
@@ -22,6 +22,12 @@ export function AlertsPage() {
   const navigate = useNavigate()
   const { filters, page, setFilter, setPage } = useUrlFilters(FILTERS)
   const alerts = useAlerts({ status: filters.status, severity: filters.severity, search: filters.q, page })
+  const users = useUsers()
+  const nameOf = (userId: string) => {
+    if (userId === user.id) return "You"
+    const person = users.data?.find((candidate) => candidate.id === userId)
+    return person ? displayName(person) : "—"
+  }
   const filtered = Boolean(filters.status || filters.severity || filters.q)
 
   return (
@@ -110,7 +116,7 @@ export function AlertsPage() {
                   <Td>
                     <StatusBadge status={alert.status} />
                   </Td>
-                  <Td className="text-muted">{alert.assigned_to ? (alert.assigned_to === user.id ? "You" : "Another analyst") : "—"}</Td>
+                  <Td className="max-w-0 truncate text-muted">{alert.assigned_to ? nameOf(alert.assigned_to) : "—"}</Td>
                   <Td className="text-muted" title={formatDateTime(alert.created_at)}>
                     {formatRelative(alert.created_at)}
                   </Td>

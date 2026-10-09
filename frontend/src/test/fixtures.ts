@@ -21,6 +21,25 @@ export const user: User = {
   preferences: {},
 }
 
+export const admin: User = {
+  ...user,
+  id: "665f1c2ab1e2c3d4e5f60002",
+  username: "root",
+  email: "root@example.com",
+  firstName: "Ada",
+  lastName: "Admin",
+  role: "admin",
+}
+
+export const colleague: User = {
+  ...user,
+  id: "665f1c2ab1e2c3d4e5f60003",
+  username: "ben",
+  email: "ben@example.com",
+  firstName: "Ben",
+  lastName: "Okoth",
+}
+
 export function alert(overrides: Partial<Alert> = {}): Alert {
   return {
     id: "665f1c2ab1e2c3d4e5f60101",
@@ -67,9 +86,11 @@ export function event(overrides: Partial<Event> = {}): Event {
 }
 
 /** Routes every signed-in page needs (the shell polls these). */
-export function shellRoutes() {
+export function shellRoutes(me: User = user) {
   return {
-    "GET /api/v1/auth/me": user,
+    "GET /api/v1/auth/me": me,
+    "GET /api/v1/auth/config": { allow_registration: true },
+    "GET /api/v1/users/": [user, admin, colleague],
     "GET /api/v1/alerts/summary": { total: 1, by_status: { open: 1 }, open_by_severity: { critical: 1 } },
     "GET /api/v1/detection/": {
       status: "active",

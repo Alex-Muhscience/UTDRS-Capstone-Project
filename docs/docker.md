@@ -71,12 +71,13 @@ Docker Compose reads its settings from a `.env` file next to `docker-compose.yml
 cp .env.example .env            # Windows PowerShell: Copy-Item .env.example .env
 ```
 
-Then fill in two secrets in `.env`, each a long random value:
+Then fill in three values in `.env`:
 
-- `JWT_SECRET` signs sign-in tokens.
-- `INTERNAL_API_TOKEN` is the shared secret between the gateway and the engine.
+- `JWT_SECRET` signs sign-in tokens. Use a long random value.
+- `INTERNAL_API_TOKEN` is the shared secret between the gateway and the engine. Use a long random value.
+- `ADMIN_PASSWORD` is the password of the first administrator, `admin` (change the name with `ADMIN_USERNAME`). Choose a strong password you can type, 8 to 72 characters.
 
-Generate them with any of these, and paste one value into each line:
+Generate the two secrets with any of these, and paste one value into each line:
 
 ```bash
 openssl rand -base64 48
@@ -88,9 +89,9 @@ python3 -c "import secrets; print(secrets.token_urlsafe(48))"
 [Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
 ```
 
-Optionally set `DEMO_PASSWORD` too, so the demo account's password is one you know. Avoid `$` in values: Compose treats it as a variable.
+Avoid `$` in values: Compose treats it as a variable.
 
-`.env` is ignored by Git. Never commit it. If either secret is missing, Compose stops at once and names it.
+`.env` is ignored by Git. Never commit it. If any of the three is missing, Compose stops at once and names it.
 
 ### 3. Build and start
 
@@ -114,11 +115,11 @@ All four services should show `(healthy)`.
 docker compose run --rm seed
 ```
 
-This signs up a `demo` account, then creates six assets, six detection rules, a simulation and a day of events, all through the gateway's API. The events go through the core engine like any others, so the alerts you get (shadow-copy deletion, encoded PowerShell, a DNS lookup of a blocklisted domain, and more) are the engine's real verdicts. Some are then moved through triage so every status appears. The command prints the account's password (your `DEMO_PASSWORD`, or a generated one). Each run adds another batch of demo data.
+This signs in as the administrator and creates six assets, six detection rules, a simulation and a day of events, all through the gateway's API. The events go through the core engine like any others, so the alerts you get (shadow-copy deletion, encoded PowerShell, a DNS lookup of a blocklisted domain, and more) are the engine's real verdicts. Some are then moved through triage so every status appears. Each run adds another batch of demo data.
 
 ### 5. Open the dashboard
 
-Go to **http://localhost:8080**. Sign in as `demo`, or choose *Create an analyst account*.
+Go to **http://localhost:8080** and sign in as `admin` with your `ADMIN_PASSWORD`. As an administrator you can add people under **Users**, or they can choose *Create an analyst account* on the sign-in page (see `ALLOW_REGISTRATION` below).
 
 To see detection working end to end, open **Events → Send test event**, keep the *Shadow copies deleted* preset and send it. Within a second or two the event page shows **Threat detected**, linking to a critical alert mapped to MITRE ATT&CK T1490. The *Editor opened* preset comes back clean.
 
@@ -154,7 +155,10 @@ Every setting lives in `.env`. Restart with `docker compose up -d --wait` after 
 |---|---|---|
 | `JWT_SECRET` | required | Signs sign-in tokens. Changing it signs everyone out. |
 | `INTERNAL_API_TOKEN` | required | Shared by the gateway and the engine |
-| `DEMO_PASSWORD` | generated | Password of the `demo` account the seed creates |
+| `ADMIN_PASSWORD` | required | Password of the first administrator, used when the account is created. Change it later on the dashboard's profile page. |
+| `ADMIN_USERNAME` | `admin` | The first administrator. On every start the gateway makes this account an active admin, which is also how to recover admin access. |
+| `ADMIN_EMAIL` | `admin@localhost.localdomain` | |
+| `ALLOW_REGISTRATION` | `true` | Whether anyone can register an analyst account. With `false`, only administrators create accounts. |
 | `BIND_ADDRESS` | `127.0.0.1` | Address the published ports listen on. `0.0.0.0` makes the stack reachable from your network; see the warning below. |
 | `DASHBOARD_PORT` | `8080` | |
 | `GATEWAY_PORT` | `8000` | |
@@ -166,7 +170,7 @@ Every setting lives in `.env`. Restart with `docker compose up -d --wait` after 
 
 Other settings are fixed in `docker-compose.yml`: the database names, the internal URLs and the engine's database being separate from the gateway's. Each service's README lists everything it supports, and you can add any of those under the service's `environment:` in a `docker-compose.override.yml`, which Compose reads automatically (and which you can keep out of Git).
 
-**Opening the stack to your network.** With `BIND_ADDRESS=0.0.0.0`, anyone who can reach your machine can open the dashboard and, since registration is open, create an account. Only do it on a network you trust, and see [Beyond your laptop](#beyond-your-laptop) before going further.
+**Opening the stack to your network.** With `BIND_ADDRESS=0.0.0.0`, anyone who can reach your machine can open the dashboard and, unless you set `ALLOW_REGISTRATION=false`, create an analyst account. Only do it on a network you trust, and see [Beyond your laptop](#beyond-your-laptop) before going further.
 
 ## Optional services
 
@@ -309,7 +313,9 @@ They register an analyst, send the ransomware test event, wait for the engine's 
 
 **The dashboard answers `502 Bad Gateway` on `/api`.** The gateway is down or restarting: check `docker compose ps`. If it is healthy and the error persists, `docker compose restart dashboard` makes nginx look the gateway up again.
 
-**`docker compose run --rm seed` fails with `Incorrect username or password`.** The `demo` account exists from an earlier run with another password. Set `DEMO_PASSWORD` in `.env` to that password, or reset the data (`docker compose down -v`).
+**`docker compose run --rm seed` fails with `Incorrect username or password`.** The administrator's password was changed after the account was created (the gateway only uses `ADMIN_PASSWORD` to create it). Put the current password in `ADMIN_PASSWORD`, or reset the data (`docker compose down -v`).
+
+**Locked out of administration** (the only admin was deactivated, demoted or forgot their password). Set `ADMIN_USERNAME` to an existing account and restart the gateway (`docker compose up -d --wait api-gateway`): it becomes an active administrator again. Another administrator can reset its password under **Users**.
 
 **The scanner server exits at once.** Its certificates are missing or unreadable: check `docker compose --profile scanner logs scanner-server`, the files in `scanner/configs/certs`, and that `server.key` is readable (`chmod 644`, for local testing only).
 
@@ -325,6 +331,6 @@ This Compose file is made for running UTDRS on one machine. To run it for real u
 - **Publish only the dashboard.** Remove the gateway's published port unless integrations need it, and then put it behind the same TLS proxy. Never publish the engine or MongoDB.
 - **Manage secrets properly**: generate them per environment, keep them in your platform's secret store, and rotate them. Do not reuse the values from your laptop.
 - **Use a managed or secured MongoDB** with authentication, encryption and automatic backups, by pointing `MONGODB_URI` at it in an override. Keep the gateway and engine on separate databases.
-- **Decide who can sign up.** Registration is open, and roles are not yet enforced per route (on the [roadmap](../README.md#roadmap)), so do not expose the stack publicly as it is.
+- **Decide who can sign up.** Set `ALLOW_REGISTRATION=false` so only administrators create accounts, and use a strong `ADMIN_PASSWORD`.
 - **Set resource limits and log retention** for each container, and monitor the health endpoints: `/api/v1/health` and `/api/v1/health/db` on the gateway, `/health` on the engine.
 - **Build images in CI** and push them to a registry, rather than building on the server.

@@ -37,3 +37,9 @@ export function useUser(): User {
   if (!user) throw new Error("useUser needs a signed-in user")
   return user
 }
+
+/** Whether the signed-in user is an administrator (manages users, rules and simulations). */
+export function useIsAdmin(): boolean {
+  const { user } = useAuth()
+  return user?.role === "admin"
+}

@@ -1,9 +1,9 @@
 # The whole UTDRS stack on one machine: MongoDB, the core engine, the API gateway
 # and the dashboard. See docs/docker.md for the full guide.
 #
-#   cp .env.example .env          # then set JWT_SECRET and INTERNAL_API_TOKEN
+#   cp .env.example .env          # then set JWT_SECRET, INTERNAL_API_TOKEN and ADMIN_PASSWORD
 #   docker compose up -d --build  # dashboard on http://localhost:8080
-#   docker compose run --rm seed  # optional: demo data and a demo account
+#   docker compose run --rm seed  # optional: demo data
 #
 # Optional extras: --profile pipeline (data processor), --profile scanner (scanner server).
 
@@ -56,6 +56,11 @@ services:
       CORE_ENGINE_URL: http://core-engine:8000
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?Set INTERNAL_API_TOKEN in .env (see .env.example)}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      # The first administrator, created (or restored) at startup.
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env (see .env.example)}
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
       CORS_ORIGINS: '["http://localhost:${DASHBOARD_PORT:-8080}"]'
     depends_on:
       mongodb:
@@ -87,7 +92,8 @@ services:
     volumes:
       - ./scripts:/scripts:ro
     environment:
-      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env (see .env.example)}
     command: ["python", "/scripts/seed-demo.py", "--gateway", "http://api-gateway:8000"]
     depends_on:
       api-gateway:

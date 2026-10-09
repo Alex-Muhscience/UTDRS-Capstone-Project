@@ -67,12 +67,12 @@ The engine's verdict priority, from the most specific evidence to the least, is 
 | Boundary | Protection |
 |---|---|
 | Browser → dashboard | Static files only. In the Docker image, nginx sends a Content-Security-Policy with no inline or third-party scripts, plus `X-Frame-Options: DENY`, `nosniff` and a strict referrer policy. |
-| Browser → gateway | JWT bearer tokens (HS256, `JWT_SECRET`), bcrypt password hashes, CORS limited to `CORS_ORIGINS` (not needed when the dashboard proxies `/api`), Host allow-list, a 10 MB request limit, and security headers with a request ID on every response. Registration always creates an analyst. |
+| Browser → gateway | JWT bearer tokens (HS256, `JWT_SECRET`), bcrypt password hashes, role checks on administrative routes, CORS limited to `CORS_ORIGINS` (not needed when the dashboard proxies `/api`), Host allow-list, a 10 MB request limit, and security headers with a request ID on every response. Registration, which can be closed, always creates an analyst; a deactivated account's tokens stop working at once. |
 | Gateway → engine | A shared secret in `X-Internal-Token`, compared in constant time. The engine should only be reachable from the gateway's network. |
 | Agent → scanner server | Mutual TLS: the server requires a client certificate from the CA, and the agent verifies the server's certificate chain and name. |
 | Services → MongoDB | Connection strings from the environment; never committed. |
 
-Known gaps, all on the [roadmap](../README.md#roadmap): roles are stored but not yet enforced per route; sign-in is not rate limited; the dashboard polls rather than receiving pushed updates.
+Roles: administrators manage users, detection rules and simulations; analysts triage alerts and work with events and assets; everyone signed in can read everything. Known gaps, on the [roadmap](../README.md#roadmap): sign-in is not rate limited, devices and integrations need a user's token, and the dashboard polls rather than receiving pushed updates.
 
 ## When something fails
 
