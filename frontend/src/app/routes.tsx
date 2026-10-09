@@ -1,0 +1,56 @@
+import type { RouteObject } from "react-router"
+
+import { GuestOnly, RequireAuth } from "@/auth/RequireAuth"
+import { AppLayout } from "@/components/layout/AppLayout"
+import { AlertDetailPage } from "@/pages/alerts/AlertDetailPage"
+import { AlertsPage } from "@/pages/alerts/AlertsPage"
+import { AssetDetailPage } from "@/pages/assets/AssetDetailPage"
+import { AssetsPage } from "@/pages/assets/AssetsPage"
+import { LoginPage } from "@/pages/auth/LoginPage"
+import { RegisterPage } from "@/pages/auth/RegisterPage"
+import { RouteError } from "@/pages/errors/RouteError"
+import { NotFoundPage } from "@/pages/errors/NotFoundPage"
+import { EventDetailPage } from "@/pages/events/EventDetailPage"
+import { EventsPage } from "@/pages/events/EventsPage"
+import { OverviewPage } from "@/pages/overview/OverviewPage"
+import { ProfilePage } from "@/pages/profile/ProfilePage"
+import { RuleDetailPage } from "@/pages/rules/RuleDetailPage"
+import { RulesPage } from "@/pages/rules/RulesPage"
+import { SimulationsPage } from "@/pages/simulations/SimulationsPage"
+
+export const routes: RouteObject[] = [
+  {
+    errorElement: <RouteError />,
+    children: [
+      {
+        element: <GuestOnly />,
+        children: [
+          { path: "/login", element: <LoginPage /> },
+          { path: "/register", element: <RegisterPage /> },
+        ],
+      },
+      {
+        element: <RequireAuth />,
+        children: [
+          {
+            element: <AppLayout />,
+            children: [
+              { index: true, element: <OverviewPage /> },
+              { path: "alerts", element: <AlertsPage /> },
+              { path: "alerts/:alertId", element: <AlertDetailPage /> },
+              { path: "events", element: <EventsPage /> },
+              { path: "events/:eventId", element: <EventDetailPage /> },
+              { path: "assets", element: <AssetsPage /> },
+              { path: "assets/:assetId", element: <AssetDetailPage /> },
+              { path: "rules", element: <RulesPage /> },
+              { path: "rules/:ruleId", element: <RuleDetailPage /> },
+              { path: "simulations", element: <SimulationsPage /> },
+              { path: "profile", element: <ProfilePage /> },
+              { path: "*", element: <NotFoundPage /> },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+]

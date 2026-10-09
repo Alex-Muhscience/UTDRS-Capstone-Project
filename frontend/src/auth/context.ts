@@ -1,0 +1,39 @@
+import { createContext, useContext } from "react"
+
+import type { User } from "@/api/client"
+
+export type AuthStatus = "loading" | "signed-in" | "signed-out" | "unavailable"
+
+export type Registration = {
+  username: string
+  email: string
+  password: string
+  firstName?: string
+  lastName?: string
+}
+
+export type AuthValue = {
+  status: AuthStatus
+  user: User | null
+  /** Why the user was signed out, shown on the sign-in page. */
+  notice: string | null
+  login: (username: string, password: string) => Promise<void>
+  register: (registration: Registration) => Promise<void>
+  logout: (notice?: string) => void
+  retry: () => void
+}
+
+export const AuthContext = createContext<AuthValue | null>(null)
+
+export function useAuth(): AuthValue {
+  const value = useContext(AuthContext)
+  if (!value) throw new Error("useAuth must be used inside <AuthProvider>")
+  return value
+}
+
+/** The signed-in user; only for components rendered behind <RequireAuth>. */
+export function useUser(): User {
+  const { user } = useAuth()
+  if (!user) throw new Error("useUser needs a signed-in user")
+  return user
+}
