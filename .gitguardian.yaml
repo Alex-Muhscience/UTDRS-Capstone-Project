@@ -1,0 +1,10 @@
+# GitGuardian secret scanning configuration.
+# Test files contain deliberate sample passwords (e.g. weak passwords that the
+# validators must reject); they are fixtures, not credentials.
+version: 2
+secret:
+  ignored_paths:
+    - "**/__tests__/**"
+    - "**/*.test.js"
+    - "**/*.test.jsx"
+    - "**/tests/**"
