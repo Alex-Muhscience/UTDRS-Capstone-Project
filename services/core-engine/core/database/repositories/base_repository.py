@@ -1,18 +1,20 @@
 from typing import List, Dict, Any, Optional, TypeVar, Generic
 from bson import ObjectId
 from pydantic import BaseModel
-from core.database.connection import db
+from core.database.connection import get_database
 
 T = TypeVar('T', bound=BaseModel)
 
 class BaseRepository:
     def __init__(self, collection_name: str):
-        # Instead of calling get_database() which is now async, use db.client directly
-        if db.client is None:
-            raise ConnectionError("Database connection not established")
-        self.db = db.client[db.db_name]
-        self.collection = self.db[collection_name]
-    
+        self.collection_name = collection_name
+
+    @property
+    def collection(self):
+        # Resolved on use, not at construction: detectors (and their repositories) can be
+        # created before the database connects, and in tests that never touch MongoDB.
+        return get_database()[self.collection_name]
+
     async def find_one(self, query: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         result = await self.collection.find_one(query)
         if result:

@@ -790,8 +790,8 @@ class RuleManager:
         
         # Add created timestamp
         from datetime import datetime
-        rule_data['created_at'] = datetime.utcnow()
-        rule_data['updated_at'] = datetime.utcnow()
+        rule_data['created_at'] = utcnow()
+        rule_data['updated_at'] = utcnow()
         
         # Save to database
         rule_id = await self.rule_repository.insert_one(rule_data)
@@ -803,7 +803,7 @@ class RuleManager:
         
         # Update timestamp
         from datetime import datetime
-        rule_data['updated_at'] = datetime.utcnow()
+        rule_data['updated_at'] = utcnow()
         
         # Update in database
         success = await self.rule_repository.update_one(rule_id, rule_data)
@@ -1005,7 +1005,7 @@ class AlertRepository(BaseRepository):
         alert_dict = alert_data.model_dump()
         
         # Add timestamps
-        now = datetime.utcnow()
+        now = utcnow()
         alert_dict["created_at"] = now
         alert_dict["updated_at"] = now
         
@@ -1019,7 +1019,7 @@ class AlertRepository(BaseRepository):
     async def update_alert_status(self, alert_id, status, assigned_to=None):
         update_data = {
             "status": status,
-            "updated_at": datetime.utcnow()
+            "updated_at": utcnow()
         }
         
         if assigned_to:
@@ -1048,6 +1048,7 @@ class RuleRepository(BaseRepository):
     logger_content = """import logging
 import sys
 from config import settings
+from utils.time import utcnow
 
 def get_logger(name: str) -> logging.Logger:
     '''Create a logger with the given name.'''

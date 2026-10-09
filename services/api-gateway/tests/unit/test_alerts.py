@@ -119,7 +119,7 @@ def test_get_alert_by_id(mock_user_repo_class, mock_alert_service_class):
 
     assert response.status_code == 200
     assert response.json()["title"] == "Suspicious Activity"
-    assert response.json()["_id"] == str(mock_alert_data["_id"])
+    assert response.json()["id"] == str(mock_alert_data["_id"])
 
 
 @patch("api.routes.alerts.AlertService")

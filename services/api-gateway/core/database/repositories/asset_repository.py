@@ -6,6 +6,7 @@ from pymongo import ReturnDocument
 
 from core.database.repositories.base_repository import BaseRepository
 from core.models.asset import AssetCreate, AssetUpdate
+from utils.time import utcnow
 
 
 class AssetRepository(BaseRepository):
@@ -44,13 +45,13 @@ class AssetRepository(BaseRepository):
         return await self.find_many({"department": department}, limit=limit, skip=skip)
 
     async def create_asset(self, asset: AssetCreate) -> str:
-        asset_dict = asset.dict()
+        asset_dict = asset.model_dump()
 
         asset_doc = {
             **asset_dict,
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow(),
-            "last_seen": datetime.utcnow(),
+            "created_at": utcnow(),
+            "updated_at": utcnow(),
+            "last_seen": utcnow(),
             "vulnerabilities": [],
             "tags": [],
             "metadata": {},
@@ -64,9 +65,9 @@ class AssetRepository(BaseRepository):
         if not ObjectId.is_valid(id):
             return None
 
-        update_data = asset_update.dict(exclude_unset=True)
+        update_data = asset_update.model_dump(exclude_unset=True)
         if update_data:
-            update_data["updated_at"] = datetime.utcnow()
+            update_data["updated_at"] = utcnow()
 
             result = await self.collection.find_one_and_update(
                 {"_id": ObjectId(id)},
@@ -82,7 +83,7 @@ class AssetRepository(BaseRepository):
 
         result = await self.collection.update_one(
             {"_id": ObjectId(id)},
-            {"$set": {"last_seen": datetime.utcnow(), "updated_at": datetime.utcnow()}},
+            {"$set": {"last_seen": utcnow(), "updated_at": utcnow()}},
         )
         return result.modified_count > 0
 
@@ -94,7 +95,7 @@ class AssetRepository(BaseRepository):
             {"_id": ObjectId(id)},
             {
                 "$addToSet": {"vulnerabilities": vulnerability},
-                "$set": {"updated_at": datetime.utcnow()},
+                "$set": {"updated_at": utcnow()},
             },
         )
         return result.modified_count > 0
@@ -107,7 +108,7 @@ class AssetRepository(BaseRepository):
             {"_id": ObjectId(id)},
             {
                 "$pull": {"vulnerabilities": vulnerability},
-                "$set": {"updated_at": datetime.utcnow()},
+                "$set": {"updated_at": utcnow()},
             },
         )
         return result.modified_count > 0
@@ -118,7 +119,7 @@ class AssetRepository(BaseRepository):
 
         result = await self.collection.update_one(
             {"_id": ObjectId(id)},
-            {"$addToSet": {"tags": tag}, "$set": {"updated_at": datetime.utcnow()}},
+            {"$addToSet": {"tags": tag}, "$set": {"updated_at": utcnow()}},
         )
         return result.modified_count > 0
 
@@ -128,7 +129,7 @@ class AssetRepository(BaseRepository):
 
         result = await self.collection.update_one(
             {"_id": ObjectId(id)},
-            {"$pull": {"tags": tag}, "$set": {"updated_at": datetime.utcnow()}},
+            {"$pull": {"tags": tag}, "$set": {"updated_at": utcnow()}},
         )
         return result.modified_count > 0
 

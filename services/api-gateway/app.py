@@ -1,4 +1,6 @@
-from fastapi import Depends, FastAPI
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
@@ -14,7 +16,16 @@ from api.routes import alerts, assets, auth, detection, events, health, simulati
 from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await connect_to_mongo()
+    yield
+    await close_mongo_connection()
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     openapi_url=f"{settings.API_PREFIX}/openapi.json",
@@ -32,15 +43,11 @@ app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 # Setup CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Database events
-app.add_event_handler("startup", connect_to_mongo)
-app.add_event_handler("shutdown", close_mongo_connection)
 
 # Include API routes
 app.include_router(health.router, prefix=settings.API_PREFIX, tags=["health"])

@@ -1,6 +1,6 @@
 # UTDRS API Gateway - Production Ready
 
-[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104.1-green.svg)](https://fastapi.tiangolo.com/)
 [![Security](https://img.shields.io/badge/security-enhanced-brightgreen.svg)](#security-features)
 [![SaaS](https://img.shields.io/badge/type-SaaS-orange.svg)](#about)
@@ -83,7 +83,7 @@ A production-ready API Gateway for the Unified Threat Detection and Response Sys
 
 ### Prerequisites
 
-- Python 3.9+
+- Python 3.12
 - Docker and Docker Compose (for local development)
 - MongoDB database (can use MongoDB Atlas)
 

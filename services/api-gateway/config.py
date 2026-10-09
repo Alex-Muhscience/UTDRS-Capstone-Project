@@ -1,11 +1,11 @@
-import os
-from typing import Optional
+from typing import List, Optional
 
-from pydantic import Field
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
     # MongoDB
     MONGODB_URI: str
     DB_NAME: str = "utdrs"
@@ -20,14 +20,20 @@ class Settings(BaseSettings):
     API_PREFIX: str = "/api/v1"
     PROJECT_NAME: str = "UTDRS API Gateway"
     VERSION: str = "1.0.0"
-    ALLOWED_HOSTS: list = ["*"]
+    ALLOWED_HOSTS: List[str] = ["*"]
+
+    # Browser origins allowed to call the API with credentials. Set as a JSON list,
+    # e.g. CORS_ORIGINS='["https://dashboard.example.com"]'. Never "*" with credentials.
+    CORS_ORIGINS: List[str] = ["http://localhost:3001", "http://localhost:5173"]
 
     # Integration services
+    # When CORE_ENGINE_URL is set, every ingested event is sent to the core engine for
+    # detection, and any threat it finds becomes an alert here.
     CORE_ENGINE_URL: Optional[str] = None
+    CORE_ENGINE_TIMEOUT_SECONDS: float = 10.0
+    # Shared secret sent to the core engine as X-Internal-Token (must match its setting).
+    INTERNAL_API_TOKEN: Optional[str] = None
     RESPONSE_SERVICE_URL: Optional[str] = None
-
-    class Config:
-        env_file = ".env"
 
 
 settings = Settings()
