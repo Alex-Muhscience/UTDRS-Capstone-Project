@@ -27,11 +27,14 @@ class AlertService:
         return await self.alert_repo.find_by_id(alert_id)
 
     async def create_alert(
-        self, alert_data: AlertCreate, user_id: Optional[str] = None
+        self,
+        alert_data: AlertCreate,
+        user_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Create a new alert."""
         try:
-            alert_id = await self.alert_repo.create_alert(alert_data, user_id)
+            alert_id = await self.alert_repo.create_alert(alert_data, user_id, metadata)
             logger.info(f"Created alert with ID: {alert_id}")
             return alert_id
         except Exception as e:

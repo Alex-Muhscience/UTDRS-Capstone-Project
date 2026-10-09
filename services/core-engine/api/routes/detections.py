@@ -26,7 +26,7 @@ class EventData(BaseModel):
 async def process_event_data(event: EventData):
     '''Process an event and generate an alert if a threat is detected.'''
     from core.services.event_processor import process_event
-    alert = await process_event(event.dict())
+    alert = await process_event(event.model_dump())
     return alert
 
 @router.get("/alerts", response_model=List[Alert])

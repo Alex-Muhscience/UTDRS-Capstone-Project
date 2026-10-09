@@ -6,6 +6,7 @@ from pymongo import DESCENDING, ReturnDocument
 
 from core.database.repositories.base_repository import BaseRepository
 from core.models.event import EventCreate, EventUpdate
+from utils.time import utcnow
 
 
 class EventRepository(BaseRepository):
@@ -42,12 +43,12 @@ class EventRepository(BaseRepository):
         return await cursor.to_list(length=limit)
 
     async def create_event(self, event: EventCreate) -> str:
-        event_dict = event.dict()
+        event_dict = event.model_dump()
 
         event_doc = {
             **event_dict,
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow(),
+            "created_at": utcnow(),
+            "updated_at": utcnow(),
             "tags": [],
             "metadata": {},
         }
@@ -60,9 +61,9 @@ class EventRepository(BaseRepository):
         if not ObjectId.is_valid(id):
             return None
 
-        update_data = event_update.dict(exclude_unset=True)
+        update_data = event_update.model_dump(exclude_unset=True)
         if update_data:
-            update_data["updated_at"] = datetime.utcnow()
+            update_data["updated_at"] = utcnow()
 
             result = await self.collection.find_one_and_update(
                 {"_id": ObjectId(id)},
@@ -78,7 +79,7 @@ class EventRepository(BaseRepository):
 
         result = await self.collection.update_one(
             {"_id": ObjectId(id)},
-            {"$addToSet": {"tags": tag}, "$set": {"updated_at": datetime.utcnow()}},
+            {"$addToSet": {"tags": tag}, "$set": {"updated_at": utcnow()}},
         )
         return result.modified_count > 0
 
@@ -88,7 +89,7 @@ class EventRepository(BaseRepository):
 
         result = await self.collection.update_one(
             {"_id": ObjectId(id)},
-            {"$pull": {"tags": tag}, "$set": {"updated_at": datetime.utcnow()}},
+            {"$pull": {"tags": tag}, "$set": {"updated_at": utcnow()}},
         )
         return result.modified_count > 0
 
@@ -98,7 +99,7 @@ class EventRepository(BaseRepository):
 
         result = await self.collection.update_one(
             {"_id": ObjectId(id)},
-            {"$set": {"severity": severity, "updated_at": datetime.utcnow()}},
+            {"$set": {"severity": severity, "updated_at": utcnow()}},
         )
         return result.modified_count > 0
 

@@ -6,6 +6,7 @@ from pymongo import ReturnDocument
 
 from core.database.repositories.base_repository import BaseRepository
 from core.models.simulation import SimulationCreate, SimulationUpdate
+from utils.time import utcnow
 
 
 class SimulationRepository(BaseRepository):
@@ -37,7 +38,7 @@ class SimulationRepository(BaseRepository):
     async def find_scheduled(
         self, limit: int = 100, skip: int = 0
     ) -> List[Dict[str, Any]]:
-        now = datetime.utcnow()
+        now = utcnow()
         query = {"status": "idle", "scheduled_start": {"$gte": now}}
         return await self.find_many(query, limit=limit, skip=skip)
 
@@ -49,7 +50,7 @@ class SimulationRepository(BaseRepository):
     async def create_simulation(
         self, simulation: SimulationCreate, user_id: Optional[str] = None
     ) -> str:
-        simulation_dict = simulation.dict()
+        simulation_dict = simulation.model_dump()
 
         if user_id:
             simulation_dict["created_by"] = user_id
@@ -57,8 +58,8 @@ class SimulationRepository(BaseRepository):
 
         simulation_doc = {
             **simulation_dict,
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow(),
+            "created_at": utcnow(),
+            "updated_at": utcnow(),
             "results": {},
             "events_generated": [],
             "alerts_generated": [],
@@ -76,9 +77,9 @@ class SimulationRepository(BaseRepository):
         if not ObjectId.is_valid(id):
             return None
 
-        update_data = simulation_update.dict(exclude_unset=True)
+        update_data = simulation_update.model_dump(exclude_unset=True)
         if update_data:
-            update_data["updated_at"] = datetime.utcnow()
+            update_data["updated_at"] = utcnow()
 
             if user_id:
                 update_data["updated_by"] = user_id
@@ -97,15 +98,15 @@ class SimulationRepository(BaseRepository):
         if not ObjectId.is_valid(id):
             return False
 
-        update_doc = {"status": status, "updated_at": datetime.utcnow()}
+        update_doc = {"status": status, "updated_at": utcnow()}
 
         if user_id:
             update_doc["updated_by"] = user_id
 
         if status == "running":
-            update_doc["actual_start"] = datetime.utcnow()
+            update_doc["actual_start"] = utcnow()
         elif status in ["completed", "failed"]:
-            update_doc["actual_end"] = datetime.utcnow()
+            update_doc["actual_end"] = utcnow()
 
         result = await self.collection.update_one(
             {"_id": ObjectId(id)}, {"$set": update_doc}
@@ -120,7 +121,7 @@ class SimulationRepository(BaseRepository):
             {"_id": ObjectId(simulation_id)},
             {
                 "$addToSet": {"events_generated": event_id},
-                "$set": {"updated_at": datetime.utcnow()},
+                "$set": {"updated_at": utcnow()},
             },
         )
         return result.modified_count > 0
@@ -133,7 +134,7 @@ class SimulationRepository(BaseRepository):
             {"_id": ObjectId(simulation_id)},
             {
                 "$addToSet": {"alerts_generated": alert_id},
-                "$set": {"updated_at": datetime.utcnow()},
+                "$set": {"updated_at": utcnow()},
             },
         )
         return result.modified_count > 0
@@ -144,7 +145,7 @@ class SimulationRepository(BaseRepository):
 
         result = await self.collection.update_one(
             {"_id": ObjectId(id)},
-            {"$set": {"results": results, "updated_at": datetime.utcnow()}},
+            {"$set": {"results": results, "updated_at": utcnow()}},
         )
         return result.modified_count > 0
 

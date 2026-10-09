@@ -5,6 +5,7 @@ Calculates risk scores for alerts and assets based on various factors.
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 from utils.logger import get_logger
+from utils.time import utcnow
 
 logger = get_logger(__name__)
 
@@ -83,7 +84,7 @@ class RiskScorer:
                 if isinstance(created_at, str):
                     created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
                 
-                hours_old = (datetime.utcnow() - created_at).total_seconds() / 3600
+                hours_old = (utcnow() - created_at).total_seconds() / 3600
                 time_factor = self.time_decay_factor ** min(hours_old / 24, 7)  # Cap at 7 days
                 weighted_score *= time_factor
             except (ValueError, TypeError) as e:
@@ -270,7 +271,7 @@ class AssetRiskManager:
         """
         # Get recent alerts grouped by asset
         from datetime import datetime, timedelta
-        time_threshold = datetime.utcnow() - timedelta(days=time_window_days)
+        time_threshold = utcnow() - timedelta(days=time_window_days)
         
         # First, get distinct assets that have alerts
         assets_with_alerts = await self.db.alerts.distinct('asset_id', {
@@ -318,7 +319,7 @@ class AssetRiskManager:
         org_risk = self.risk_scorer.calculate_organizational_risk(asset_risks)
         
         # Add timestamp
-        org_risk['timestamp'] = datetime.utcnow().isoformat()
+        org_risk['timestamp'] = utcnow().isoformat()
         
         # Store risk assessment in database for historical tracking
         await self.db.risk_assessments.insert_one(org_risk)
@@ -336,7 +337,7 @@ class AssetRiskManager:
             List of historical risk assessments
         """
         from datetime import datetime, timedelta
-        time_threshold = datetime.utcnow() - timedelta(days=days)
+        time_threshold = utcnow() - timedelta(days=days)
         
         # Format for date aggregation
         date_format = {
@@ -358,7 +359,7 @@ class AssetRiskManager:
             {'$sort': {'_id.year': 1, '_id.month': 1, '_id.day': 1}}
         ]
         
-        risk_history = await self.db.risk_assessments.aggregate(pipeline).to_list(length=days)
+        risk_history = await (await self.db.risk_assessments.aggregate(pipeline)).to_list(length=days)
         
         # Format the results
         formatted_history = []

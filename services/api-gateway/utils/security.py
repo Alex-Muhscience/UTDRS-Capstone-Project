@@ -1,33 +1,41 @@
 # utils/security.py
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any, Dict, Optional
 
+import bcrypt
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import jwt
-from passlib.context import CryptContext
 from pydantic import ValidationError
 
 from config import settings
 from core.models.user import User
+from utils.time import utcnow
 
-# Remove this line to avoid circular import:
-# from core.database.repositories.user_repository import UserRepository
+# UserRepository is imported inside get_current_user to avoid a circular import.
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-# Token utilities
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_PREFIX}/auth/login")
+
+# bcrypt only uses the first 72 bytes of a password; longer ones are rejected at
+# validation (see core.models.user) rather than silently truncated.
+BCRYPT_MAX_PASSWORD_BYTES = 72
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against a hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    """Verify a password against a bcrypt hash."""
+    password = plain_password.encode("utf-8")
+    if len(password) > BCRYPT_MAX_PASSWORD_BYTES:
+        return False
+    try:
+        return bcrypt.checkpw(password, hashed_password.encode("utf-8"))
+    except ValueError:
+        # Malformed stored hash
+        return False
 
 
 def get_password_hash(password: str) -> str:
-    """Generate password hash."""
-    return pwd_context.hash(password)
+    """Hash a password with bcrypt."""
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def create_access_token(
@@ -37,9 +45,9 @@ def create_access_token(
     to_encode = data.copy()
 
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(
+        expire = utcnow() + timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
 
@@ -62,7 +70,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
-    except (jwt.JWTError, ValidationError):
+    except (jwt.PyJWTError, ValidationError):
         raise credentials_exception
 
     # Import UserRepository here to avoid circular import

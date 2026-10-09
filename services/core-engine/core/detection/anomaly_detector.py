@@ -6,12 +6,22 @@ from scipy import stats
 import math
 from utils.logger import get_logger
 from core.database.connection import get_database
+from utils.time import utcnow
 
 logger = get_logger(__name__)
 
 class AnomalyDetector:
+    @property
+    def db(self):
+        # Resolved on use, so the detector can be created before MongoDB connects.
+        return self._db if self._db is not None else get_database()
+
+    @db.setter
+    def db(self, value):
+        self._db = value
+
     def __init__(self):
-        self.db = get_database()
+        self._db = None
         self.baseline_window = 7  # Days to look back for baseline
         self.anomaly_threshold = 2.0  # Standard deviations from mean
         
@@ -31,7 +41,7 @@ class AnomalyDetector:
             Detection result dict if anomaly found, None otherwise
         """
         # Refresh pattern caches if needed (once per day)
-        if datetime.utcnow() - self.last_cache_refresh > timedelta(days=1):
+        if utcnow() - self.last_cache_refresh > timedelta(days=1):
             await self._refresh_pattern_caches()
             
         event_type = event.get('event_type', '')
@@ -67,13 +77,13 @@ class AnomalyDetector:
             # Get daily patterns
             self.daily_patterns[event_type] = await self._calculate_daily_pattern(event_type)
         
-        self.last_cache_refresh = datetime.utcnow()
+        self.last_cache_refresh = utcnow()
         logger.info("Pattern caches refreshed successfully")
             
     async def _calculate_hourly_pattern(self, event_type: str) -> Dict[int, float]:
         """Calculate the normal hourly distribution of events for a given type."""
         # Aggregate events by hour for the baseline period
-        now = datetime.utcnow()
+        now = utcnow()
         start_date = (now - timedelta(days=self.baseline_window)).isoformat()
         
         pipeline = [
@@ -91,7 +101,7 @@ class AnomalyDetector:
             {'$sort': {'_id': 1}}
         ]
         
-        result = await self.db.events.aggregate(pipeline).to_list(length=24)
+        result = await (await self.db.events.aggregate(pipeline)).to_list(length=24)
         
         # Convert to hourly distribution
         hourly_counts = {i: 0 for i in range(24)}  # Initialize all hours with 0
@@ -114,7 +124,7 @@ class AnomalyDetector:
     async def _calculate_daily_pattern(self, event_type: str) -> Dict[int, float]:
         """Calculate the normal daily distribution of events for a given type."""
         # Aggregate events by day of week for the baseline period
-        now = datetime.utcnow()
+        now = utcnow()
         start_date = (now - timedelta(days=self.baseline_window * 2)).isoformat()
         
         pipeline = [
@@ -132,7 +142,7 @@ class AnomalyDetector:
             {'$sort': {'_id': 1}}
         ]
         
-        result = await self.db.events.aggregate(pipeline).to_list(length=7)
+        result = await (await self.db.events.aggregate(pipeline)).to_list(length=7)
         
         # Convert to daily distribution
         daily_counts = {i: 0 for i in range(1, 8)}  # 1=Sunday, 7=Saturday
@@ -167,7 +177,7 @@ class AnomalyDetector:
             return None
             
         # Parse timestamp
-        timestamp = datetime.fromisoformat(event.get('timestamp', datetime.utcnow().isoformat()))
+        timestamp = datetime.fromisoformat(event.get('timestamp', utcnow().isoformat()))
         hour_of_day = timestamp.hour
         day_of_week = timestamp.weekday() + 1  # MongoDB dayOfWeek: 1=Sunday, 7=Saturday
         
@@ -193,7 +203,7 @@ class AnomalyDetector:
         auth_history = await self.db.events.find({
             'event_type': 'authentication',
             'data.user_id': user_id,
-            'timestamp': {'$gte': (datetime.utcnow() - timedelta(days=self.baseline_window)).isoformat()}
+            'timestamp': {'$gte': (utcnow() - timedelta(days=self.baseline_window)).isoformat()}
         }).to_list(length=1000)
         
         # Skip if we don't have enough history
@@ -265,7 +275,7 @@ class AnomalyDetector:
                 'event_type': 'authentication',
                 'data.user_id': user_id,
                 'data.status': 'failed',
-                'timestamp': {'$gte': (datetime.utcnow() - timedelta(minutes=30)).isoformat()}
+                'timestamp': {'$gte': (utcnow() - timedelta(minutes=30)).isoformat()}
             })
             
             if recent_failures >= 5:
@@ -284,7 +294,7 @@ class AnomalyDetector:
             recent_auths = await self.db.events.find({
                 'event_type': 'authentication',
                 'data.user_id': user_id,
-                'timestamp': {'$gte': (datetime.utcnow() - timedelta(minutes=60)).isoformat()}
+                'timestamp': {'$gte': (utcnow() - timedelta(minutes=60)).isoformat()}
             }).sort('timestamp', -1).to_list(length=10)
             
             if len(recent_auths) >= 3:
@@ -345,7 +355,7 @@ class AnomalyDetector:
             historical_traffic = await self.db.events.find({
                 'event_type': 'network',
                 'data.src_ip': src_ip,
-                'timestamp': {'$gte': (datetime.utcnow() - timedelta(days=self.baseline_window)).isoformat()}
+                'timestamp': {'$gte': (utcnow() - timedelta(days=self.baseline_window)).isoformat()}
             }).to_list(length=500)
             
             if len(historical_traffic) >= 10:
@@ -402,7 +412,7 @@ class AnomalyDetector:
         historical_destinations = await self.db.events.distinct('data.dst_ip', {
             'event_type': 'network',
             'data.src_ip': src_ip,
-            'timestamp': {'$gte': (datetime.utcnow() - timedelta(days=self.baseline_window)).isoformat()}
+            'timestamp': {'$gte': (utcnow() - timedelta(days=self.baseline_window)).isoformat()}
         })
         
         if len(historical_destinations) >= 5 and dst_ip not in historical_destinations:
@@ -460,7 +470,7 @@ class AnomalyDetector:
             'event_type': 'network',
             'data.src_ip': src_ip,
             'data.dst_ip': dst_ip,
-            'timestamp': {'$gte': (datetime.utcnow() - timedelta(hours=24)).isoformat()}
+            'timestamp': {'$gte': (utcnow() - timedelta(hours=24)).isoformat()}
         }).sort('timestamp', 1).to_list(length=100)
         
         if len(recent_comms) < 5:
@@ -510,7 +520,7 @@ class AnomalyDetector:
         recent_connections = await self.db.events.find({
             'event_type': 'network',
             'data.src_ip': src_ip,
-            'timestamp': {'$gte': (datetime.utcnow() - timedelta(minutes=5)).isoformat()}
+            'timestamp': {'$gte': (utcnow() - timedelta(minutes=5)).isoformat()}
         }).to_list(length=100)
         
         if len(recent_connections) < 10:
@@ -545,7 +555,7 @@ class AnomalyDetector:
                 {'details.event.data.src_ip': ip_address},
                 {'details.event.data.dst_ip': ip_address}
             ],
-            'timestamp': {'$gte': (datetime.utcnow() - timedelta(days=7)).isoformat()}
+            'timestamp': {'$gte': (utcnow() - timedelta(days=7)).isoformat()}
         })
         
         if recent_alerts > 0:
@@ -618,7 +628,7 @@ class AnomalyDetector:
                 'event_type': 'file',
                 'data.filepath': filepath,
                 'data.user_id': user_id,
-                'timestamp': {'$gte': (datetime.utcnow() - timedelta(days=self.baseline_window)).isoformat()}
+                'timestamp': {'$gte': (utcnow() - timedelta(days=self.baseline_window)).isoformat()}
             })
             
             if historical_access == 0:
@@ -640,7 +650,7 @@ class AnomalyDetector:
                 'data.operation': operation,
                 'data.user_id': user_id,
                 'data.process_name': process_name,
-                'timestamp': {'$gte': (datetime.utcnow() - timedelta(minutes=5)).isoformat()}
+                'timestamp': {'$gte': (utcnow() - timedelta(minutes=5)).isoformat()}
             })
             
             if recent_operations >= 10:
@@ -682,7 +692,7 @@ class AnomalyDetector:
                 'event_type': 'file',
                 'data.operation': 'read',
                 'data.process_name': process_name,
-                'timestamp': {'$gte': (datetime.utcnow() - timedelta(minutes=15)).isoformat()}
+                'timestamp': {'$gte': (utcnow() - timedelta(minutes=15)).isoformat()}
             }).sort('timestamp', 1).to_list(length=100)
             
             if len(recent_reads) > 20:
@@ -828,7 +838,7 @@ class AnomalyDetector:
         if process_name.lower() in ['svchost.exe', 'lsass.exe', 'services.exe']:
             # System processes typically start at boot time
             # If we see them starting much later, it might be suspicious
-            timestamp = datetime.fromisoformat(event.get('timestamp', datetime.utcnow().isoformat()))
+            timestamp = datetime.fromisoformat(event.get('timestamp', utcnow().isoformat()))
             system_uptime = await self._get_system_uptime(event.get('source', ''))
             
             if system_uptime and system_uptime > 3600:  # System has been up for more than an hour
@@ -863,7 +873,7 @@ class AnomalyDetector:
         if system_info and 'boot_time' in system_info:
             try:
                 boot_time = datetime.fromisoformat(system_info['boot_time'])
-                return (datetime.utcnow() - boot_time).total_seconds()
+                return (utcnow() - boot_time).total_seconds()
             except (ValueError, TypeError):
                 return None
                 
@@ -878,13 +888,13 @@ class AnomalyDetector:
         """
         event_type = event.get('event_type', '')
         source = event.get('source', '')
-        timestamp = datetime.fromisoformat(event.get('timestamp', datetime.utcnow().isoformat()))
+        timestamp = datetime.fromisoformat(event.get('timestamp', utcnow().isoformat()))
         
         # Get count of events of this type in the last hour
         recent_count = await self.db.events.count_documents({
             'event_type': event_type,
             'source': source,
-            'timestamp': {'$gte': (datetime.utcnow() - timedelta(hours=1)).isoformat()}
+            'timestamp': {'$gte': (utcnow() - timedelta(hours=1)).isoformat()}
         })
         
         # Check hourly patterns using the cached patterns if available
@@ -910,7 +920,7 @@ class AnomalyDetector:
             {'$match': {
                 'event_type': event_type,
                 'source': source,
-                'timestamp': {'$gte': (datetime.utcnow() - timedelta(days=self.baseline_window)).isoformat()}
+                'timestamp': {'$gte': (utcnow() - timedelta(days=self.baseline_window)).isoformat()}
             }},
             {'$group': {
                 '_id': {
@@ -921,7 +931,7 @@ class AnomalyDetector:
             }}
         ]
         
-        hourly_counts = await self.db.events.aggregate(pipeline).to_list(length=1000)
+        hourly_counts = await (await self.db.events.aggregate(pipeline)).to_list(length=1000)
         
         if len(hourly_counts) >= 24:  # If we have at least a day's worth of hourly data
             counts = [doc['count'] for doc in hourly_counts]

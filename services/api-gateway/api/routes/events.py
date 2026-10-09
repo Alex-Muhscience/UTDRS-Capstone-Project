@@ -1,10 +1,11 @@
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query, status
 
 from core.models.event import Event, EventCreate, EventUpdate
 from core.models.user import User
+from core.services.detection_pipeline import analyse_event
 from core.services.event_service import EventService
 from utils.security import get_current_active_user
 
@@ -47,13 +48,19 @@ async def get_events(
 
 @router.post("/", response_model=Event, status_code=status.HTTP_201_CREATED)
 async def create_event(
-    event: EventCreate, current_user: User = Depends(get_current_active_user)
+    event: EventCreate,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     Create a new event.
+
+    When a core engine is configured, the event is then analysed in the background; the
+    result is recorded on the event (metadata.analysis) and a threat raises an alert.
     """
     event_service = EventService()
     event_id = await event_service.create_event(event)
+    background_tasks.add_task(analyse_event, event_id, event)
 
     created_event = await event_service.get_event_by_id(event_id)
     if not created_event:
