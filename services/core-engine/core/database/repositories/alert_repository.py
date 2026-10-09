@@ -2,6 +2,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from core.database.repositories.base_repository import BaseRepository
 from core.models.schema.alert import AlertCreate, Alert
+from utils.time import utcnow
 
 class AlertRepository(BaseRepository):
     def __init__(self):
@@ -11,7 +12,7 @@ class AlertRepository(BaseRepository):
         alert_dict = alert_data.model_dump()
         
         # Add timestamps
-        now = datetime.utcnow()
+        now = utcnow()
         alert_dict["created_at"] = now
         alert_dict["updated_at"] = now
         
@@ -25,7 +26,7 @@ class AlertRepository(BaseRepository):
     async def update_alert_status(self, alert_id, status, assigned_to=None):
         update_data = {
             "status": status,
-            "updated_at": datetime.utcnow()
+            "updated_at": utcnow()
         }
         
         if assigned_to:

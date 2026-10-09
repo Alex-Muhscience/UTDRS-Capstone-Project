@@ -7,6 +7,7 @@ import pickle
 from utils.logger import get_logger
 from config import settings
 from core.models.ml.model_registry import ModelRegistry
+from utils.time import utcnow
 
 logger = get_logger(__name__)
 
@@ -285,6 +286,14 @@ class MLDetector:
             ]):
                 score += 0.3
                 
+            # Deleting backups and shadow copies: ransomware does this before encrypting
+            # so the victim cannot restore (MITRE ATT&CK T1490, Inhibit System Recovery).
+            if any(indicator in cmdline for indicator in [
+                'vssadmin delete shadows', 'vssadmin.exe delete shadows', 'wmic shadowcopy delete',
+                'wbadmin delete catalog', 'bcdedit /set {default} recoveryenabled no',
+            ]):
+                score += 0.8
+
             # Process accessing system directories
             accessed_files = event_data.get('accessed_files', [])
             if any('/system32/' in file.lower() or '\\system32\\' in file.lower() for file in accessed_files):
@@ -324,7 +333,28 @@ class MLDetector:
             if 'file' in event.get('event_type', '') and event_data.get('operation', '') == 'rename' and \
                any(ext in event_data.get('filepath', '').lower() for ext in ['.encrypted', '.locked', '.crypt']):
                 is_ransomware = True
-                
+
+            cmdline = event_data.get('command_line', '').lower()
+            inhibits_recovery = 'process' in event.get('event_type', '') and any(
+                indicator in cmdline for indicator in [
+                    'vssadmin delete shadows', 'vssadmin.exe delete shadows', 'wmic shadowcopy delete',
+                    'wbadmin delete catalog', 'bcdedit /set {default} recoveryenabled no',
+                ]
+            )
+
+            if inhibits_recovery:
+                return {
+                    "name": "Potential Ransomware Activity: Recovery Inhibited",
+                    "description": f"Shadow copies or backups are being deleted ({score*100:.1f}% confidence), a common step before ransomware encrypts files",
+                    "severity": "critical",
+                    "detection_type": "ml",
+                    "model": "ransomware_detector_simulated",
+                    "confidence": min(score, 1.0),
+                    "tags": ["ransomware", "inhibit-recovery", "ml-detection"],
+                    "mitre_techniques": ["T1490"],  # Inhibit System Recovery
+                    "mitre_tactics": ["TA0040"]     # Impact
+                }
+
             if is_ransomware:
                 return {
                     "name": "Potential Ransomware Activity",
@@ -468,7 +498,7 @@ class MLDetector:
         
         # Extract user information
         user_id = event_data.get('user_id', '')
-        timestamp = datetime.fromisoformat(event.get('timestamp', datetime.utcnow().isoformat()))
+        timestamp = datetime.fromisoformat(event.get('timestamp', utcnow().isoformat()))
         action = event_data.get('action', '')
         source_ip = event_data.get('source_ip', '')
         

@@ -57,14 +57,14 @@ async def get_rule(rule_id: str):
 async def create_rule(rule: DetectionRule):
     '''Create a new detection rule.'''
     rule_manager = get_rule_manager()
-    created_rule = await rule_manager.create_rule(rule.dict())
+    created_rule = await rule_manager.create_rule(rule.model_dump())
     return created_rule
 
 @router.put("/{rule_id}", response_model=DetectionRule)
 async def update_rule(rule_id: str, rule: DetectionRule):
     '''Update an existing detection rule.'''
     rule_manager = get_rule_manager()
-    updated_rule = await rule_manager.update_rule(rule_id, rule.dict())
+    updated_rule = await rule_manager.update_rule(rule_id, rule.model_dump())
     if not updated_rule:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -5,6 +5,7 @@ import json
 import hashlib
 from utils.logger import get_logger
 from core.database.connection import get_database
+from utils.time import utcnow
 
 logger = get_logger(__name__)
 
@@ -270,7 +271,7 @@ class ThresholdCorrelationRule(CorrelationRule):
             return f"{self.name}_{group_str}"
         else:
             # For ungrouped, use the rule name and time window
-            timestamp = events[0].get('timestamp', datetime.utcnow().isoformat())
+            timestamp = events[0].get('timestamp', utcnow().isoformat())
             return f"{self.name}_{timestamp}"
 
 
@@ -494,9 +495,18 @@ class CorrelationDetector:
     Detector that correlates multiple events to identify complex attack patterns.
     """
     
+    @property
+    def db(self):
+        # Resolved on use, so the detector can be created before MongoDB connects.
+        return self._db if self._db is not None else get_database()
+
+    @db.setter
+    def db(self, value):
+        self._db = value
+
     def __init__(self):
         """Initialize the correlation detector."""
-        self.db = get_database()
+        self._db = None
         self.rules = []
         self.load_rules()
         
@@ -576,7 +586,7 @@ class CorrelationDetector:
             List of correlation results (potential security incidents)
         """
         # Get recent events
-        time_threshold = datetime.utcnow() - timedelta(minutes=time_window_minutes)
+        time_threshold = utcnow() - timedelta(minutes=time_window_minutes)
         recent_events = await self.db.events.find({
             "timestamp": {"$gte": time_threshold.isoformat()}
         }).to_list(length=10000)
@@ -594,7 +604,7 @@ class CorrelationDetector:
             
             # Group events by time windows
             for event in recent_events:
-                event_time = datetime.fromisoformat(event.get('timestamp', datetime.utcnow().isoformat()))
+                event_time = datetime.fromisoformat(event.get('timestamp', utcnow().isoformat()))
                 window_start = event_time - rule_time_window
                 
                 # Get events in this time window
@@ -715,7 +725,9 @@ class CorrelationDetector:
             Correlation detection result if found, None otherwise
         """
         # Store the event
-        await self.db.events.insert_one(event)
+        # Store a copy: insert_one adds an ObjectId "_id" to the dict it is given, which
+        # would otherwise leak into the event the other detectors and the alert see.
+        await self.db.events.insert_one(dict(event))
         
         # Correlate recent events
         correlations = await self.correlate_events()

@@ -6,6 +6,7 @@ from pymongo import ReturnDocument
 
 from core.database.repositories.base_repository import BaseRepository
 from core.models.detection import DetectionRuleCreate, DetectionRuleUpdate
+from utils.time import utcnow
 
 
 class DetectionRepository(BaseRepository):
@@ -45,7 +46,7 @@ class DetectionRepository(BaseRepository):
     async def create_rule(
         self, rule: DetectionRuleCreate, user_id: Optional[str] = None
     ) -> str:
-        rule_dict = rule.dict()
+        rule_dict = rule.model_dump()
 
         if user_id:
             rule_dict["created_by"] = user_id
@@ -53,8 +54,8 @@ class DetectionRepository(BaseRepository):
 
         rule_doc = {
             **rule_dict,
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow(),
+            "created_at": utcnow(),
+            "updated_at": utcnow(),
             "performance_metrics": {},
             "metadata": {},
         }
@@ -67,9 +68,9 @@ class DetectionRepository(BaseRepository):
         if not ObjectId.is_valid(id):
             return None
 
-        update_data = rule_update.dict(exclude_unset=True)
+        update_data = rule_update.model_dump(exclude_unset=True)
         if update_data:
-            update_data["updated_at"] = datetime.utcnow()
+            update_data["updated_at"] = utcnow()
 
             if user_id:
                 update_data["updated_by"] = user_id
@@ -88,7 +89,7 @@ class DetectionRepository(BaseRepository):
         if not ObjectId.is_valid(id):
             return False
 
-        update_doc = {"status": status, "updated_at": datetime.utcnow()}
+        update_doc = {"status": status, "updated_at": utcnow()}
 
         if user_id:
             update_doc["updated_by"] = user_id
@@ -104,7 +105,7 @@ class DetectionRepository(BaseRepository):
 
         result = await self.collection.update_one(
             {"_id": ObjectId(id)},
-            {"$addToSet": {"tags": tag}, "$set": {"updated_at": datetime.utcnow()}},
+            {"$addToSet": {"tags": tag}, "$set": {"updated_at": utcnow()}},
         )
         return result.modified_count > 0
 
@@ -114,7 +115,7 @@ class DetectionRepository(BaseRepository):
 
         result = await self.collection.update_one(
             {"_id": ObjectId(id)},
-            {"$pull": {"tags": tag}, "$set": {"updated_at": datetime.utcnow()}},
+            {"$pull": {"tags": tag}, "$set": {"updated_at": utcnow()}},
         )
         return result.modified_count > 0
 
@@ -126,7 +127,7 @@ class DetectionRepository(BaseRepository):
 
         result = await self.collection.update_one(
             {"_id": ObjectId(id)},
-            {"$set": {"performance_metrics": metrics, "updated_at": datetime.utcnow()}},
+            {"$set": {"performance_metrics": metrics, "updated_at": utcnow()}},
         )
         return result.modified_count > 0
 

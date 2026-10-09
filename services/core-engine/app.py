@@ -1,9 +1,12 @@
-from fastapi import FastAPI, Depends, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from api.routes import health, rules
-from core.database.connection import connect_to_mongo, close_mongo_connection
-from config import settings
 import logging
+from contextlib import asynccontextmanager
+
+from fastapi import Depends, FastAPI
+
+from api.routes import detections, health, rules
+from api.security import require_internal_token
+from config import settings
+from core.database.connection import close_mongo_connection, connect_to_mongo
 
 # Configure logging
 logging.basicConfig(
@@ -12,35 +15,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await connect_to_mongo()
+    yield
+    await close_mongo_connection()
+
+
 app = FastAPI(
     title="UTDRS Core Engine",
     description="Core Detection Engine for the Unified Threat Detection and Response System",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
-# Setup CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Database events
-app.add_event_handler("startup", connect_to_mongo)
-app.add_event_handler("shutdown", close_mongo_connection)
-
-# Include API routes
+# The engine is called by the API gateway, not by browsers, so no CORS is configured.
+internal = [Depends(require_internal_token)]
 app.include_router(health.router, tags=["health"])
-app.include_router(rules.router, prefix="/rules", tags=["rules"])
+app.include_router(rules.router, prefix="/rules", tags=["rules"], dependencies=internal)
+app.include_router(detections.router, prefix="/detections", tags=["detections"], dependencies=internal)
 
-# Import detections router AFTER database has been connected
-@app.on_event("startup")
-async def setup_detection_routes():
-    from api.routes import detections
-    app.include_router(detections.router, prefix="/detections", tags=["detections"])
-    logger.info("Detection routes initialized")
 
 @app.get("/")
 async def root():
