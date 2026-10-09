@@ -83,8 +83,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
         raise credentials_exception
 
     if not user.get("active", False):
+        # A deactivated account's tokens stop working, so clients sign out.
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="This account has been deactivated",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     return User(**user)
@@ -97,5 +100,15 @@ async def get_current_active_user(
     if not current_user.active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive"
+        )
+    return current_user
+
+
+async def require_admin(current_user: User = Depends(get_current_active_user)) -> User:
+    """The signed-in user, who must be an administrator."""
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can do this",
         )
     return current_user

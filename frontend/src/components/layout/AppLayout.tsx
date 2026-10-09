@@ -8,13 +8,14 @@ import {
   Server,
   ShieldAlert,
   UserRound,
+  Users,
   X,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Link, NavLink, Outlet, useLocation } from "react-router"
 
 import { useAlertSummary } from "@/api/queries"
-import { useAuth, useUser } from "@/auth/context"
+import { useAuth, useIsAdmin, useUser } from "@/auth/context"
 import { cx } from "@/lib/cx"
 import { humanize } from "@/lib/format"
 
@@ -31,6 +32,8 @@ const NAVIGATION = [
   { to: "/simulations", label: "Simulations", icon: FlaskConical },
 ] as const
 
+const ADMIN_NAVIGATION = [{ to: "/users", label: "Users", icon: Users }] as const
+
 function OpenAlertCount() {
   const { data } = useAlertSummary()
   const count = (data?.by_status.open ?? 0) + (data?.by_status.in_progress ?? 0)
@@ -44,9 +47,11 @@ function OpenAlertCount() {
 }
 
 function Navigation({ onNavigate }: { onNavigate?: () => void }) {
+  const isAdmin = useIsAdmin()
+  const items = isAdmin ? [...NAVIGATION, ...ADMIN_NAVIGATION] : NAVIGATION
   return (
     <nav aria-label="Main" className="space-y-0.5">
-      {NAVIGATION.map(({ to, label, icon: Icon, ...rest }) => (
+      {items.map(({ to, label, icon: Icon, ...rest }) => (
         <NavLink
           key={to}
           to={to}

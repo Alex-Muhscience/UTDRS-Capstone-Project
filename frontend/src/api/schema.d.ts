@@ -44,6 +44,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Auth Config
+         * @description What the sign-in page needs to know, such as whether anyone can register.
+         */
+        get: operations["auth_config_api_v1_auth_config_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -75,7 +95,7 @@ export interface paths {
         put?: never;
         /**
          * Register
-         * @description Register a new user.
+         * @description Register a new user, as an analyst. Closed when ALLOW_REGISTRATION is false.
          */
         post: operations["register_api_v1_auth_register_post"];
         delete?: never;
@@ -122,6 +142,76 @@ export interface paths {
          * @description Change current user password.
          */
         post: operations["change_password_api_v1_auth_me_change_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Users
+         * @description The people with accounts, newest first. Filter by `role` or `active`.
+         */
+        get: operations["list_users_api_v1_users__get"];
+        put?: never;
+        /**
+         * Create User
+         * @description Create an account (admins only). The response includes a temporary password,
+         *     shown only this once, for the person to sign in with and then change.
+         */
+        post: operations["create_user_api_v1_users__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get User */
+        get: operations["get_user_api_v1_users__user_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update User
+         * @description Change someone's role or deactivate their account (admins only). You cannot
+         *     change your own role or deactivate yourself, so the administrator making a
+         *     change always remains one. If every administrator is lost anyway, setting
+         *     ADMIN_USERNAME and restarting the gateway restores one.
+         */
+        patch: operations["update_user_api_v1_users__user_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Password
+         * @description Give someone a new temporary password (admins only), for example when they have
+         *     forgotten theirs. It is shown only this once.
+         */
+        post: operations["reset_password_api_v1_users__user_id__reset_password_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1179,6 +1269,29 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AdminUserCreate
+         * @description An account created by an administrator; the password is generated.
+         */
+        AdminUserCreate: {
+            /** Username */
+            username: string;
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Firstname */
+            firstName?: string | null;
+            /** Lastname */
+            lastName?: string | null;
+            /**
+             * Role
+             * @default analyst
+             * @enum {string}
+             */
+            role: "admin" | "analyst";
+        };
+        /**
          * Alert
          * @example {
          *       "asset_ids": [
@@ -1484,6 +1597,11 @@ export interface components {
             tags?: string[] | null;
             /** Notes */
             notes?: string | null;
+        };
+        /** AuthConfig */
+        AuthConfig: {
+            /** Allow Registration */
+            allow_registration: boolean;
         };
         /** Body_login_api_v1_auth_login_post */
         Body_login_api_v1_auth_login_post: {
@@ -2059,6 +2177,16 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /**
+         * UserAdminUpdate
+         * @description What an administrator can change on someone else's account.
+         */
+        UserAdminUpdate: {
+            /** Role */
+            role?: ("admin" | "analyst") | null;
+            /** Active */
+            active?: boolean | null;
+        };
         /** UserCreate */
         UserCreate: {
             /** Username */
@@ -2100,6 +2228,15 @@ export interface components {
             preferences?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /**
+         * UserWithPassword
+         * @description A new or reset account, with its one-time password. Shown once.
+         */
+        UserWithPassword: {
+            user: components["schemas"]["User"];
+            /** Temporary Password */
+            temporary_password: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -2159,6 +2296,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    auth_config_api_v1_auth_config_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthConfig"];
                 };
             };
         };
@@ -2302,6 +2459,170 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_users_api_v1_users__get: {
+        parameters: {
+            query?: {
+                role?: ("admin" | "analyst") | null;
+                active?: boolean | null;
+                limit?: number;
+                skip?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_user_api_v1_users__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminUserCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserWithPassword"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_user_api_v1_users__user_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_user_api_v1_users__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserAdminUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_password_api_v1_users__user_id__reset_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserWithPassword"];
                 };
             };
             /** @description Validation Error */

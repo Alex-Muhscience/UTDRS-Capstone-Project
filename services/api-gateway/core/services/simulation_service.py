@@ -24,7 +24,6 @@ class SimulationService:
 
         # Initialize integration client if URL is configured
         self.core_engine_url = settings.CORE_ENGINE_URL
-        self.response_service_url = settings.RESPONSE_SERVICE_URL
 
     async def get_simulations(
         self, limit: int = 100, skip: int = 0
