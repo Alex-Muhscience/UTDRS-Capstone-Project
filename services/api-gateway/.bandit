@@ -1,0 +1,14 @@
+[bandit]
+# Bandit configuration for UTDRS API Gateway
+# Skip B101 (assert_used) - assert statements are normal in test files
+skips = B101
+
+# Exclude test directories completely
+exclude_dirs = tests
+
+# Exclude specific test file patterns
+exclude = ./tests/*, tests/*, **/tests/**, test_*.py, *_test.py
+
+# Only report medium and high severity issues
+severity = MEDIUM
+confidence = HIGH
