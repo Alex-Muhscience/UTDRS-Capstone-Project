@@ -59,7 +59,7 @@ def get_predefined_rules() -> List[Dict[str, Any]]:
             "description": "Detects network connections to known command and control servers",
             "rule_type": "signature",
             "detection": {
-                "condition_type": "OR",
+                "condition_type": "AND",
                 "conditions": {
                     "event_type": "network",
                     "data.dst_ip": ["192.168.0.1", "10.0.0.1"]  # Example IPs, would be a longer list in production
@@ -76,7 +76,7 @@ def get_predefined_rules() -> List[Dict[str, Any]]:
             "description": "Detects DNS queries to known malicious or suspicious domains",
             "rule_type": "signature",
             "detection": {
-                "condition_type": "OR",
+                "condition_type": "AND",
                 "conditions": {
                     "event_type": "dns",
                     "data.domain": ["malicious.com", "evil.net"]  # Example domains, would be a longer list in production
