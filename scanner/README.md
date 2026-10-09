@@ -1,229 +1,82 @@
-# UTDRS Device Scanner
+# UTDRS device scanner
 
-![Project Logo](docs/images/logo.png) <!-- Add your logo if available -->
+An agent that collects a device's system and network inventory, and a collection server that receives inventories over mutually authenticated TLS and stores them in MongoDB. Written in C for Linux and Windows.
 
-A secure, cross-platform device scanning and management system with TLS encryption and centralized reporting.
+C · OpenSSL · mongo-c-driver · Jansson
 
-## Features
+> **Status: prototype; the agent and the server do not work together yet.** Each one runs, and the server's TLS and validation work, but the agent sends its inventory as raw C structs while the server expects a `SCAN` command carrying JSON. The server also checks a `checksum` field against the SHA-256 of the whole message, which contains the checksum itself, so no message can pass. Settling one wire format (JSON with a checksum over the other fields) is the next step; see the [roadmap](../README.md#roadmap).
 
-- ✅ **MongoDB Integration**: Full database connectivity with MongoDB C Driver 1.30.3
-- ✅ **JSON Processing**: Complete JSON validation with Jansson 2.14 library
-- ✅ **Secure Communication**: TLS 1.2+ encrypted connections
-- ✅ **Cross-Platform**: Works on Windows and Linux
-- ✅ **Centralized Management**: Server-client architecture
-- ✅ **Device Discovery**: Comprehensive network scanning
-- ✅ **Rate Limiting**: Protection against brute force attacks (30 req/min)
-- ✅ **Built Successfully**: Ready-to-run executables available
+## Components
 
-## Architecture
+| | |
+|---|---|
+| **Agent** (`src/agent`, `bin/agent`) | Every `scan_interval` seconds, collects the OS name and version, memory, CPU cores and network interfaces (Win32 APIs on Windows; `uname`, `sysinfo` and `getifaddrs` elsewhere), connects to the server with its client certificate, checks the server's certificate chain and that it names `server_host`, and sends a heartbeat and the inventory. Settings: `configs/agent.conf`. |
+| **Server** (`src/server`, `bin/server`) | Listens on port 8443, one thread per connection (up to 200). Requires a client certificate signed by the CA (TLS 1.2 or later; on TLS 1.2 only ECDHE with AES-256-GCM), allows at most 30 requests a minute from one address, and stores accepted scans in MongoDB (`utdrs_db.scans`, with the client's address and a timestamp). |
 
-UTDRS_System/
-├── agent/              # Client components
-├── server/             # Server components
-├── common/             # Shared utilities
-├── configs/            # Configuration files
-│   └── certs/          # TLS certificates
-├── docs/               # Documentation
-├── include/            # Header files
-└── tests/              # Unit tests
+### The server's protocol
 
-## Prerequisites
+One command per connection, up to 1,024 bytes, answered with a single word:
 
-### Windows (MinGW-w64)
+| Command | Reply |
+|---|---|
+| `SCAN {"hostname": ..., "os": ..., "timestamp": ..., "checksum": ...}` | `ACK` when stored; `INVALID_JSON`; `DATA_TOO_LARGE`; `VALIDATION_ERROR` for a missing field, a field over the length limit, or a checksum that does not match; `STORAGE_ERROR` |
+| anything else | `INVALID_CMD` |
 
-**Required Dependencies:**
-- MinGW-w64 GCC compiler
-- MongoDB C Driver 1.30.3 (built from source)
-- Jansson 2.14 JSON library (built from source)
-- OpenSSL (for TLS support)
-- Make utility
+Connections from an address over the rate limit are closed. A connection without a valid client certificate fails the TLS handshake.
 
-**Installation Status:**
-- ✅ MongoDB C Driver: Installed at `D:\mongodb-c-driver\mongodb-c-driver-1.30.3\build-install`
-- ✅ Jansson Library: Installed at `D:\jansson\install`
-- ✅ GCC Compiler: Available in PATH
-- ✅ Make Utility: Available in PATH
+## Build
 
-### Linux (Ubuntu/Debian)
+**Linux** (Debian or Ubuntu packages; CI builds the same way):
 
 ```bash
-sudo apt-get install gcc libssl-dev libjansson-dev libsqlite3-dev make
-sudo apt-get install libmongoc-1.0-0 libmongoc-dev
+sudo apt-get install build-essential pkg-config libssl-dev libmongoc-dev libbson-dev libjansson-dev
+make            # bin/agent and bin/server
 ```
 
-## Building
+**Windows** (MinGW-w64): install OpenSSL, mongo-c-driver and Jansson, adjust the include and library paths at the top of the `Makefile` (the `Windows_NT` branch), and run `make` to get `bin/agent.exe` and `bin/server.exe`.
 
-### Windows MinGW Build
+## Run it locally
 
-1. Ensure all dependencies are properly installed (see Prerequisites)
-
-2. Navigate to project directory:
+Both programs read their certificates from `configs/certs/` relative to the working directory (git-ignored: never commit keys). For a local test, create a throwaway CA and certificates:
 
 ```bash
-cd "D:\Personal_Projects\UTDRS Device Scanner"
+mkdir -p configs/certs && cd configs/certs
+openssl req -x509 -newkey rsa:2048 -nodes -keyout ca.key -out ca.crt -days 30 -subj "/CN=UTDRS development CA"
+openssl req -newkey rsa:2048 -nodes -keyout server.key -out server.csr -subj "/CN=localhost"
+openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 30 \
+  -extfile <(printf "subjectAltName=DNS:localhost")
+openssl req -newkey rsa:2048 -nodes -keyout agent.key -out agent.csr -subj "/CN=agent-1"
+openssl x509 -req -in agent.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out agent.crt -days 30
+cd ../..
 ```
 
-3. Clean and build:
+Start the server (it reads only `MONGODB_URI` from the environment) and talk to it with `openssl s_client` using the agent's certificate:
 
 ```bash
-make clean
-make
+MONGODB_URI=mongodb://localhost:27017 ./bin/server
+printf 'SCAN not-json' | openssl s_client -quiet -connect localhost:8443 \
+  -cert configs/certs/agent.crt -key configs/certs/agent.key -CAfile configs/certs/ca.crt   # INVALID_JSON
 ```
 
-**Build Output:**
-- `bin/agent.exe` - Client scanning component
-- `bin/server.exe` - Server management component
+`./bin/agent` connects with the settings in `configs/agent.conf` (`server_host` must be a name in the server's certificate). For production, `scripts/generate_ca.sh`, `generate_server_cert.sh` and `generate_agent_cert.sh` create 4096-bit keys under `/etc/device-scanner/certs`; copy or link them into `configs/certs/`. Other scripts cover deployment, certificate rotation and revocation, heartbeat checks and database backups.
 
-### Linux Build
+## Docker
 
-1. Clone the repository:
+The image builds on Debian and runs the server as a non-root user:
 
 ```bash
-git clone https://github.com/yourusername/utdrs-device-scanner.git
-cd utdrs-device-scanner
+docker build -t utdrs-scanner-server .
+docker run -p 8443:8443 -e MONGODB_URI=mongodb://host.docker.internal:27017 \
+  -v "$PWD/configs/certs:/app/configs/certs:ro" utdrs-scanner-server
 ```
 
-2. Build the project:
+## Layout
 
-```bash
-make clean && make
 ```
-
-## Usage
-
-### Starting the Server
-
-```bash
-./bin/server.exe  # Windows
-./bin/server      # Linux
+src/agent/      main loop, inventory collection, TLS transport, authentication
+src/server/     accept loop and threads, command handling and validation, storage
+src/common/     TLS contexts, logging, utilities
+include/        headers
+configs/        agent.conf, server.conf and templates; certs/ (local only)
+scripts/        certificate generation, deployment and maintenance
 ```
-
-### Running an Agent
-
-```bash
-./bin/agent.exe --server-address 127.0.0.1 --server-port 8443  # Windows
-./bin/agent --server-address 127.0.0.1 --server-port 8443      # Linux
-```
-
-## Configuration
-
-Edit `configs/server.conf`:
-
-```ini
-[network]
-port = 8443
-max_connections = 100
-
-[security]
-tls_cert = configs/certs/server.crt
-tls_key = configs/certs/server.key
-ca_cert = configs/certs/ca.crt
-```
-
-## API Documentation
-
-### Server Endpoints
-
-- `POST /api/v1/scan` - Submit device scan results
-- `GET /api/v1/devices` - List all scanned devices
-- `GET /api/v1/device/{id}` - Get specific device details
-
-## Security Features
-
-1. **TLS 1.2+ Encryption**
-2. **Certificate Pinning**
-3. **Rate Limiting** (30 requests/minute)
-4. **Secure Memory Handling**
-5. **Input Validation**
-
-## Development
-
-### Code Structure
-
-| Directory       | Purpose                          |
-|-----------------|----------------------------------|
-| `src/agent/`    | Client-side scanning logic       |
-| `src/server/`   | Server management and API        |
-| `src/common/`   | Shared utilities and crypto      |
-| `include/`      | Header files                     |
-
-### Testing
-
-Run unit tests:
-
-```bash
-make test
-```
-
-### Debug Build
-
-```bash
-make DEBUG=1
-```
-
-## Deployment
-
-### Docker (Recommended)
-
-```bash
-docker build -t utdrs-server .
-docker run -p 8443:8443 utdrs-server
-```
-
-### Systemd Service (Linux)
-
-```ini
-# /etc/systemd/system/utdrs.service
-[Unit]
-Description=UTDRS Device Scanner Server
-
-[Service]
-ExecStart=/opt/utdrs/bin/server
-Restart=always
-User=utdrs
-
-[Install]
-WantedBy=multi-user.target
-```
-
-## Troubleshooting
-
-**Common Issues:**
-
-1. **Certificate errors**: Verify paths in `configs/server.conf`
-2. **Connection refused**: Check server is running and firewall settings
-3. **Missing dependencies**: Run `make deps` to verify requirements
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/fooBar`)
-3. Commit your changes (`git commit -am 'Add some fooBar'`)
-4. Push to the branch (`git push origin feature/fooBar`)
-5. Create a new Pull Request
-
-## License
-
-MIT License - See [LICENSE](LICENSE) for details.
-
----
-
-**Maintainer**: Alex Muhscience  
-**Contact**: <info.ak.computerscience@gmail.com>  
-**Version**: 1.0.0  
-**Last Updated**: 2025-3-27
-
-This README includes:
-
-1. **Project Overview**: Brief description and features
-2. **Installation Instructions**: For both Windows and Linux
-3. **Build Instructions**: With certificate generation
-4. **Usage Examples**: For both server and agent
-5. **Configuration Details**: Sample config file
-6. **API Documentation**: Key endpoints
-7. **Security Features**: Highlighted protections
-8. **Development Guide**: Code structure and testing
-9. **Deployment Options**: Docker and systemd
-10. **Troubleshooting**: Common issues
-11. **Contribution Guidelines**
-12. **License Information**

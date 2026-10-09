@@ -1,80 +1,56 @@
-# MongoDB Data Processor
+# UTDRS data processor
 
-![Python](https://img.shields.io/badge/python-3.8%2B-blue)
-![MongoDB](https://img.shields.io/badge/MongoDB-4.4%2B-green)
-![License](https://img.shields.io/badge/license-MIT-orange)
+A small batch worker for MongoDB: it moves documents from a source collection to a destination collection in batches, stamping each one as processed, sets aside any document that fails in a dead-letter collection with its error, and reports its progress on a health endpoint.
 
-A robust data processing pipeline that continuously transforms MongoDB documents with batch processing, error handling, and monitoring.
+Python 3.12 · PyMongo · Flask
 
-## Features
+> **Status:** standalone. It works on its own, but nothing in UTDRS writes to its source collection yet, and its transformation is a placeholder (`process_document` adds `processed` and `processing_timestamp`). Wiring it in, for example to normalise raw scanner output before it reaches the gateway, is future work.
 
-- **Batch Processing**: Configurable document batch size
-- **Dead Letter Queue**: Failed documents stored with error context
-- **Health Monitoring**: REST endpoint with metrics
-- **Resilient**: Automatic retries and error tracking
-- **Configurable**: Environment variable driven
+## What it does
 
-## Quick Start
+Every `PROCESSING_INTERVAL` seconds:
 
-```bash
-# Clone and install
-git clone https://github.com/your-repo/mongodb-data-processor.git
-cd mongodb-data-processor
-pip install -r requirements.txt
+1. Read up to `BATCH_SIZE` documents from `SOURCE_COLLECTION`.
+2. Transform each one (`process_document` in `data-processor.py`).
+3. Insert the results into `DESTINATION_COLLECTION` and delete the originals from the source.
+4. Any document whose transformation raises is copied to `DEAD_LETTER_COLLECTION` with the error, instead of blocking the batch or being lost.
 
-# Configure (adjust as needed)
-export MONGODB_URI="mongodb://localhost:27017/"
-export BATCH_SIZE=20
+It connects with retries (`MAX_RETRIES`, `RETRY_DELAY`) and serves `GET /health` on port 5000:
 
-# Run
-python data_processor.py
-
-# Check health (in another terminal)
-curl http://localhost:5000/health
-Configuration
-Variable Description Default
-MONGODB_URI MongoDB connection string mongodb://localhost:27017/
-BATCH_SIZE Documents per batch 10
-PROCESSING_INTERVAL Seconds between cycles 5
-MAX_RETRIES Connection retries 3
-API Endpoints
-GET /health
-
-json
-Copy
+```json
 {
   "status": "running",
-  "uptime": 125.67,
-  "metrics": {
-    "processed": 42,
-    "failed": 3,
-    "last_processed": "2023-10-15T14:32:18.123456",
-    "avg_processing_time": 0.45
-  }
+  "uptime": 3.7,
+  "metrics": { "processed": 2, "failed": 0, "errors": {}, "last_processed": "Fri, 09 Oct 2026 12:46:51 GMT" }
 }
-Architecture
-mermaid
-Copy
-graph LR
-    A[Source] --> B[Processor]
-    B --> C[Processed]
-    B --> D[Dead Letters]
-    E[Health] --> B
-Deployment
-Docker Example:
+```
 
-dockerfile
-Copy
-FROM python:3.9-slim
-WORKDIR /app
-COPY . .
-RUN pip install -r requirements.txt
-CMD ["python", "data_processor.py"]
-Build and run:
+## Configuration
 
-bash
-Copy
-docker build -t data-processor .
-docker run -e MONGODB_URI="mongodb://host.docker.internal:27017/" data-processor
-License
-MIT - See LICENSE for details.
+| Variable | Default | |
+|---|---|---|
+| `MONGODB_URI` | `mongodb://localhost:27017/` | **Must name the database**, e.g. `mongodb://localhost:27017/utdrs`; the collections are looked up in it. |
+| `SOURCE_COLLECTION` | `raw_data` | |
+| `DESTINATION_COLLECTION` | `processed_data` | |
+| `DEAD_LETTER_COLLECTION` | `failed_data` | |
+| `BATCH_SIZE` | `10` | Documents per cycle |
+| `PROCESSING_INTERVAL` | `5` | Seconds between cycles |
+| `MAX_RETRIES`, `RETRY_DELAY` | `3`, `2` | Connection attempts and the seconds between them |
+
+## Run it
+
+```bash
+python3.12 -m venv .venv && . .venv/bin/activate
+pip install -r requirements.txt
+MONGODB_URI=mongodb://localhost:27017/utdrs python data-processor.py
+curl http://localhost:5000/health
+```
+
+With Docker:
+
+```bash
+docker build -t utdrs-data-processor -f dockerfile .
+docker run -p 5000:5000 -e MONGODB_URI=mongodb://host.docker.internal:27017/utdrs utdrs-data-processor
+```
+
+CI installs the dependencies and compiles the modules; there are no automated tests yet.

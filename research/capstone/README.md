@@ -2,11 +2,7 @@
 
 *A Comprehensive Cybersecurity Solution for Kenyan SMEs*  
 
----
-
-<div align="center">
-  <img src="https://via.placeholder.com/800x400?text=UTDRS+Logo" alt="UTDRS Logo" width="400">
-</div>
+> **Archived research prototype.** This is the original capstone project UTDRS grew from: TensorFlow/Keras phishing and threat-detection models (`models/`), a React prototype, an outline for a Flask backend (`backend/`, not implemented) and the project report (`docs/Final_project_Final_draft.pdf`). It is kept for reference and is not part of the running system, which is described in the [main README](../../README.md). The setup steps below are from the original project.
 
 ---
 
