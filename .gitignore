@@ -1,0 +1,43 @@
+# Repository-wide ignores. Each component keeps its own .gitignore for anything specific.
+
+# Secrets: never commit real credentials or key material. Commit *.example files instead.
+.env
+.env.*
+!.env.example
+!.env.*.example
+!frontend/.env.production
+*.key
+*.pem
+*.pfx
+*.p12
+*.crt
+scanner/configs/certs/
+
+# Dependencies and virtual environments
+node_modules/
+.venv/
+venv/
+
+# Build output and binaries
+dist/
+build/
+*.exe
+*.o
+*.obj
+*.so
+*.dll
+__pycache__/
+*.py[cod]
+
+# Runtime data
+*.db
+*.log
+
+# Tooling
+.pytest_cache/
+.mypy_cache/
+.coverage
+coverage/
+.idea/
+.vscode/
+.DS_Store
