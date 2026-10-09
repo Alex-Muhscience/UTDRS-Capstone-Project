@@ -22,12 +22,28 @@ limiter = Limiter(key_func=get_remote_address)
 class SecurityMiddleware:
     """Custom security middleware for request validation and sanitization"""
 
+    # The interactive API docs (Swagger UI, ReDoc) load their scripts and styles from a
+    # CDN and start with an inline script; every other response gets "default-src 'self'".
+    DOCS_CSP = (
+        b"default-src 'self'; "
+        b"script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        b"style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+        b"font-src 'self' https://fonts.gstatic.com; "
+        b"img-src 'self' data: https://fastapi.tiangolo.com https://cdn.redoc.ly; "
+        b"worker-src 'self' blob:"
+    )
+
     def __init__(
-        self, app, allowed_hosts: list = None, max_request_size: int = 10 * 1024 * 1024
+        self,
+        app,
+        allowed_hosts: list = None,
+        max_request_size: int = 10 * 1024 * 1024,
+        docs_paths: tuple = (),
     ):
         self.app = app
         self.allowed_hosts = allowed_hosts or ["*"]
         self.max_request_size = max_request_size
+        self.docs_paths = tuple(docs_paths)
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -70,7 +86,11 @@ class SecurityMiddleware:
                     b"x-frame-options": b"DENY",
                     b"x-xss-protection": b"1; mode=block",
                     b"referrer-policy": b"strict-origin-when-cross-origin",
-                    b"content-security-policy": b"default-src 'self'",
+                    b"content-security-policy": (
+                        self.DOCS_CSP
+                        if request.url.path in self.docs_paths
+                        else b"default-src 'self'"
+                    ),
                     b"x-request-id": request_id.encode(),
                 }
 
