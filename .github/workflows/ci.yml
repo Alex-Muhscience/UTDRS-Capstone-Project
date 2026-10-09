@@ -1,0 +1,143 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MONGODB_URI: mongodb://localhost:27017
+
+jobs:
+  api-gateway:
+    name: API gateway tests
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7
+        ports: ["27017:27017"]
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ping: 1}).ok'"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    defaults:
+      run:
+        working-directory: services/api-gateway
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services/api-gateway/requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest
+
+  core-engine:
+    name: Core engine tests
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7
+        ports: ["27017:27017"]
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ping: 1}).ok'"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    defaults:
+      run:
+        working-directory: services/core-engine
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services/core-engine/requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+
+  system:
+    name: System test (gateway + core engine)
+    needs: [api-gateway, core-engine]
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7
+        ports: ["27017:27017"]
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ping: 1}).ok'"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services/*/requirements*.txt
+      # Separate environments: each service runs with exactly its own dependencies.
+      - run: |
+          python -m venv "$RUNNER_TEMP/gateway"
+          "$RUNNER_TEMP/gateway/bin/pip" install -r services/api-gateway/requirements-dev.txt
+          python -m venv "$RUNNER_TEMP/engine"
+          "$RUNNER_TEMP/engine/bin/pip" install -r services/core-engine/requirements.txt
+      - run: scripts/system-test.sh
+        env:
+          GATEWAY_PYTHON: ${{ runner.temp }}/gateway/bin/python
+          ENGINE_PYTHON: ${{ runner.temp }}/engine/bin/python
+
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  scanner:
+    name: Scanner build (Linux)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scanner
+    steps:
+      - uses: actions/checkout@v5
+      - run: sudo apt-get update && sudo apt-get install -y libssl-dev libmongoc-dev libbson-dev libjansson-dev pkg-config
+      - run: make
+
+  data-processor:
+    name: Data processor checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/data-processor
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile data-processor.py config.py
+
+  docker:
+    name: Docker images
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [api-gateway, core-engine]
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -t utdrs-${{ matrix.service }}:ci services/${{ matrix.service }}
