@@ -1,5 +1,9 @@
-venv/
+# Keep secrets, local environments and caches out of the image.
 .env
+.env.*
+!.env.example
+.venv/
+venv/
 __pycache__/
 *.py[cod]
 *$py.class

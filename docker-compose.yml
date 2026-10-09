@@ -1,0 +1,128 @@
+# The whole UTDRS stack on one machine: MongoDB, the core engine, the API gateway
+# and the dashboard. See docs/docker.md for the full guide.
+#
+#   cp .env.example .env          # then set JWT_SECRET and INTERNAL_API_TOKEN
+#   docker compose up -d --build  # dashboard on http://localhost:8080
+#   docker compose run --rm seed  # optional: demo data and a demo account
+#
+# Optional extras: --profile pipeline (data processor), --profile scanner (scanner server).
+
+name: utdrs
+
+x-healthcheck: &healthcheck
+  interval: 5s
+  timeout: 5s
+  retries: 30
+  start_period: 10s
+
+services:
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+    # Not published on your machine; use `docker compose exec mongodb mongosh` to look inside.
+
+  core-engine:
+    build: ./services/core-engine
+    restart: unless-stopped
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017
+      # Its own database: never the gateway's.
+      DB_NAME: utdrs_engine
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?Set INTERNAL_API_TOKEN in .env (see .env.example)}
+      ENABLE_THREAT_INTEL: ${ENABLE_THREAT_INTEL:-false}
+      VIRUSTOTAL_API_KEY: ${VIRUSTOTAL_API_KEY:-}
+      ABUSEIPDB_API_KEY: ${ABUSEIPDB_API_KEY:-}
+      OTX_API_KEY: ${OTX_API_KEY:-}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+    # Internal only: the gateway is the one service that calls it.
+
+  api-gateway:
+    build: ./services/api-gateway
+    restart: unless-stopped
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017
+      DB_NAME: utdrs
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
+      CORE_ENGINE_URL: http://core-engine:8000
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?Set INTERNAL_API_TOKEN in .env (see .env.example)}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      CORS_ORIGINS: '["http://localhost:${DASHBOARD_PORT:-8080}"]'
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      core-engine:
+        condition: service_healthy
+    ports:
+      # For the API docs (/api/v1/docs), integrations and scripts on your machine.
+      - "${BIND_ADDRESS:-127.0.0.1}:${GATEWAY_PORT:-8000}:8000"
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"]
+
+  dashboard:
+    build: ./frontend
+    restart: unless-stopped
+    environment:
+      GATEWAY_URL: http://api-gateway:8000
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${DASHBOARD_PORT:-8080}:8080"
+
+  # Demo data through the gateway's API: docker compose run --rm seed
+  seed:
+    image: python:3.12-slim
+    profiles: ["demo"]
+    volumes:
+      - ./scripts:/scripts:ro
+    environment:
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+    command: ["python", "/scripts/seed-demo.py", "--gateway", "http://api-gateway:8000"]
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+
+  # Optional: the batch worker (docker compose --profile pipeline up -d)
+  data-processor:
+    build:
+      context: ./services/data-processor
+      dockerfile: dockerfile
+    profiles: ["pipeline"]
+    restart: unless-stopped
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/utdrs_pipeline
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${PROCESSOR_PORT:-5000}:5000"
+
+  # Optional: the device scanner's collection server (docker compose --profile scanner up -d).
+  # Needs certificates in scanner/configs/certs; see scanner/README.md.
+  scanner-server:
+    build: ./scanner
+    profiles: ["scanner"]
+    restart: unless-stopped
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017
+    volumes:
+      - ./scanner/configs/certs:/app/configs/certs:ro
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${SCANNER_PORT:-8443}:8443"
+
+volumes:
+  mongo-data:
