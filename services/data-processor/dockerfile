@@ -6,9 +6,13 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+RUN useradd --system --home-dir /app processor
+USER processor
 
-ENV MONGODB_URI=mongodb://mongodb:27017/
+# The URI must name the database the collections live in.
+ENV MONGODB_URI=mongodb://mongodb:27017/utdrs
 ENV BATCH_SIZE=20
 ENV PROCESSING_INTERVAL=2
 
-CMD ["python", "data_processor.py"]
+EXPOSE 5000
+CMD ["python", "data-processor.py"]

@@ -46,6 +46,18 @@ class CoreEngineClient:
             raise CoreEngineError(str(exc)) from exc
 
 
+    async def is_healthy(self) -> bool:
+        """Whether the engine answers its health check."""
+        try:
+            async with httpx.AsyncClient(
+                base_url=self.base_url, timeout=min(self.timeout, 3.0), transport=self.transport
+            ) as client:
+                response = await client.get("/health")
+                return response.status_code == 200
+        except httpx.HTTPError:
+            return False
+
+
 def get_core_engine_client() -> Optional[CoreEngineClient]:
     """The configured client, or None when no core engine is configured."""
     if not settings.CORE_ENGINE_URL:

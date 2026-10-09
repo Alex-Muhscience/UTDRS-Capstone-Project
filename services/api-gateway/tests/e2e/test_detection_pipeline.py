@@ -44,9 +44,11 @@ class FakeEngine:
         self.requests = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
-        self.requests.append(request)
         if self.fail:
             return httpx.Response(503, json={"detail": "engine unavailable"})
+        if request.url.path == "/health":
+            return httpx.Response(200, json={"status": "ok"})
+        self.requests.append(request)
         event = json.loads(request.content)
         if "delete shadows" in event["data"].get("command_line", ""):
             return httpx.Response(200, json=ENGINE_ALERT)
@@ -136,3 +138,14 @@ def test_ingestion_survives_an_unavailable_engine(client, auth, engine):
     assert response.status_code == 201, response.text
     event = client.get(f"/api/v1/events/{response.json()['id']}", headers=auth).json()
     assert event["metadata"]["analysis"]["status"] == "error"
+
+
+def test_detection_status_reports_whether_the_engine_is_reachable(client, auth, engine):
+    status = client.get("/api/v1/detection/", headers=auth).json()
+    assert status["status"] == "active"
+    assert status["core_engine"] == {"configured": True, "reachable": True}
+
+    engine.fail = True
+    status = client.get("/api/v1/detection/", headers=auth).json()
+    assert status["status"] == "degraded"
+    assert status["core_engine"] == {"configured": True, "reachable": False}

@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <openssl/x509v3.h>  // X509_check_host: verify the server's name, not just its chain
 #include "agent/transport.h"
 #include "common/crypto.h"
 
