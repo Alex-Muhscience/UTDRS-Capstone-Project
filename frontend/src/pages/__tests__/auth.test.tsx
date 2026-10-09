@@ -52,7 +52,7 @@ describe("signing in", () => {
     mockGateway({ ...overviewRoutes, "GET /api/v1/auth/me": json({ detail: "Could not validate credentials" }, 401) })
     const { router } = renderApp("/")
     await waitFor(() => expect(router.state.location.pathname).toBe("/login"))
-    expect(await screen.findByText(/session has expired/i)).toBeInTheDocument()
+    expect(await screen.findByText(/session has ended/i)).toBeInTheDocument()
     expect(sessionStorage.length).toBe(0)
   })
 })

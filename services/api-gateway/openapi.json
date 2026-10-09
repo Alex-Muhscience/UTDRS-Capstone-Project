@@ -45,6 +45,28 @@
         }
       }
     },
+    "/api/v1/auth/config": {
+      "get": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Auth Config",
+        "description": "What the sign-in page needs to know, such as whether anyone can register.",
+        "operationId": "auth_config_api_v1_auth_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthConfig"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "tags": [
@@ -93,7 +115,7 @@
           "authentication"
         ],
         "summary": "Register",
-        "description": "Register a new user.",
+        "description": "Register a new user, as an analyst. Closed when ALLOW_REGISTRATION is false.",
         "operationId": "register_api_v1_auth_register_post",
         "requestBody": {
           "content": {
@@ -246,6 +268,304 @@
             "OAuth2PasswordBearer": []
           }
         ]
+      }
+    },
+    "/api/v1/users/": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "List Users",
+        "description": "The people with accounts, newest first. Filter by `role` or `active`.",
+        "operationId": "list_users_api_v1_users__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "admin",
+                    "analyst"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Role"
+            }
+          },
+          {
+            "name": "active",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Active"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Skip"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/User"
+                  },
+                  "title": "Response List Users Api V1 Users  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Create User",
+        "description": "Create an account (admins only). The response includes a temporary password,\nshown only this once, for the person to sign in with and then change.",
+        "operationId": "create_user_api_v1_users__post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserWithPassword"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Get User",
+        "operationId": "get_user_api_v1_users__user_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Update User",
+        "description": "Change someone's role or deactivate their account (admins only). You cannot\nchange your own role or deactivate yourself, so the administrator making a\nchange always remains one. If every administrator is lost anyway, setting\nADMIN_USERNAME and restarting the gateway restores one.",
+        "operationId": "update_user_api_v1_users__user_id__patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserAdminUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/reset-password": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Reset Password",
+        "description": "Give someone a new temporary password (admins only), for example when they have\nforgotten theirs. It is shown only this once.",
+        "operationId": "reset_password_api_v1_users__user_id__reset_password_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserWithPassword"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/alerts/": {
@@ -3791,6 +4111,59 @@
   },
   "components": {
     "schemas": {
+      "AdminUserCreate": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 3,
+            "title": "Username"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "firstName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firstname"
+          },
+          "lastName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastname"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "analyst"
+            ],
+            "title": "Role",
+            "default": "analyst"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "email"
+        ],
+        "title": "AdminUserCreate",
+        "description": "An account created by an administrator; the password is generated."
+      },
       "Alert": {
         "properties": {
           "title": {
@@ -4573,6 +4946,19 @@
         },
         "type": "object",
         "title": "AssetUpdate"
+      },
+      "AuthConfig": {
+        "properties": {
+          "allow_registration": {
+            "type": "boolean",
+            "title": "Allow Registration"
+          }
+        },
+        "type": "object",
+        "required": [
+          "allow_registration"
+        ],
+        "title": "AuthConfig"
       },
       "Body_login_api_v1_auth_login_post": {
         "properties": {
@@ -5898,6 +6284,39 @@
           "username": "analyst1"
         }
       },
+      "UserAdminUpdate": {
+        "properties": {
+          "role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "analyst"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          }
+        },
+        "type": "object",
+        "title": "UserAdminUpdate",
+        "description": "What an administrator can change on someone else's account."
+      },
       "UserCreate": {
         "properties": {
           "username": {
@@ -6006,6 +6425,24 @@
         "type": "object",
         "title": "UserSelfUpdate",
         "description": "The fields users may change on their own account. Role and status are admin-only."
+      },
+      "UserWithPassword": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/User"
+          },
+          "temporary_password": {
+            "type": "string",
+            "title": "Temporary Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "temporary_password"
+        ],
+        "title": "UserWithPassword",
+        "description": "A new or reset account, with its one-time password. Shown once."
       },
       "ValidationError": {
         "properties": {

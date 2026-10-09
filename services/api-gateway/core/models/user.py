@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from bson import ObjectId
 
@@ -8,12 +8,19 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, EmailStr, Field, field
 from utils.time import utcnow
 
 
+# Admins manage users and detection content (rules, simulations); analysts triage
+# alerts and work with events and assets. Everyone signed in can read everything.
+Role = Literal["admin", "analyst"]
+ADMIN: Role = "admin"
+ANALYST: Role = "analyst"
+
+
 class UserBase(BaseModel):
     username: str
     email: EmailStr
     firstName: Optional[str] = None
     lastName: Optional[str] = None
-    role: str = "analyst"  # admin, analyst, responder, readonly
+    role: str = ANALYST
     active: bool = True
 
 
@@ -105,3 +112,27 @@ class UserSelfUpdate(BaseModel):
     lastName: Optional[str] = None
     email: Optional[EmailStr] = None
     preferences: Optional[Dict[str, Any]] = None
+
+
+class UserAdminUpdate(BaseModel):
+    """What an administrator can change on someone else's account."""
+
+    role: Optional[Role] = None
+    active: Optional[bool] = None
+
+
+class AdminUserCreate(BaseModel):
+    """An account created by an administrator; the password is generated."""
+
+    username: str = Field(min_length=3, max_length=64)
+    email: EmailStr
+    firstName: Optional[str] = None
+    lastName: Optional[str] = None
+    role: Role = ANALYST
+
+
+class UserWithPassword(BaseModel):
+    """A new or reset account, with its one-time password. Shown once."""
+
+    user: User
+    temporary_password: str
