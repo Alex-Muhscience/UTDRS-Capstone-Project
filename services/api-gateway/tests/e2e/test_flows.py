@@ -243,3 +243,10 @@ def test_password_length_is_enforced(client, password):
         json={"username": f"u_{suffix}", "email": f"u_{suffix}@example.com", "password": password},
     )
     assert response.status_code == 422
+
+
+def test_api_docs_may_load_swagger_ui_but_the_api_stays_locked_down(client):
+    docs = client.get("/api/v1/docs")
+    assert docs.status_code == 200
+    assert "https://cdn.jsdelivr.net" in docs.headers["content-security-policy"]
+    assert client.get("/api/v1/health").headers["content-security-policy"] == "default-src 'self'"
