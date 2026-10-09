@@ -103,3 +103,9 @@ class Alert(AlertBase):
             }
         },
     )
+
+
+class AlertSummary(BaseModel):
+    total: int
+    by_status: Dict[str, int]
+    open_by_severity: Dict[str, int]

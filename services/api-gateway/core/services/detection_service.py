@@ -5,6 +5,7 @@ from bson import ObjectId
 
 from config import settings
 from core.database.repositories.detection_repository import DetectionRepository
+from core.services import core_engine_client
 from core.models.detection import (
     DetectionRule,
     DetectionRuleCreate,
@@ -175,33 +176,23 @@ class DetectionService:
             raise
 
     async def get_detection_status(self) -> Dict[str, Any]:
-        """Get overall detection system status."""
-        try:
-            # If core engine integration is configured, get status from there
-            if self.core_engine_url:
-                return await self._get_core_engine_status()
-
-            # Otherwise, provide a basic status from local database
-            total_rules = await self.detection_repo.count({})
-            enabled_rules = await self.detection_repo.count({"status": "enabled"})
-            disabled_rules = await self.detection_repo.count({"status": "disabled"})
-            testing_rules = await self.detection_repo.count({"status": "testing"})
-
-            return {
-                "status": "active",
-                "total_rules": total_rules,
-                "enabled_rules": enabled_rules,
-                "disabled_rules": disabled_rules,
-                "testing_rules": testing_rules,
-                "last_updated": utcnow().isoformat(),
-            }
-        except Exception as e:
-            logger.error(f"Error getting detection status: {str(e)}")
-            return {
-                "status": "error",
-                "error": str(e),
-                "timestamp": utcnow().isoformat(),
-            }
+        """Rule counts from the database, and whether the core engine is reachable."""
+        by_status = await self.detection_repo.count_by("status")
+        client = core_engine_client.get_core_engine_client()
+        reachable = await client.is_healthy() if client else False
+        if client is None:
+            state = "standalone"
+        else:
+            state = "active" if reachable else "degraded"
+        return {
+            "status": state,
+            "total_rules": sum(by_status.values()),
+            "enabled_rules": by_status.get("enabled", 0),
+            "disabled_rules": by_status.get("disabled", 0),
+            "testing_rules": by_status.get("testing", 0),
+            "core_engine": {"configured": client is not None, "reachable": reachable},
+            "last_updated": utcnow(),
+        }
 
     # Integration methods for core engine
     async def _deploy_rule_to_core_engine(self, rule_id: str) -> bool:
@@ -228,15 +219,3 @@ class DetectionService:
             f"Would update rule {rule_id} status to {status} in core engine at {self.core_engine_url}"
         )
         return True
-
-    async def _get_core_engine_status(self) -> Dict[str, Any]:
-        """Get status from the core detection engine."""
-        logger.info(f"Would get status from core engine at {self.core_engine_url}")
-        # In reality, this would make an API call to the core engine
-        return {
-            "status": "active",
-            "engine_version": "1.0.0",
-            "rules_loaded": 100,
-            "rules_active": 85,
-            "last_updated": utcnow().isoformat(),
-        }
