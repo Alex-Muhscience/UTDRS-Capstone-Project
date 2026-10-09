@@ -1,0 +1,51 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+      {
+          "name": "(gdb) Debug Agent",
+          "type": "cppdbg",
+          "request": "launch",
+          "program": "${workspaceFolder}/bin/agent${fileExtname}",
+          "args": ["-c", "${workspaceFolder}/configs/agent.conf"],
+          "stopAtEntry": false,
+          "cwd": "${workspaceFolder}",
+          "environment": [
+              {"name": "PATH", "value": "${env:PATH}${pathSeparator}${workspaceFolder}/bin"}
+          ],
+          "externalConsole": false,
+          "MIMode": "gdb",
+          "miDebuggerPath": "/usr/bin/gdb",
+          "setupCommands": [
+              {
+                  "description": "Enable pretty-printing for gdb",
+                  "text": "-enable-pretty-printing",
+                  "ignoreFailures": true
+              }
+          ],
+          "preLaunchTask": "build-agent"
+      },
+      {
+          "name": "(gdb) Debug Server",
+          "type": "cppdbg",
+          "request": "launch",
+          "program": "${workspaceFolder}/bin/server${fileExtname}",
+          "args": ["-c", "${workspaceFolder}/configs/server.conf"],
+          "stopAtEntry": false,
+          "cwd": "${workspaceFolder}",
+          "environment": [
+              {"name": "PATH", "value": "${env:PATH}${pathSeparator}${workspaceFolder}/bin"}
+          ],
+          "externalConsole": false,
+          "MIMode": "gdb",
+          "miDebuggerPath": "/usr/bin/gdb",
+          "setupCommands": [
+              {
+                  "description": "Enable pretty-printing for gdb",
+                  "text": "-enable-pretty-printing",
+                  "ignoreFailures": true
+              }
+          ],
+          "preLaunchTask": "build-server"
+      }
+  ]
+}
