@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional, Type, TypeVar
 
 from bson import ObjectId
 from pydantic import BaseModel
+from pymongo import DESCENDING
 
 from core.database.connection import get_database
 
@@ -24,8 +25,17 @@ class BaseRepository:
     async def find_many(
         self, query: Dict[str, Any], limit: int = 100, skip: int = 0
     ) -> List[Dict[str, Any]]:
-        cursor = self.collection.find(query).skip(skip).limit(limit)
+        # Newest first: ObjectIds start with their creation time.
+        cursor = self.collection.find(query).sort("_id", DESCENDING).skip(skip).limit(limit)
         return await cursor.to_list(length=limit)
+
+    async def count_by(
+        self, field: str, query: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, int]:
+        """Number of documents for each value of a field."""
+        pipeline = [{"$match": query or {}}, {"$group": {"_id": f"${field}", "count": {"$sum": 1}}}]
+        cursor = await self.collection.aggregate(pipeline)
+        return {doc["_id"]: doc["count"] async for doc in cursor if doc["_id"] is not None}
 
     async def count(self, query: Dict[str, Any]) -> int:
         return await self.collection.count_documents(query)

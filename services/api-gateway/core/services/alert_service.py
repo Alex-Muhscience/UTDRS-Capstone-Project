@@ -18,9 +18,28 @@ class AlertService:
         self.event_repo = EventRepository()
         self.asset_repo = AssetRepository()
 
-    async def get_alerts(self, limit: int = 100, skip: int = 0) -> List[Dict[str, Any]]:
-        """Get all alerts."""
-        return await self.alert_repo.find_many({}, limit=limit, skip=skip)
+    async def get_alerts(
+        self,
+        limit: int = 100,
+        skip: int = 0,
+        status: Optional[str] = None,
+        severity: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Get alerts, newest first, optionally filtered by status and severity."""
+        query = {key: value for key, value in (("status", status), ("severity", severity)) if value}
+        return await self.alert_repo.find_many(query, limit=limit, skip=skip)
+
+    async def get_summary(self) -> Dict[str, Any]:
+        """Alert counts by status, and open alerts (open or in progress) by severity."""
+        by_status = await self.alert_repo.count_by("status")
+        open_by_severity = await self.alert_repo.count_by(
+            "severity", {"status": {"$in": ["open", "in_progress"]}}
+        )
+        return {
+            "total": sum(by_status.values()),
+            "by_status": by_status,
+            "open_by_severity": open_by_severity,
+        }
 
     async def get_alert_by_id(self, alert_id: str) -> Optional[Dict[str, Any]]:
         """Get a specific alert by ID."""
