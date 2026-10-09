@@ -164,12 +164,10 @@ SSL_CTX* create_secure_tls_context() {
     // Enable forward secrecy
     SSL_CTX_set_ecdh_auto(ctx, 1);
 
-    // Enable OCSP stapling
-#ifdef _WIN32
-    SSL_CTX_ctrl(ctx, SSL_CTRL_SET_TLSEXT_STATUS_REQ_CB, 0, NULL);
-#else
-    SSL_CTX_set_ocsp_response(ctx, NULL, 0);
-#endif
+    // No OCSP stapling: agents and server use certificates from the deployment's private CA
+    // (scripts/generate_*.sh), which has no OCSP responder. Revocation is handled by
+    // reissuing from that CA. (The previous calls set no responder callback on Windows and
+    // used a BoringSSL-only function elsewhere, so they never stapled anything.)
 
     return ctx;
 }

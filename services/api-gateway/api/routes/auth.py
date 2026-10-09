@@ -3,11 +3,17 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from config import settings
 from core.database.repositories.user_repository import UserRepository
-from core.models.user import User, UserCreate, UserUpdate
+from core.models.user import (
+    User,
+    UserCreate,
+    UserSelfUpdate,
+    UserUpdate,
+    validate_password_length,
+)
 from utils.security import (
     create_access_token,
     get_current_active_user,
@@ -27,6 +33,8 @@ class Token(BaseModel):
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str
+
+    _check_new_password = field_validator("new_password")(validate_password_length)
 
 
 @router.post("/login", response_model=Token)
@@ -81,6 +89,10 @@ async def register(user_in: UserCreate) -> Any:
             status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
         )
 
+    # Self-registration always creates an active analyst account. Roles are assigned
+    # by an administrator, never chosen by the person registering.
+    user_in = user_in.model_copy(update={"role": "analyst", "active": True})
+
     # Create new user
     user_id = await user_repo.create_user(user_in)
     new_user = await user_repo.find_by_id(user_id)
@@ -102,11 +114,13 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)) -
 
 @router.put("/me", response_model=User)
 async def update_user_me(
-    user_update: UserUpdate, current_user: User = Depends(get_current_active_user)
+    user_update: UserSelfUpdate, current_user: User = Depends(get_current_active_user)
 ) -> Any:
-    """Update current user information."""
+    """Update current user information (not role or account status)."""
     user_repo = UserRepository()
-    updated_user = await user_repo.update_user(current_user.id, user_update)
+    updated_user = await user_repo.update_user(
+        current_user.id, UserUpdate(**user_update.model_dump(exclude_unset=True))
+    )
 
     if not updated_user:
         raise HTTPException(

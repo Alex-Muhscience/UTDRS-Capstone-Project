@@ -2,25 +2,10 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
-from pydantic import BaseModel, EmailStr, Field, validator
 
-
-class PyObjectId(ObjectId):
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-
-    @classmethod
-    def validate(cls, v):
-        if not ObjectId.is_valid(v):
-            raise ValueError("Invalid ObjectId")
-        return ObjectId(v)
-
-    @classmethod
-    def __get_pydantic_json_schema__(cls, core_schema, handler):
-        json_schema = handler(core_schema)
-        json_schema.update(type="string")
-        return json_schema
+from core.models.common import IdString, PyObjectId
+from pydantic import AliasChoices, BaseModel, ConfigDict, EmailStr, Field, field_validator
+from utils.time import utcnow
 
 
 class UserBase(BaseModel):
@@ -32,25 +17,35 @@ class UserBase(BaseModel):
     active: bool = True
 
 
+def validate_password_length(password: str) -> str:
+    """At least 8 characters, and at most the 72 bytes that bcrypt can use."""
+    if len(password) < 8:
+        raise ValueError("Password must be at least 8 characters long")
+    if len(password.encode("utf-8")) > 72:
+        raise ValueError("Password must be at most 72 bytes long")
+    return password
+
+
 class UserCreate(UserBase):
     password: str
 
+    _check_password = field_validator("password")(validate_password_length)
+
 
 class UserInDB(UserBase):
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
     passwordHash: str
     lastLogin: Optional[datetime] = None
-    createdAt: datetime = Field(default_factory=datetime.utcnow)
-    updatedAt: datetime = Field(default_factory=datetime.utcnow)
+    createdAt: datetime = Field(default_factory=utcnow)
+    updatedAt: datetime = Field(default_factory=utcnow)
     preferences: Dict[str, Any] = Field(default_factory=dict)
 
-    class Config:
-        populate_by_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
-        json_schema_extra = {
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_schema_extra={
             "example": {
-                "_id": "60d5ec2dcb43a5e37d0c7513",
+                "id": "60d5ec2dcb43a5e37d0c7513",
                 "username": "analyst1",
                 "email": "analyst1@example.com",
                 "firstName": "John",
@@ -63,21 +58,22 @@ class UserInDB(UserBase):
                 "updatedAt": "2023-04-01T10:00:00.000Z",
                 "preferences": {"theme": "dark", "alertsPerPage": 20},
             }
-        }
+        },
+    )
 
 
 class User(UserBase):
-    id: str = Field(..., alias="_id")
+    id: IdString = Field(validation_alias=AliasChoices("_id", "id"))
     lastLogin: Optional[datetime] = None
     createdAt: datetime
     updatedAt: datetime
     preferences: Dict[str, Any] = {}
 
-    class Config:
-        populate_by_name = True
-        json_schema_extra = {
+    model_config = ConfigDict(
+        populate_by_name=True,
+        json_schema_extra={
             "example": {
-                "_id": "60d5ec2dcb43a5e37d0c7513",
+                "id": "60d5ec2dcb43a5e37d0c7513",
                 "username": "analyst1",
                 "email": "analyst1@example.com",
                 "firstName": "John",
@@ -89,7 +85,8 @@ class User(UserBase):
                 "updatedAt": "2023-04-01T10:00:00.000Z",
                 "preferences": {"theme": "dark", "alertsPerPage": 20},
             }
-        }
+        },
+    )
 
 
 class UserUpdate(BaseModel):
@@ -98,4 +95,13 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     role: Optional[str] = None
     active: Optional[bool] = None
+    preferences: Optional[Dict[str, Any]] = None
+
+
+class UserSelfUpdate(BaseModel):
+    """The fields users may change on their own account. Role and status are admin-only."""
+
+    firstName: Optional[str] = None
+    lastName: Optional[str] = None
+    email: Optional[EmailStr] = None
     preferences: Optional[Dict[str, Any]] = None

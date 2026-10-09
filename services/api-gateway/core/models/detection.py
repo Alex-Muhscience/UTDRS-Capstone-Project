@@ -2,9 +2,10 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
-from core.models.user import PyObjectId
+from utils.time import utcnow
+from core.models.common import IdString, PyObjectId
 
 
 class DetectionRuleBase(BaseModel):
@@ -35,22 +36,21 @@ class DetectionRuleUpdate(BaseModel):
 
 
 class DetectionRuleInDB(DetectionRuleBase):
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
     created_by: Optional[str] = None
     updated_by: Optional[str] = None
     notes: Optional[str] = None
     performance_metrics: Dict[str, Any] = Field(default_factory=dict)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
-    class Config:
-        allow_population_by_field_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
-        schema_extra = {
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_schema_extra={
             "example": {
-                "_id": "60d5ec2dcb43a5e37d0c7513",
+                "id": "60d5ec2dcb43a5e37d0c7513",
                 "name": "Multiple Failed Logins",
                 "description": "Detects multiple failed login attempts from the same source IP",
                 "rule_type": "correlation",
@@ -70,11 +70,12 @@ class DetectionRuleInDB(DetectionRuleBase):
                 },
                 "metadata": {"mitre_tactic": "TA0006", "mitre_technique": "T1110"},
             }
-        }
+        },
+    )
 
 
 class DetectionRule(DetectionRuleBase):
-    id: str = Field(..., alias="_id")
+    id: IdString = Field(validation_alias=AliasChoices("_id", "id"))
     created_at: datetime
     updated_at: datetime
     created_by: Optional[str] = None
@@ -83,11 +84,11 @@ class DetectionRule(DetectionRuleBase):
     performance_metrics: Dict[str, Any] = {}
     metadata: Dict[str, Any] = {}
 
-    class Config:
-        allow_population_by_field_name = True
-        schema_extra = {
+    model_config = ConfigDict(
+        populate_by_name=True,
+        json_schema_extra={
             "example": {
-                "_id": "60d5ec2dcb43a5e37d0c7513",
+                "id": "60d5ec2dcb43a5e37d0c7513",
                 "name": "Multiple Failed Logins",
                 "description": "Detects multiple failed login attempts from the same source IP",
                 "rule_type": "correlation",
@@ -107,4 +108,5 @@ class DetectionRule(DetectionRuleBase):
                 },
                 "metadata": {"mitre_tactic": "TA0006", "mitre_technique": "T1110"},
             }
-        }
+        },
+    )

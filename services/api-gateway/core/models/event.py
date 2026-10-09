@@ -2,9 +2,10 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
-from core.models.user import PyObjectId
+from utils.time import utcnow
+from core.models.common import IdString, PyObjectId
 
 
 class EventBase(BaseModel):
@@ -33,20 +34,19 @@ class EventUpdate(BaseModel):
 
 
 class EventInDB(EventBase):
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
     tags: List[str] = []
     severity: Optional[str] = None  # critical, high, medium, low, info
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
-    class Config:
-        allow_population_by_field_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
-        schema_extra = {
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_schema_extra={
             "example": {
-                "_id": "60d5ec2dcb43a5e37d0c7513",
+                "id": "60d5ec2dcb43a5e37d0c7513",
                 "timestamp": "2023-04-01T10:00:00.000Z",
                 "event_type": "authentication",
                 "source": "Windows Active Directory",
@@ -64,22 +64,23 @@ class EventInDB(EventBase):
                 "severity": "medium",
                 "metadata": {"location": "HQ", "department": "IT"},
             }
-        }
+        },
+    )
 
 
 class Event(EventBase):
-    id: str = Field(..., alias="_id")
+    id: IdString = Field(validation_alias=AliasChoices("_id", "id"))
     created_at: datetime
     updated_at: datetime
     tags: List[str] = []
     severity: Optional[str] = None
     metadata: Dict[str, Any] = {}
 
-    class Config:
-        allow_population_by_field_name = True
-        schema_extra = {
+    model_config = ConfigDict(
+        populate_by_name=True,
+        json_schema_extra={
             "example": {
-                "_id": "60d5ec2dcb43a5e37d0c7513",
+                "id": "60d5ec2dcb43a5e37d0c7513",
                 "timestamp": "2023-04-01T10:00:00.000Z",
                 "event_type": "authentication",
                 "source": "Windows Active Directory",
@@ -97,4 +98,5 @@ class Event(EventBase):
                 "severity": "medium",
                 "metadata": {"location": "HQ", "department": "IT"},
             }
-        }
+        },
+    )

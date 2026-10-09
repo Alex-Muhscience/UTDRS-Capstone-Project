@@ -2,9 +2,10 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
-from core.models.user import PyObjectId
+from utils.time import utcnow
+from core.models.common import IdString, PyObjectId
 
 
 class SimulationBase(BaseModel):
@@ -37,9 +38,9 @@ class SimulationUpdate(BaseModel):
 
 
 class SimulationInDB(SimulationBase):
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
     created_by: Optional[str] = None
     updated_by: Optional[str] = None
     actual_start: Optional[datetime] = None
@@ -50,13 +51,12 @@ class SimulationInDB(SimulationBase):
     alerts_generated: List[str] = []  # Alert IDs
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
-    class Config:
-        allow_population_by_field_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
-        schema_extra = {
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_schema_extra={
             "example": {
-                "_id": "60d5ec2dcb43a5e37d0c7513",
+                "id": "60d5ec2dcb43a5e37d0c7513",
                 "name": "Ransomware Simulation",
                 "description": "Simulates a ransomware attack targeting file servers",
                 "scenario_type": "ransomware",
@@ -89,11 +89,12 @@ class SimulationInDB(SimulationBase):
                 "alerts_generated": ["60d5ec2dcb43a5e37d0c7522"],
                 "metadata": {"attack_phases": 4, "ioc_generated": True},
             }
-        }
+        },
+    )
 
 
 class Simulation(SimulationBase):
-    id: str = Field(..., alias="_id")
+    id: IdString = Field(validation_alias=AliasChoices("_id", "id"))
     created_at: datetime
     updated_at: datetime
     created_by: Optional[str] = None
@@ -106,11 +107,11 @@ class Simulation(SimulationBase):
     alerts_generated: List[str] = []
     metadata: Dict[str, Any] = {}
 
-    class Config:
-        allow_population_by_field_name = True
-        schema_extra = {
+    model_config = ConfigDict(
+        populate_by_name=True,
+        json_schema_extra={
             "example": {
-                "_id": "60d5ec2dcb43a5e37d0c7513",
+                "id": "60d5ec2dcb43a5e37d0c7513",
                 "name": "Ransomware Simulation",
                 "description": "Simulates a ransomware attack targeting file servers",
                 "scenario_type": "ransomware",
@@ -143,4 +144,5 @@ class Simulation(SimulationBase):
                 "alerts_generated": ["60d5ec2dcb43a5e37d0c7522"],
                 "metadata": {"attack_phases": 4, "ioc_generated": True},
             }
-        }
+        },
+    )

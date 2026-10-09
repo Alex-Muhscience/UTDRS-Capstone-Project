@@ -11,6 +11,7 @@ from utils.logger import get_logger
 from config import settings
 import urllib.parse
 import time
+from utils.time import utcnow
 
 logger = get_logger(__name__)
 
@@ -342,7 +343,7 @@ class ThreatIntelligence:
             "type": indicator_type,
             "is_malicious": is_malicious,
             "sources": sources,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utcnow().isoformat()
         }
         
         # Update cache
