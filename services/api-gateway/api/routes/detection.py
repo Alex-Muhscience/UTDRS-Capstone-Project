@@ -10,7 +10,7 @@ from core.models.detection import (
 )
 from core.models.user import User
 from core.services.detection_service import DetectionService
-from utils.security import get_current_active_user
+from utils.security import get_current_active_user, require_admin
 
 router = APIRouter()
 
@@ -68,7 +68,7 @@ async def get_rules(
     "/rules", response_model=DetectionRule, status_code=status.HTTP_201_CREATED
 )
 async def create_rule(
-    rule: DetectionRuleCreate, current_user: User = Depends(get_current_active_user)
+    rule: DetectionRuleCreate, current_user: User = Depends(require_admin)
 ):
     """
     Create a new detection rule.
@@ -110,7 +110,7 @@ async def get_rule(
 async def update_rule(
     rule_update: DetectionRuleUpdate,
     rule_id: str = Path(..., title="The ID of the rule to update"),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
 ):
     """
     Update an existing detection rule.
@@ -133,7 +133,7 @@ async def update_rule(
 async def update_rule_status(
     new_status: str = Query(..., alias="status"),
     rule_id: str = Path(..., title="The ID of the rule to update"),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
 ):
     """
     Update the status of a detection rule.
@@ -187,7 +187,7 @@ async def get_rule_by_name(
 async def add_tag_to_rule(
     rule_id: str = Path(..., title="The ID of the rule"),
     tag: str = Path(..., title="The tag to add"),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
 ):
     """
     Add a tag to a detection rule.
@@ -211,7 +211,7 @@ async def add_tag_to_rule(
 async def remove_tag_from_rule(
     rule_id: str = Path(..., title="The ID of the rule"),
     tag: str = Path(..., title="The tag to remove"),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
 ):
     """
     Remove a tag from a detection rule.
@@ -235,7 +235,7 @@ async def remove_tag_from_rule(
 async def update_rule_performance_metrics(
     metrics: Dict[str, Any],
     rule_id: str = Path(..., title="The ID of the rule"),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
 ):
     """
     Update performance metrics for a detection rule.

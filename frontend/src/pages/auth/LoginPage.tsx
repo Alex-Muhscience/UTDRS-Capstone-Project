@@ -2,6 +2,7 @@ import { CircleAlert, Info } from "lucide-react"
 import { useState, type FormEvent } from "react"
 import { Link } from "react-router"
 
+import { useAuthConfig } from "@/api/queries"
 import { useAuth } from "@/auth/context"
 import { Button } from "@/components/ui/Button"
 import { Field, Input } from "@/components/ui/Field"
@@ -10,6 +11,7 @@ import { AuthLayout } from "./AuthLayout"
 
 export function LoginPage() {
   const { login, notice } = useAuth()
+  const config = useAuthConfig()
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -31,12 +33,16 @@ export function LoginPage() {
     <AuthLayout
       title="Sign in"
       subtitle={
-        <>
-          New here?{" "}
-          <Link to="/register" className="font-medium text-accent hover:underline">
-            Create an analyst account
-          </Link>
-        </>
+        config.data?.allow_registration === false ? (
+          "Accounts are created by an administrator."
+        ) : (
+          <>
+            New here?{" "}
+            <Link to="/register" className="font-medium text-accent hover:underline">
+              Create an analyst account
+            </Link>
+          </>
+        )
       }
     >
       {notice && !error && (

@@ -51,6 +51,14 @@ def auth(client):
     return {"Authorization": f"Bearer {token}"}
 
 
+@pytest.fixture(scope="module")
+def admin(client):
+    credentials = {"username": os.environ["ADMIN_USERNAME"], "password": os.environ["ADMIN_PASSWORD"]}
+    response = client.post("/api/v1/auth/login", data=credentials)
+    assert response.status_code == 200, response.text
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
 def test_requests_without_a_token_are_rejected(client):
     assert client.get("/api/v1/alerts/").status_code == 401
 
@@ -171,7 +179,7 @@ def test_asset_lifecycle(client, auth):
     assert response.json()["ip_address"] == "10.0.0.5"
 
 
-def test_detection_rule_lifecycle(client, auth):
+def test_detection_rule_lifecycle(client, admin):
     rule = {
         "name": f"vpn-bruteforce-{uuid.uuid4().hex[:6]}",
         "description": "Many failed VPN logins from one address",
@@ -180,22 +188,22 @@ def test_detection_rule_lifecycle(client, auth):
         "severity": "high",
         "logic": "event_type == 'authentication' and action == 'deny'",
     }
-    response = client.post("/api/v1/detection/rules", json=rule, headers=auth)
+    response = client.post("/api/v1/detection/rules", json=rule, headers=admin)
     assert response.status_code == 201, response.text
     rule_id = _id(response.json())
 
-    response = client.get(f"/api/v1/detection/rules/{rule_id}", headers=auth)
+    response = client.get(f"/api/v1/detection/rules/{rule_id}", headers=admin)
     assert response.status_code == 200, response.text
     assert response.json()["severity"] == "high"
 
     response = client.patch(
-        f"/api/v1/detection/rules/{rule_id}/status", params={"status": "testing"}, headers=auth
+        f"/api/v1/detection/rules/{rule_id}/status", params={"status": "testing"}, headers=admin
     )
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "testing"
 
     response = client.patch(
-        f"/api/v1/detection/rules/{rule_id}/status", params={"status": "bogus"}, headers=auth
+        f"/api/v1/detection/rules/{rule_id}/status", params={"status": "bogus"}, headers=admin
     )
     assert response.status_code == 400
 

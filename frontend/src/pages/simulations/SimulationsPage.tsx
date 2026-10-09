@@ -3,6 +3,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 
 import { useCreateSimulation, useRunSimulation, useSimulations } from "@/api/queries"
+import { useIsAdmin } from "@/auth/context"
 import { Badge, StatusBadge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
 import { Card } from "@/components/ui/Card"
@@ -79,6 +80,7 @@ function NewSimulationDialog({ open, onClose }: { open: boolean; onClose: () => 
 }
 
 export function SimulationsPage() {
+  const isAdmin = useIsAdmin()
   const [planning, setPlanning] = useState(false)
   const { filters, page, setFilter, setPage } = useUrlFilters(FILTERS)
   const simulations = useSimulations({ status: filters.status, page })
@@ -100,9 +102,11 @@ export function SimulationsPage() {
         title="Simulations"
         description="Attack-simulation exercises: plan them, record when they run, and review what they produced."
         actions={
-          <Button variant="primary" onClick={() => setPlanning(true)}>
-            <Plus className="size-4" aria-hidden /> Plan simulation
-          </Button>
+          isAdmin && (
+            <Button variant="primary" onClick={() => setPlanning(true)}>
+              <Plus className="size-4" aria-hidden /> Plan simulation
+            </Button>
+          )
         }
       />
       <Card bodyClassName="p-0">
@@ -121,7 +125,7 @@ export function SimulationsPage() {
         ) : simulations.isError ? (
           <ErrorState error={simulations.error} onRetry={() => void simulations.refetch()} />
         ) : simulations.data.rows.length === 0 ? (
-          <EmptyState title="No simulations" action={<Button onClick={() => setPlanning(true)}>Plan one</Button>}>
+          <EmptyState title="No simulations" action={isAdmin && <Button onClick={() => setPlanning(true)}>Plan one</Button>}>
             Exercises such as a ransomware drill check that detection and response work before a real incident.
           </EmptyState>
         ) : (
@@ -159,7 +163,7 @@ export function SimulationsPage() {
                     {formatRelative(simulation.created_at)}
                   </Td>
                   <Td className="text-right">
-                    {simulation.status === "running" ? (
+                    {!isAdmin ? null : simulation.status === "running" ? (
                       <Button size="sm" onClick={() => control(simulation.id, "stop", simulation.name)} disabled={run.isPending}>
                         <Square className="size-3.5" aria-hidden /> Stop
                       </Button>

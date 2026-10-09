@@ -6,7 +6,7 @@ from core.models.event import EventCreate
 from core.models.simulation import Simulation, SimulationCreate, SimulationUpdate
 from core.models.user import User
 from core.services.simulation_service import SimulationService
-from utils.security import get_current_active_user
+from utils.security import get_current_active_user, require_admin
 
 router = APIRouter()
 
@@ -41,7 +41,7 @@ async def get_simulations(
 
 @router.post("/", response_model=Simulation, status_code=status.HTTP_201_CREATED)
 async def create_simulation(
-    simulation: SimulationCreate, current_user: User = Depends(get_current_active_user)
+    simulation: SimulationCreate, current_user: User = Depends(require_admin)
 ):
     """
     Create a new simulation.
@@ -85,7 +85,7 @@ async def get_simulation(
 async def update_simulation(
     simulation_update: SimulationUpdate,
     simulation_id: str = Path(..., title="The ID of the simulation to update"),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
 ):
     """
     Update an existing simulation.
@@ -106,7 +106,7 @@ async def update_simulation(
 
 @router.post("/start")
 async def start_simulation(
-    simulation_id: str, current_user: User = Depends(get_current_active_user)
+    simulation_id: str, current_user: User = Depends(require_admin)
 ):
     """
     Start a simulation.
@@ -127,7 +127,7 @@ async def start_simulation(
 
 @router.post("/stop")
 async def stop_simulation(
-    simulation_id: str, current_user: User = Depends(get_current_active_user)
+    simulation_id: str, current_user: User = Depends(require_admin)
 ):
     """
     Stop a simulation.
@@ -182,7 +182,7 @@ async def get_running_simulations(
 async def update_simulation_results(
     results: Dict[str, Any],
     simulation_id: str = Path(..., title="The ID of the simulation"),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
 ):
     """
     Update results for a simulation.
@@ -206,7 +206,7 @@ async def update_simulation_results(
 async def generate_simulation_event(
     event_data: EventCreate,
     simulation_id: str = Path(..., title="The ID of the simulation"),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
 ):
     """
     Generate an event as part of a simulation.
@@ -230,7 +230,7 @@ async def generate_simulation_event(
 async def associate_alert_with_simulation(
     simulation_id: str = Path(..., title="The ID of the simulation"),
     alert_id: str = Path(..., title="The ID of the alert"),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
 ):
     """
     Associate an alert with a simulation.

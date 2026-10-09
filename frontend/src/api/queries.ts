@@ -58,6 +58,55 @@ export function useChangePassword() {
   })
 }
 
+export function useAuthConfig() {
+  return useQuery({
+    queryKey: ["auth", "config"],
+    queryFn: () => unwrap(api.GET("/api/v1/auth/config")),
+    staleTime: Infinity,
+  })
+}
+
+// ---------------------------------------------------------------------------- Users
+
+/** Everyone with an account: for names, assignment and administration. */
+export function useUsers() {
+  return useQuery({
+    queryKey: ["users"],
+    queryFn: () => unwrap(api.GET("/api/v1/users/", { params: { query: { limit: 500 } } })),
+    staleTime: 60_000,
+  })
+}
+
+/** "Ann Analyst", or the username when no name is set. */
+export function displayName(user: Pick<User, "username" | "firstName" | "lastName">): string {
+  return [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username
+}
+
+export function useCreateUser() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { username: string; email: string; firstName?: string | null; lastName?: string | null; role: "admin" | "analyst" }) =>
+      unwrap(api.POST("/api/v1/users/", { body })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
+  })
+}
+
+export function useUpdateUser() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ userId, ...body }: { userId: string; role?: "admin" | "analyst"; active?: boolean }) =>
+      unwrap(api.PATCH("/api/v1/users/{user_id}", { params: { path: { user_id: userId } }, body })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
+  })
+}
+
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: (userId: string) =>
+      unwrap(api.POST("/api/v1/users/{user_id}/reset-password", { params: { path: { user_id: userId } } })),
+  })
+}
+
 // ---------------------------------------------------------------------------- System status
 
 export function useDetectionStatus() {

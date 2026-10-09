@@ -17,8 +17,9 @@ The web interface for UTDRS: where an analyst sees what needs attention, triages
 | Detection rules | The rule catalogue; create rules; switch a rule between enabled, testing and disabled | `/detection/rules` endpoints |
 | Simulations | Plan attack-simulation exercises; start and stop them | `/simulation/` endpoints |
 | Profile | Change your name and email, change your password | `PUT /auth/me`, `POST /auth/me/change-password` |
+| Users *(administrators)* | Add people (with a temporary password shown once), change roles, deactivate and reactivate accounts, reset passwords | `/users/` endpoints |
 
-Anyone can register; new accounts are analysts (the gateway ignores any role sent at registration). Lists that change on their own (alerts, events, system status) refresh every 15 seconds, and an event page refreshes until the engine's verdict arrives. Pushing new alerts to the browser as they happen is on the [roadmap](../README.md#roadmap).
+Administrators manage users, detection rules and simulations; analysts triage alerts and work with events and assets. The dashboard hides what your role cannot do, and the gateway enforces it. New registrations are analysts, and the sign-in page hides registration when the gateway has it closed. Lists that change on their own (alerts, events, system status) refresh every 15 seconds, and an event page refreshes until the engine's verdict arrives. Pushing new alerts to the browser as they happen is on the [roadmap](../README.md#roadmap).
 
 ### Try the detection pipeline
 
@@ -47,7 +48,7 @@ npm install
 npm run dev          # http://localhost:5173
 ```
 
-The dev server proxies `/api` to the gateway at `http://localhost:8000`; set `UTDRS_GATEWAY_URL` to use another one. For sample data, run `python3 scripts/seed-demo.py` from the repository root: it creates a `demo` account and prints its password.
+The dev server proxies `/api` to the gateway at `http://localhost:8000`; set `UTDRS_GATEWAY_URL` to use another one. For sample data, run `python3 scripts/seed-demo.py` from the repository root with `ADMIN_USERNAME` and `ADMIN_PASSWORD` set to the gateway's administrator.
 
 | Script | |
 |---|---|
@@ -71,11 +72,11 @@ The dev server proxies `/api` to the gateway at `http://localhost:8000`; set `UT
 ## Tests
 
 ```bash
-npm test                                         # 25 unit and page tests
+npm test                                         # 34 unit and page tests
 scripts/run-stack.sh npm --prefix frontend run test:e2e   # from the repository root
 ```
 
-Page tests render the real router and providers against a stubbed gateway (`src/test/gateway.ts`) and cover sign-in and the return to the page you asked for, expired sessions, alert filtering through the URL, triage requests, event verdicts and sending a test event. The end-to-end tests run in Chromium against the real gateway, core engine and MongoDB: register, send the ransomware event, wait for the engine's alert, investigate, assign and resolve it; and check that a routine event comes back clean. `E2E_BASE_URL` points them at an already running dashboard (the Docker image or a deployment) instead of `vite preview`.
+Page tests render the real router and providers against a stubbed gateway (`src/test/gateway.ts`) and cover sign-in and the return to the page you asked for, expired sessions, alert filtering through the URL, triage requests and assignment, event verdicts, sending a test event, what analysts and administrators each see, user administration and closed registration. The end-to-end tests run in Chromium against the real gateway, core engine and MongoDB: register, send the ransomware event, wait for the engine's alert, investigate, assign and resolve it; and check that a routine event comes back clean. `E2E_BASE_URL` points them at an already running dashboard (the Docker image or a deployment) instead of `vite preview`.
 
 ## How it is put together
 

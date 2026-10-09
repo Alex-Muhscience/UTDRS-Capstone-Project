@@ -51,12 +51,12 @@ With Docker, the whole system runs with one command. You need Docker with Compos
 
 ```bash
 git clone https://github.com/Alex-Muhscience/UTDRS-Capstone-Project.git utdrs && cd utdrs
-cp .env.example .env     # then set JWT_SECRET and INTERNAL_API_TOKEN to long random values
+cp .env.example .env     # then set JWT_SECRET and INTERNAL_API_TOKEN to long random values, and ADMIN_PASSWORD
 docker compose up -d --build --wait
-docker compose run --rm seed     # optional: demo data; prints the demo account's password
+docker compose run --rm seed     # optional: demo data
 ```
 
-Open http://localhost:8080 and sign in as `demo`, or register an account. Then try **Events → Send test event**. The gateway's API documentation is at http://localhost:8000/api/v1/docs.
+Open http://localhost:8080 and sign in as `admin` with your `ADMIN_PASSWORD`, or register an analyst account. Then try **Events → Send test event**. The gateway's API documentation is at http://localhost:8000/api/v1/docs.
 
 **[The Docker guide](docs/docker.md)** covers everything else: configuration, everyday commands, the optional data processor and scanner, backups, developing and testing against the containers, troubleshooting, and what to change before running it for real users.
 
@@ -72,14 +72,15 @@ python3.12 -m venv .venv-engine  && .venv-engine/bin/pip install -r services/cor
 Start the gateway and the core engine, connected to each other with a shared secret and each with its own database. The script leaves them running until you press Ctrl-C:
 
 ```bash
+export ADMIN_USERNAME=admin ADMIN_PASSWORD='choose-a-strong-password'
 DB_NAME=utdrs GATEWAY_PYTHON=.venv-gateway/bin/python ENGINE_PYTHON=.venv-engine/bin/python \
   scripts/run-stack.sh
 ```
 
-In another terminal, add demo data and start the dashboard's dev server:
+In another terminal (with the same `ADMIN_USERNAME` and `ADMIN_PASSWORD`), add demo data and start the dashboard's dev server:
 
 ```bash
-python3 scripts/seed-demo.py          # prints the demo account's password
+python3 scripts/seed-demo.py
 cd frontend && npm install && npm run dev
 ```
 
@@ -89,9 +90,9 @@ Open http://localhost:5173.
 
 | What | How |
 |---|---|
-| Gateway tests (36) | `cd services/api-gateway && MONGODB_URI=mongodb://localhost:27017 python -m pytest` |
+| Gateway tests (46) | `cd services/api-gateway && MONGODB_URI=mongodb://localhost:27017 python -m pytest` |
 | Engine tests (26) | `cd services/core-engine && MONGODB_URI=mongodb://localhost:27017 python -m pytest` |
-| Dashboard checks and tests (25) | `cd frontend && npm run lint && npm run typecheck && npm test` |
+| Dashboard checks and tests (34) | `cd frontend && npm run lint && npm run typecheck && npm test` |
 | System test: gateway and engine as separate services | `GATEWAY_PYTHON=… ENGINE_PYTHON=… scripts/system-test.sh` |
 | End-to-end: the dashboard in Chromium against the real stack | `GATEWAY_PYTHON=… ENGINE_PYTHON=… scripts/run-stack.sh npm --prefix frontend run test:e2e` |
 | Scanner | `cd scanner && make` |
@@ -124,13 +125,14 @@ Done:
 - [x] Give the engine its own database and load its signature rules; fix rules that flagged all DNS and network traffic
 - [x] Make the scanner's collection server start and run safely, and verify the server's name on the agent
 - [x] One-command local stack (`docker compose up`) with seeded demo data
+- [x] Roles enforced (administrators and analysts), user administration in the dashboard, and the first administrator created from settings
 
 Next:
 
 - [ ] Scanner: one wire format (the agent sends JSON `SCAN` commands with a checksum over the other fields), and scans delivered to the gateway as assets and events
 - [ ] Push new alerts to the dashboard as they happen, instead of polling every 15 seconds
 - [ ] Send rules edited in the dashboard to the engine (the gateway's rule catalogue and the engine's rules are separate today)
-- [ ] Enforce roles on administrative routes, and rate-limit sign-in using the client address from the proxy
+- [ ] Rate-limit sign-in using the client address from the proxy, and API keys for agents and integrations
 - [ ] Replace the indicator-based ML detectors with trained, evaluated models
 - [ ] Public demo deployment
 
