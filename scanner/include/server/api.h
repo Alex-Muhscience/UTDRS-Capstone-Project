@@ -1,6 +1,8 @@
 #ifndef DEVICE_SCANNER_API_H
 #define DEVICE_SCANNER_API_H
 
+#include <mongoc/mongoc.h>
+
 #include <openssl/ssl.h>      // For SSL type
 #include <stddef.h>           // For size_t
 #include <stdbool.h>          // For bool type
@@ -27,6 +29,18 @@ int api_init(void);
  * @return 0 on success, -1 on failure
  */
 int init_mongodb_connection(void);
+
+/**
+ * @brief The MongoDB connection pool opened by init_mongodb_connection
+ * @return The pool, or NULL before a successful init_mongodb_connection
+ * @note The API module owns the pool; cleanup_mongodb closes it
+ */
+mongoc_client_pool_t *get_mongodb_pool(void);
+
+/**
+ * @brief Close the MongoDB connection pool and release the driver
+ */
+void cleanup_mongodb(void);
 
 /**
  * @brief Clean up API resources

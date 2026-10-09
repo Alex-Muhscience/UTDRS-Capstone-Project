@@ -217,6 +217,8 @@ jobs:
             context: services/core-engine
           - image: dashboard
             context: frontend
+          - image: scanner-server
+            context: scanner
     steps:
       - uses: actions/checkout@v5
       - run: docker build -t utdrs-${{ matrix.image }}:ci ${{ matrix.context }}
