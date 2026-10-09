@@ -94,3 +94,4 @@ Known gaps, all on the [roadmap](../README.md#roadmap): roles are stored but not
 | Contract | The dashboard's types match the gateway's OpenAPI schema | CI job *API contract* |
 | System | The gateway and the engine as separate processes: an event becomes an alert, and the lists stay clean | `tests/system`, `scripts/system-test.sh` |
 | End to end | A person in a browser: register, send an event, triage the alert the engine raised | `frontend/e2e`, CI job *Dashboard end-to-end* |
+| Deployment | The Docker Compose stack builds, starts healthy, takes demo data and passes the same end-to-end tests | `docker-compose.yml`, CI job *Docker Compose stack* |

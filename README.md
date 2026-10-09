@@ -47,13 +47,22 @@ Each service owns its database. The gateway and the engine store differently sha
 
 ## Quick start
 
-You need Python 3.12, Node.js 22.22 or later (24 recommended) and MongoDB. For MongoDB, Docker is the quickest:
+With Docker, the whole system runs with one command. You need Docker with Compose v2.20 or later; no Python, Node.js or MongoDB.
 
 ```bash
-docker run -d --name utdrs-mongo -p 27017:27017 mongo:7
+git clone https://github.com/Alex-Muhscience/UTDRS-Capstone-Project.git utdrs && cd utdrs
+cp .env.example .env     # then set JWT_SECRET and INTERNAL_API_TOKEN to long random values
+docker compose up -d --build --wait
+docker compose run --rm seed     # optional: demo data; prints the demo account's password
 ```
 
-Install each Python service's dependencies in its own environment:
+Open http://localhost:8080 and sign in as `demo`, or register an account. Then try **Events → Send test event**. The gateway's API documentation is at http://localhost:8000/api/v1/docs.
+
+**[The Docker guide](docs/docker.md)** covers everything else: configuration, everyday commands, the optional data processor and scanner, backups, developing and testing against the containers, troubleshooting, and what to change before running it for real users.
+
+### Without Docker
+
+You need Python 3.12, Node.js 22.22 or later (24 recommended) and a MongoDB, for example `docker run -d -p 27017:27017 mongo:7`. Install each Python service's dependencies in its own environment:
 
 ```bash
 python3.12 -m venv .venv-gateway && .venv-gateway/bin/pip install -r services/api-gateway/requirements.txt
@@ -67,14 +76,14 @@ DB_NAME=utdrs GATEWAY_PYTHON=.venv-gateway/bin/python ENGINE_PYTHON=.venv-engine
   scripts/run-stack.sh
 ```
 
-In another terminal, fill it with a day of demo activity (the alerts are real verdicts from the engine), then start the dashboard:
+In another terminal, add demo data and start the dashboard's dev server:
 
 ```bash
 python3 scripts/seed-demo.py          # prints the demo account's password
 cd frontend && npm install && npm run dev
 ```
 
-Open http://localhost:5173 and sign in as `demo`, or register an account. The gateway's interactive API documentation is at http://localhost:8000/api/v1/docs.
+Open http://localhost:5173.
 
 ## Development
 
@@ -102,7 +111,7 @@ Every pull request runs:
 - the end-to-end tests in Chromium
 - the Linux build of the scanner
 - checks on the data processor
-- Docker builds of the gateway, engine, dashboard and scanner server
+- the whole stack under Docker Compose (every image built, the stack seeded, each service checked and the end-to-end tests run against the containers)
 
 ## Roadmap
 
@@ -114,6 +123,7 @@ Done:
 - [x] Rebuild the dashboard on the gateway's real API, typed against its schema, with unit and end-to-end tests
 - [x] Give the engine its own database and load its signature rules; fix rules that flagged all DNS and network traffic
 - [x] Make the scanner's collection server start and run safely, and verify the server's name on the agent
+- [x] One-command local stack (`docker compose up`) with seeded demo data
 
 Next:
 
@@ -122,7 +132,6 @@ Next:
 - [ ] Send rules edited in the dashboard to the engine (the gateway's rule catalogue and the engine's rules are separate today)
 - [ ] Enforce roles on administrative routes, and rate-limit sign-in using the client address from the proxy
 - [ ] Replace the indicator-based ML detectors with trained, evaluated models
-- [ ] One-command local stack (`docker compose up`) with seeded demo data
 - [ ] Public demo deployment
 
 ## Security
