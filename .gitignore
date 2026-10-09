@@ -21,6 +21,7 @@ venv/
 dist/
 build/
 *.exe
+scanner/bin/
 *.o
 *.obj
 *.so

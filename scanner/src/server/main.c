@@ -30,7 +30,6 @@
 #define CONNECTION_TIMEOUT_SEC 30
 
 volatile sig_atomic_t running = 1;
-static mongoc_client_pool_t *mongodb_pool = NULL;
 static pthread_mutex_t thread_count_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int active_threads = 0;
 
@@ -41,10 +40,7 @@ void handle_signal(int sig) {
 }
 
 void cleanup_resources() {
-    if (mongodb_pool) {
-        mongoc_client_pool_destroy(mongodb_pool);
-        mongoc_cleanup();
-    }
+    cleanup_mongodb();
 #ifdef _WIN32
     WSACleanup();
 #endif
@@ -111,9 +107,12 @@ void* client_thread_wrapper(void* arg) {
         active_threads++;
         pthread_mutex_unlock(&thread_count_mutex);
 
+        // This thread owns the connection: shut it down and close the socket once.
+        int client_sock = SSL_get_fd(ssl);
         handle_client_connection(ssl);
         SSL_shutdown(ssl);
         SSL_free(ssl);
+        close(client_sock);
 
         // Decrement active thread count
         pthread_mutex_lock(&thread_count_mutex);
@@ -143,8 +142,8 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    // Initialize storage with MongoDB pool
-    if (init_storage(mongodb_pool) != 0) {
+    // Initialize storage with the pool the API module opened
+    if (init_storage(get_mongodb_pool()) != 0) {
         LOG_ERR("Failed to initialize storage");
         cleanup_resources();
         return EXIT_FAILURE;
