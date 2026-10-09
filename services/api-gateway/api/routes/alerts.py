@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
-from core.models.alert import Alert, AlertCreate, AlertUpdate
+from core.models.alert import Alert, AlertCreate, AlertSummary, AlertUpdate
 from core.models.user import User
 from core.services.alert_service import AlertService
 from utils.security import get_current_active_user
@@ -19,7 +19,7 @@ async def get_alerts(
     current_user: User = Depends(get_current_active_user),
 ):
     """
-    Get all alerts with optional filtering.
+    Get alerts, newest first, with optional filtering. Filters can be combined.
 
     - **status**: Filter by alert status (open, in_progress, resolved, closed, false_positive)
     - **severity**: Filter by alert severity (critical, high, medium, low, info)
@@ -27,13 +27,7 @@ async def get_alerts(
     - **skip**: Number of alerts to skip (for pagination)
     """
     alert_service = AlertService()
-
-    if status:
-        return await alert_service.get_alerts_by_status(status, limit, skip)
-    elif severity:
-        return await alert_service.get_alerts_by_severity(severity, limit, skip)
-    else:
-        return await alert_service.get_alerts(limit, skip)
+    return await alert_service.get_alerts(limit, skip, status=status, severity=severity)
 
 
 @router.post("/", response_model=Alert, status_code=status.HTTP_201_CREATED)
@@ -54,6 +48,14 @@ async def create_alert(
         )
 
     return created_alert
+
+
+@router.get("/summary", response_model=AlertSummary)
+async def get_alert_summary(current_user: User = Depends(get_current_active_user)):
+    """
+    Alert counts by status, and counts of open alerts (open or in progress) by severity.
+    """
+    return await AlertService().get_summary()
 
 
 @router.get("/{alert_id}", response_model=Alert)
@@ -101,7 +103,7 @@ async def update_alert(
 
 @router.patch("/{alert_id}/status", response_model=Alert)
 async def update_alert_status(
-    status: str,
+    new_status: str = Query(..., alias="status"),
     notes: Optional[str] = None,
     alert_id: str = Path(..., title="The ID of the alert to update"),
     current_user: User = Depends(get_current_active_user),
@@ -116,13 +118,13 @@ async def update_alert_status(
 
     # Validate status
     valid_statuses = ["open", "in_progress", "resolved", "closed", "false_positive"]
-    if status not in valid_statuses:
+    if new_status not in valid_statuses:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}",
         )
 
-    result = await alert_service.update_alert_status(alert_id, status, notes)
+    result = await alert_service.update_alert_status(alert_id, new_status, notes)
     if not result:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

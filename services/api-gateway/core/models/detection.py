@@ -110,3 +110,19 @@ class DetectionRule(DetectionRuleBase):
             }
         },
     )
+
+
+class CoreEngineStatus(BaseModel):
+    configured: bool
+    reachable: bool
+
+
+class DetectionStatus(BaseModel):
+    # standalone: no core engine configured; active: engine reachable; degraded: configured but unreachable
+    status: str
+    total_rules: int
+    enabled_rules: int
+    disabled_rules: int
+    testing_rules: int
+    core_engine: CoreEngineStatus
+    last_updated: datetime

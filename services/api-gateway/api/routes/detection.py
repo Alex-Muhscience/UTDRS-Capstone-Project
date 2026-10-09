@@ -6,6 +6,7 @@ from core.models.detection import (
     DetectionRule,
     DetectionRuleCreate,
     DetectionRuleUpdate,
+    DetectionStatus,
 )
 from core.models.user import User
 from core.services.detection_service import DetectionService
@@ -14,10 +15,10 @@ from utils.security import get_current_active_user
 router = APIRouter()
 
 
-@router.get("/", response_model=Dict[str, Any])
+@router.get("/", response_model=DetectionStatus)
 async def get_detection_status(current_user: User = Depends(get_current_active_user)):
     """
-    Get overall detection system status.
+    Rule counts by status, and whether the core detection engine is configured and reachable.
     """
     detection_service = DetectionService()
     return await detection_service.get_detection_status()
@@ -130,7 +131,7 @@ async def update_rule(
 
 @router.patch("/rules/{rule_id}/status", response_model=DetectionRule)
 async def update_rule_status(
-    status: str,
+    new_status: str = Query(..., alias="status"),
     rule_id: str = Path(..., title="The ID of the rule to update"),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -143,14 +144,14 @@ async def update_rule_status(
 
     # Validate status
     valid_statuses = ["enabled", "disabled", "testing"]
-    if status not in valid_statuses:
+    if new_status not in valid_statuses:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}",
         )
 
     result = await detection_service.update_rule_status(
-        rule_id, status, current_user.id
+        rule_id, new_status, current_user.id
     )
     if not result:
         raise HTTPException(
