@@ -11,7 +11,9 @@ from core.detection.yara_detector import YaraDetector
 from core.detection.correlation_detector import CorrelationDetector
 from core.threat_intel.threat_intelligence import ThreatIntelligenceDetector
 from core.models.schema.alert import Alert, AlertCreate
+from config import settings
 from utils.logger import get_logger
+from utils.time import utcnow
 
 logger = get_logger(__name__)
 
@@ -30,7 +32,8 @@ class DetectionEngine:
         self.yara_detector = YaraDetector()
         self.correlation_detector = CorrelationDetector()
         self.ti_detector = ThreatIntelligenceDetector()
-        self.enable_threat_intel = True  # Set to False to disable TI lookups
+        # Threat-intel lookups call external services; ENABLE_THREAT_INTEL turns them off.
+        self.enable_threat_intel = settings.ENABLE_THREAT_INTEL
         
     async def detect_threats(self, event: Dict[str, Any]) -> Optional[Alert]:
         """
@@ -53,7 +56,7 @@ class DetectionEngine:
             
         # Add timestamp if not present
         if 'timestamp' not in event:
-            event['timestamp'] = datetime.utcnow().isoformat()
+            event['timestamp'] = utcnow().isoformat()
         
         # Run detection methods concurrently for better performance
         signature_task = asyncio.create_task(self._run_signature_detection(event))
@@ -329,7 +332,7 @@ class DetectionEngine:
         from datetime import datetime, timedelta
         
         # Last 24 hours
-        time_threshold = datetime.utcnow() - timedelta(hours=24)
+        time_threshold = utcnow() - timedelta(hours=24)
         
         # Get total alert count
         total_alerts = await self.alert_repository.count({
@@ -366,7 +369,7 @@ class DetectionEngine:
             {"$limit": 5}
         ]
         
-        top_sources = await self.alert_repository.collection.aggregate(pipeline).to_list(length=5)
+        top_sources = await (await self.alert_repository.collection.aggregate(pipeline)).to_list(length=5)
         
         # Get top MITRE techniques
         pipeline = [
@@ -377,7 +380,7 @@ class DetectionEngine:
             {"$limit": 5}
         ]
         
-        top_techniques = await self.alert_repository.collection.aggregate(pipeline).to_list(length=5)
+        top_techniques = await (await self.alert_repository.collection.aggregate(pipeline)).to_list(length=5)
         
         # Get correlations count
         correlations_count = await self.alert_repository.count({

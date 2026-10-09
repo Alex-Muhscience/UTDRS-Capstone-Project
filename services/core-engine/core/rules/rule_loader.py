@@ -3,6 +3,7 @@ from core.rules.predefined.rules import load_rules_to_database
 from typing import Dict, List, Any, Optional
 from core.database.repositories.rule_repository import RuleRepository
 from utils.logger import get_logger
+from utils.time import utcnow
 
 logger = get_logger(__name__)
 async def load_predefined_rules(self):
@@ -24,8 +25,8 @@ class RuleManager:
         
         # Add created timestamp
         from datetime import datetime
-        rule_data['created_at'] = datetime.utcnow()
-        rule_data['updated_at'] = datetime.utcnow()
+        rule_data['created_at'] = utcnow()
+        rule_data['updated_at'] = utcnow()
         
         # Save to database
         rule_id = await self.rule_repository.insert_one(rule_data)
@@ -37,7 +38,7 @@ class RuleManager:
         
         # Update timestamp
         from datetime import datetime
-        rule_data['updated_at'] = datetime.utcnow()
+        rule_data['updated_at'] = utcnow()
         
         # Update in database
         success = await self.rule_repository.update_one(rule_id, rule_data)

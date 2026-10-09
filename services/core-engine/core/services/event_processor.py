@@ -1,5 +1,6 @@
 from typing import Dict, Any, Optional
 from utils.logger import get_logger
+from utils.time import normalize_timestamp
 
 logger = get_logger(__name__)
 
@@ -16,6 +17,9 @@ def get_detection_engine():
 async def process_event(event_data):
     try:
         logger.info(f"Processing event from source: {event_data.get('source', 'unknown')}")
+
+        # Detectors compare timestamps as naive-UTC ISO strings; normalise whatever arrived.
+        event_data["timestamp"] = normalize_timestamp(event_data.get("timestamp"))
         
         # Get detection engine when needed
         detection_engine = get_detection_engine()

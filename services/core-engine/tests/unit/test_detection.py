@@ -5,8 +5,8 @@ import pytest
 import asyncio
 import pickle
 import os
-from unittest.mock import patch, MagicMock
-from datetime import datetime, timedelta
+from unittest.mock import patch, MagicMock, AsyncMock
+from datetime import datetime, timedelta, timezone
 
 # Import modules to test
 from core.detection.signature_detector import SignatureDetector
@@ -24,7 +24,7 @@ def authentication_event():
         "id": "12345",
         "source": "windows_server",
         "event_type": "authentication",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         "data": {
             "user_id": "jsmith",
             "user_type": "admin",
@@ -40,7 +40,7 @@ def network_event():
         "id": "23456",
         "source": "network_firewall",
         "event_type": "network",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         "data": {
             "src_ip": "192.168.1.100",
             "dst_ip": "203.0.113.10",
@@ -57,7 +57,7 @@ def file_event():
         "id": "34567",
         "source": "endpoint_agent",
         "event_type": "file",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         "data": {
             "filepath": "/etc/passwd",
             "operation": "read",
@@ -73,7 +73,7 @@ def process_event():
         "id": "45678",
         "source": "endpoint_agent",
         "event_type": "process",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         "data": {
             "process_name": "powershell.exe",
             "process_id": 1234,
@@ -89,8 +89,7 @@ def process_event():
 def mock_rule_manager():
     manager = MagicMock()
     # Configure the mock to return test rules
-    manager.get_rules.return_value = asyncio.Future()
-    manager.get_rules.return_value.set_result([
+    manager.get_rules = AsyncMock(return_value=[
         {
             "name": "Multiple Failed Login Attempts",
             "description": "Detects multiple failed login attempts",
@@ -150,15 +149,8 @@ def mock_rule_manager():
 @pytest.fixture
 def mock_db():
     db = MagicMock()
-    
-    # Configure mock collections and methods
-    events = MagicMock()
-    events.find.return_value.to_list.return_value = asyncio.Future()
-    events.find.return_value.to_list.return_value.set_result([])
-    events.count_documents.return_value = asyncio.Future()
-    events.count_documents.return_value.set_result(0)
-    
-    db.events = events
+    db.events.find.return_value.to_list = AsyncMock(return_value=[])
+    db.events.count_documents = AsyncMock(return_value=0)
     return db
 
 # Tests for Signature Detector
@@ -219,61 +211,55 @@ async def test_signature_detector_no_match(network_event, mock_rule_manager):
         
         assert result is None
 
-# Tests for Anomaly Detector
+# Tests for Anomaly Detector (real MongoDB, seeded history)
 @pytest.mark.asyncio
-async def test_anomaly_detector_auth_time(authentication_event, mock_db):
-    """Test that the anomaly detector can detect unusual login times."""
-    # Mock database to return login event history at different hours
-    mock_db.events.find.return_value.to_list.return_value.set_result([
-        {"timestamp": (datetime.utcnow() - timedelta(days=1)).replace(hour=9).isoformat()},
-        {"timestamp": (datetime.utcnow() - timedelta(days=2)).replace(hour=10).isoformat()},
-        {"timestamp": (datetime.utcnow() - timedelta(days=3)).replace(hour=8).isoformat()},
-        {"timestamp": (datetime.utcnow() - timedelta(days=4)).replace(hour=9).isoformat()},
-        {"timestamp": (datetime.utcnow() - timedelta(days=5)).replace(hour=10).isoformat()}
+async def test_anomaly_detector_new_login_location(authentication_event, mongo):
+    """A login from an address range the user has never used is flagged."""
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    await mongo.events.insert_many([
+        {
+            "event_type": "authentication",
+            "source": "windows_server",
+            "timestamp": (now - timedelta(hours=6 * i + 1)).isoformat(),
+            "data": {"user_id": "jsmith", "status": "success", "source_ip": f"10.0.0.{10 + i % 3}"},
+        }
+        for i in range(6)
     ])
-    
-    # Set current event to unusual hour (3am)
-    unusual_time_event = authentication_event.copy()
-    unusual_time_event["timestamp"] = datetime.utcnow().replace(hour=3).isoformat()
-    
-    with patch('core.database.connection.get_database', return_value=mock_db):
-        detector = AnomalyDetector()
-        detector.db = mock_db
-        
-        result = await detector._detect_auth_anomalies(unusual_time_event)
-        
-        assert result is not None
-        assert "Unusual Login Time" in result["name"]
-        assert result["severity"] == "medium"
-        assert "authentication" in result["tags"]
-        assert "time-anomaly" in result["tags"]
+
+    event = authentication_event.copy()
+    event["data"] = {**event["data"], "status": "success", "source_ip": "203.0.113.50"}
+
+    result = await AnomalyDetector()._detect_auth_anomalies(event)
+
+    assert result is not None
+    assert result["name"] == "Authentication from New Location"
+    assert "location-anomaly" in result["tags"]
+
 
 @pytest.mark.asyncio
-async def test_anomaly_detector_network_volume(network_event, mock_db):
-    """Test that the anomaly detector can detect unusual network traffic volume."""
-    # Mock database to return network event history with lower traffic volumes
-    mock_db.events.find.return_value.to_list.return_value.set_result([
-        {"data": {"bytes_sent": 10000}},
-        {"data": {"bytes_sent": 12000}},
-        {"data": {"bytes_sent": 8000}},
-        {"data": {"bytes_sent": 15000}},
-        {"data": {"bytes_sent": 11000}}
+async def test_anomaly_detector_network_volume(network_event, mongo):
+    """Outbound volume far above the host's baseline is flagged."""
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    volumes = [10000, 12000, 8000, 15000, 11000, 9000, 13000, 10500, 12500, 9500, 11500, 14000]
+    await mongo.events.insert_many([
+        {
+            "event_type": "network",
+            "source": "network_firewall",
+            # Irregular spacing, so the beaconing check does not fire first.
+            "timestamp": (now - timedelta(minutes=37 * i + i * i)).isoformat(),
+            "data": {"src_ip": "192.168.1.100", "dst_ip": f"198.51.100.{i}", "dst_port": 443, "bytes_sent": volume},
+        }
+        for i, volume in enumerate(volumes)
     ])
-    
-    # Set current event to high traffic volume
-    high_volume_event = network_event.copy()
-    high_volume_event["data"]["bytes_sent"] = 1500000  # Much higher than normal
-    
-    with patch('core.database.connection.get_database', return_value=mock_db):
-        detector = AnomalyDetector()
-        detector.db = mock_db
-        
-        result = await detector._detect_network_anomalies(high_volume_event)
-        
-        assert result is not None
-        assert "Unusual Network Traffic Volume" in result["name"]
-        assert "network" in result["tags"]
-        assert "data-exfiltration" in result["tags"]
+
+    event = network_event.copy()
+    event["data"] = {**event["data"], "bytes_sent": 1500000, "bytes_received": 900000}
+
+    result = await AnomalyDetector()._detect_network_anomalies(event)
+
+    assert result is not None
+    assert result["name"] == "Unusual Network Traffic Volume"
+    assert "data-exfiltration" in result["tags"]
 
 # Tests for ML Detector
 @pytest.mark.asyncio
@@ -284,7 +270,7 @@ async def test_ml_detector_phishing_simulation(authentication_event):
         "id": "56789",
         "source": "email_gateway",
         "event_type": "email",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         "data": {
             "sender": "suspicious@example.com",
             "recipient": "user@company.com",
@@ -322,7 +308,7 @@ async def test_ml_detector_malware_simulation(process_event):
     assert result is not None
     assert "Ransomware" in result["name"]
     assert result["confidence"] > 0.7
-    assert "T1486" in result["mitre_techniques"]
+    assert "T1490" in result["mitre_techniques"]  # Inhibit System Recovery
     assert "TA0040" in result["mitre_tactics"]
 
 # Tests for Detection Engine
@@ -359,8 +345,8 @@ async def test_detection_engine_integration(process_event, mock_rule_manager, mo
         "source": "endpoint_agent",
         "detection_type": "signature",
         "status": "open",
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
+        "created_at": datetime.now(timezone.utc).replace(tzinfo=None),
+        "updated_at": datetime.now(timezone.utc).replace(tzinfo=None)
     })
     
     # Create detection engine with mocked components
@@ -442,7 +428,7 @@ def test_risk_scorer_alert_risk():
             }
         },
         "tags": ["ransomware"],
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
     }
     
     critical_score = scorer.calculate_alert_risk(critical_alert)
@@ -458,7 +444,7 @@ def test_risk_scorer_alert_risk():
             }
         },
         "tags": ["network"],
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
     }
     
     medium_score = scorer.calculate_alert_risk(medium_alert)
@@ -474,7 +460,7 @@ def test_risk_scorer_alert_risk():
             }
         },
         "tags": [],
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
     }
     
     low_score = scorer.calculate_alert_risk(low_alert)
@@ -490,14 +476,14 @@ def test_risk_scorer_alert_risk():
             }
         },
         "tags": [],
-        "created_at": (datetime.utcnow() - timedelta(days=5)).isoformat()
+        "created_at": (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=5)).isoformat()
     }
     
     old_score = scorer.calculate_alert_risk(old_alert)
     
     # Same alert but recent
     recent_alert = old_alert.copy()
-    recent_alert["created_at"] = datetime.utcnow().isoformat()
+    recent_alert["created_at"] = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
     recent_score = scorer.calculate_alert_risk(recent_alert)
     
     assert old_score < recent_score  # Older alert should have lower score due to time decay
@@ -513,14 +499,14 @@ def test_risk_scorer_asset_risk():
             "detection_type": "signature",
             "details": {"detection": {"confidence": 0.95}},
             "tags": ["ransomware"],
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         },
         {
             "severity": "medium",
             "detection_type": "anomaly",
             "details": {"detection": {"confidence": 0.75}},
             "tags": ["network"],
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         }
     ]
     

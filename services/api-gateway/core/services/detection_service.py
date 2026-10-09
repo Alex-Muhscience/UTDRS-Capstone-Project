@@ -11,6 +11,7 @@ from core.models.detection import (
     DetectionRuleUpdate,
 )
 from utils.logger import get_logger
+from utils.time import utcnow
 
 logger = get_logger(__name__)
 
@@ -192,14 +193,14 @@ class DetectionService:
                 "enabled_rules": enabled_rules,
                 "disabled_rules": disabled_rules,
                 "testing_rules": testing_rules,
-                "last_updated": datetime.utcnow().isoformat(),
+                "last_updated": utcnow().isoformat(),
             }
         except Exception as e:
             logger.error(f"Error getting detection status: {str(e)}")
             return {
                 "status": "error",
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": utcnow().isoformat(),
             }
 
     # Integration methods for core engine
@@ -237,5 +238,5 @@ class DetectionService:
             "engine_version": "1.0.0",
             "rules_loaded": 100,
             "rules_active": 85,
-            "last_updated": datetime.utcnow().isoformat(),
+            "last_updated": utcnow().isoformat(),
         }

@@ -2,9 +2,10 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
-from core.models.user import PyObjectId
+from utils.time import utcnow
+from core.models.common import IdString, PyObjectId
 
 
 class AlertBase(BaseModel):
@@ -36,21 +37,20 @@ class AlertUpdate(BaseModel):
 
 
 class AlertInDB(AlertBase):
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
     created_by: Optional[str] = None
     assigned_to: Optional[str] = None
     notes: Optional[str] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
-    class Config:
-        allow_population_by_field_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
-        schema_extra = {
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_schema_extra={
             "example": {
-                "_id": "60d5ec2dcb43a5e37d0c7513",
+                "id": "60d5ec2dcb43a5e37d0c7513",
                 "title": "Suspicious Login Activity",
                 "description": "Multiple failed login attempts detected from unusual location",
                 "severity": "high",
@@ -67,11 +67,12 @@ class AlertInDB(AlertBase):
                 "notes": "Investigating the source of these login attempts",
                 "metadata": {"ip_address": "192.168.1.1", "country": "Unknown"},
             }
-        }
+        },
+    )
 
 
 class Alert(AlertBase):
-    id: str = Field(..., alias="_id")
+    id: IdString = Field(validation_alias=AliasChoices("_id", "id"))
     created_at: datetime
     updated_at: datetime
     created_by: Optional[str] = None
@@ -79,11 +80,11 @@ class Alert(AlertBase):
     notes: Optional[str] = None
     metadata: Dict[str, Any] = {}
 
-    class Config:
-        allow_population_by_field_name = True
-        schema_extra = {
+    model_config = ConfigDict(
+        populate_by_name=True,
+        json_schema_extra={
             "example": {
-                "_id": "60d5ec2dcb43a5e37d0c7513",
+                "id": "60d5ec2dcb43a5e37d0c7513",
                 "title": "Suspicious Login Activity",
                 "description": "Multiple failed login attempts detected from unusual location",
                 "severity": "high",
@@ -100,4 +101,5 @@ class Alert(AlertBase):
                 "notes": "Investigating the source of these login attempts",
                 "metadata": {"ip_address": "192.168.1.1", "country": "Unknown"},
             }
-        }
+        },
+    )
