@@ -27,7 +27,12 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = ["http://localhost:3001", "http://localhost:5173"]
 
     # Integration services
+    # When CORE_ENGINE_URL is set, every ingested event is sent to the core engine for
+    # detection, and any threat it finds becomes an alert here.
     CORE_ENGINE_URL: Optional[str] = None
+    CORE_ENGINE_TIMEOUT_SECONDS: float = 10.0
+    # Shared secret sent to the core engine as X-Internal-Token (must match its setting).
+    INTERNAL_API_TOKEN: Optional[str] = None
     RESPONSE_SERVICE_URL: Optional[str] = None
 
 
