@@ -3,7 +3,7 @@ from datetime import datetime
 
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 from app import app
 from core.database.connection import close_mongo_connection, connect_to_mongo
@@ -11,13 +11,13 @@ from utils.security import create_access_token
 
 # Skip these tests if MONGODB_URI environment variable is not set
 pytestmark = pytest.mark.skipif(
-    os.environ.get("MONGODB_URI") is None, reason="MongoDB connection URI not set"
+    not os.environ.get("UTDRS_RUN_DB_TESTS"), reason="MongoDB connection URI not set"
 )
 
 
 @pytest_asyncio.fixture
 async def client():
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client
 
 

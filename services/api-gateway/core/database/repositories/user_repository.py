@@ -7,6 +7,7 @@ from pymongo import ReturnDocument
 from core.database.repositories.base_repository import BaseRepository
 from core.models.user import UserCreate, UserInDB, UserUpdate
 from utils.security import get_password_hash
+from utils.time import utcnow
 
 
 class UserRepository(BaseRepository):
@@ -20,7 +21,7 @@ class UserRepository(BaseRepository):
         return await self.find_one({"email": email})
 
     async def create_user(self, user: UserCreate) -> str:
-        user_dict = user.dict()
+        user_dict = user.model_dump()
         password = user_dict.pop("password")
 
         # Create user document
@@ -32,8 +33,8 @@ class UserRepository(BaseRepository):
             "role": user_dict.get("role", "analyst"),
             "active": user_dict.get("active", True),
             "passwordHash": get_password_hash(password),
-            "createdAt": datetime.utcnow(),
-            "updatedAt": datetime.utcnow(),
+            "createdAt": utcnow(),
+            "updatedAt": utcnow(),
             "preferences": {},
         }
 
@@ -45,9 +46,9 @@ class UserRepository(BaseRepository):
         if not ObjectId.is_valid(id):
             return None
 
-        update_data = user_update.dict(exclude_unset=True)
+        update_data = user_update.model_dump(exclude_unset=True)
         if update_data:
-            update_data["updatedAt"] = datetime.utcnow()
+            update_data["updatedAt"] = utcnow()
 
             result = await self.collection.find_one_and_update(
                 {"_id": ObjectId(id)},
@@ -63,7 +64,7 @@ class UserRepository(BaseRepository):
 
         result = await self.collection.update_one(
             {"_id": ObjectId(id)},
-            {"$set": {"lastLogin": datetime.utcnow(), "updatedAt": datetime.utcnow()}},
+            {"$set": {"lastLogin": utcnow(), "updatedAt": utcnow()}},
         )
         return result.modified_count > 0
 
@@ -76,7 +77,7 @@ class UserRepository(BaseRepository):
             {
                 "$set": {
                     "passwordHash": get_password_hash(new_password),
-                    "updatedAt": datetime.utcnow(),
+                    "updatedAt": utcnow(),
                 }
             },
         )

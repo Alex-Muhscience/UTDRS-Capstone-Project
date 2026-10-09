@@ -6,6 +6,7 @@ from pymongo import ReturnDocument
 
 from core.database.repositories.base_repository import BaseRepository
 from core.models.alert import AlertCreate, AlertUpdate
+from utils.time import utcnow
 
 
 class AlertRepository(BaseRepository):
@@ -32,15 +33,15 @@ class AlertRepository(BaseRepository):
     async def create_alert(
         self, alert: AlertCreate, user_id: Optional[str] = None
     ) -> str:
-        alert_dict = alert.dict()
+        alert_dict = alert.model_dump()
 
         if user_id:
             alert_dict["created_by"] = user_id
 
         alert_doc = {
             **alert_dict,
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow(),
+            "created_at": utcnow(),
+            "updated_at": utcnow(),
             "metadata": {},
         }
 
@@ -52,9 +53,9 @@ class AlertRepository(BaseRepository):
         if not ObjectId.is_valid(id):
             return None
 
-        update_data = alert_update.dict(exclude_unset=True)
+        update_data = alert_update.model_dump(exclude_unset=True)
         if update_data:
-            update_data["updated_at"] = datetime.utcnow()
+            update_data["updated_at"] = utcnow()
 
             result = await self.collection.find_one_and_update(
                 {"_id": ObjectId(id)},
@@ -70,7 +71,7 @@ class AlertRepository(BaseRepository):
 
         result = await self.collection.update_one(
             {"_id": ObjectId(id)},
-            {"$set": {"assigned_to": assigned_to, "updated_at": datetime.utcnow()}},
+            {"$set": {"assigned_to": assigned_to, "updated_at": utcnow()}},
         )
         return result.modified_count > 0
 
@@ -80,7 +81,7 @@ class AlertRepository(BaseRepository):
         if not ObjectId.is_valid(id):
             return False
 
-        update_doc = {"status": status, "updated_at": datetime.utcnow()}
+        update_doc = {"status": status, "updated_at": utcnow()}
 
         if notes:
             update_doc["notes"] = notes
@@ -98,7 +99,7 @@ class AlertRepository(BaseRepository):
             {"_id": ObjectId(alert_id)},
             {
                 "$addToSet": {"event_ids": event_id},
-                "$set": {"updated_at": datetime.utcnow()},
+                "$set": {"updated_at": utcnow()},
             },
         )
         return result.modified_count > 0
@@ -109,7 +110,7 @@ class AlertRepository(BaseRepository):
 
         result = await self.collection.update_one(
             {"_id": ObjectId(id)},
-            {"$addToSet": {"tags": tag}, "$set": {"updated_at": datetime.utcnow()}},
+            {"$addToSet": {"tags": tag}, "$set": {"updated_at": utcnow()}},
         )
         return result.modified_count > 0
 
@@ -119,7 +120,7 @@ class AlertRepository(BaseRepository):
 
         result = await self.collection.update_one(
             {"_id": ObjectId(id)},
-            {"$pull": {"tags": tag}, "$set": {"updated_at": datetime.utcnow()}},
+            {"$pull": {"tags": tag}, "$set": {"updated_at": utcnow()}},
         )
         return result.modified_count > 0
 

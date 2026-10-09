@@ -10,6 +10,7 @@ import numpy as np
 from datetime import datetime
 from utils.logger import get_logger
 from config import settings
+from utils.time import utcnow
 
 logger = get_logger(__name__)
 
@@ -277,7 +278,7 @@ class ModelTrainer:
             
         # Generate version if not provided
         if not version:
-            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+            timestamp = utcnow().strftime('%Y%m%d_%H%M%S')
             version = f"{model_type}_{timestamp}"
             
         # Save model
@@ -289,7 +290,7 @@ class ModelTrainer:
         metadata = {
             "name": f"{model_type}_model",
             "version": version,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": utcnow().isoformat(),
             "description": f"{model_type.capitalize()} detection model",
             "metrics": metrics,
             "threshold": 0.7,  # Default confidence threshold

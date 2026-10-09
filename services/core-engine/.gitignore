@@ -154,3 +154,6 @@ Thumbs.db
 *.sqlite
 temp/
 tmp/
+
+# Written by the YARA detector on first run
+core/rules/yara/examples/
