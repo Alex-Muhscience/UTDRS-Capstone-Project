@@ -1,17 +1,29 @@
-from core.rules.predefined.rules import load_rules_to_database
-
 from typing import Dict, List, Any, Optional
 from core.database.repositories.rule_repository import RuleRepository
+from core.rules.predefined.rules import get_predefined_rules
 from utils.logger import get_logger
 from utils.time import utcnow
 
 logger = get_logger(__name__)
-async def load_predefined_rules(self):
-    await load_rules_to_database(self)
+
 
 class RuleManager:
     def __init__(self):
         self.rule_repository = RuleRepository()
+
+    async def load_predefined_rules(self) -> int:
+        """
+        Store each predefined rule that is not stored yet, matched by name, so rules
+        edited or disabled through the API are left as they are. Returns how many
+        were added.
+        """
+        added = 0
+        for rule in get_predefined_rules():
+            if await self.rule_repository.find_one({"name": rule["name"]}):
+                continue
+            await self.create_rule(dict(rule))
+            added += 1
+        return added
         
     async def get_rules(self, filters, limit=100, skip=0):
         return await self.rule_repository.find_many(filters, limit, skip)
