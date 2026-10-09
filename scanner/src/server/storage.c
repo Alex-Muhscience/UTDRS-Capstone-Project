@@ -6,7 +6,15 @@
 #include <bson/bson.h> // Include this for BCON_STRING and other BSON APIs
 #include <openssl/ssl.h> // For SSL_get_fd
 #include <jansson.h>
+#ifdef _WIN32
 #include <ws2tcpip.h> // For InetNtop
+#define utdrs_inet_ntop InetNtop
+#else
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#define utdrs_inet_ntop inet_ntop
+#endif
 #include "common/utils.h"
 
 static mongoc_client_pool_t *client_pool = NULL;
@@ -68,8 +76,8 @@ int store_scan_result(SSL *ssl, const char *data) {
         return -1;
     }
 
-    // Use InetNtop instead of inet_ntop
-    if (!InetNtop(AF_INET, &addr.sin_addr, client_ip, sizeof(client_ip))) {
+    // InetNtop on Windows, inet_ntop elsewhere
+    if (!utdrs_inet_ntop(AF_INET, &addr.sin_addr, client_ip, sizeof(client_ip))) {
         fprintf(stderr, "Failed to convert IP address\n");
         return -1;
     }

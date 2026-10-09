@@ -33,12 +33,37 @@ Each component has its own README with setup instructions.
 ## Roadmap
 
 - [x] Bring the components into one repository, keeping their history
-- [ ] Upgrade the Python services to a supported Python and current FastAPI/Pydantic; tests and CI for every component
-- [ ] Connect the gateway to the core engine: event in, detection, alert out, pushed live to the dashboard
+- [x] Upgrade the Python services to Python 3.12 and current FastAPI/Pydantic/PyMongo; tests and CI for every component
+- [x] Connect the gateway to the core engine: event in, detection, alert out
+- [ ] Push new alerts live to the dashboard
 - [ ] Point the dashboard at the gateway's real API and remove features that have no backend
 - [ ] Replace the simulated machine-learning detectors with evaluated models
 - [ ] One-command local stack (`docker compose up`) with seeded demo data and an attack simulator
 - [ ] Public demo deployment
+
+## Development
+
+Each Python service has its own dependencies (`requirements.txt`, plus `requirements-dev.txt` for tests). Tests that need MongoDB run when `MONGODB_URI` is set and use a throwaway database:
+
+```bash
+# A local MongoDB for the tests
+docker run -d --name utdrs-mongo -p 27017:27017 mongo:7
+
+cd services/api-gateway   # or services/core-engine
+python3.12 -m venv .venv && . .venv/bin/activate
+pip install -r requirements-dev.txt
+MONGODB_URI=mongodb://localhost:27017 python -m pytest
+```
+
+The system test starts the gateway and the core engine as separate services and checks that an event posted to the gateway comes back as an alert from the engine:
+
+```bash
+GATEWAY_PYTHON=services/api-gateway/.venv/bin/python \
+ENGINE_PYTHON=services/core-engine/.venv/bin/python \
+scripts/system-test.sh
+```
+
+To connect the two services, set `CORE_ENGINE_URL` on the gateway (e.g. `http://localhost:8001`) and the same `INTERNAL_API_TOKEN` on both. CI runs all of this, plus the frontend build and a Linux build of the scanner, on every pull request.
 
 ## Repository history
 

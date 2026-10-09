@@ -15,6 +15,9 @@
 #include <sys/utsname.h>
 #include <sys/sysinfo.h>
 #include <ifaddrs.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #endif
 
 scan_result_t* perform_scan() {
@@ -107,8 +110,9 @@ result->networks[i].interface_name[copy_len] = '\0';
     
     // Get OS info
     if (uname(&os_info) == 0) {
-        strncpy(result->system.os_name, os_info.sysname, MAX_OS_LEN);
-        strncpy(result->system.os_version, os_info.release, MAX_OS_LEN);
+        // snprintf always NUL-terminates; strncpy did not when the source filled the buffer.
+        snprintf(result->system.os_name, sizeof(result->system.os_name), "%s", os_info.sysname);
+        snprintf(result->system.os_version, sizeof(result->system.os_version), "%s", os_info.release);
     }
 
     // Get memory info
@@ -133,7 +137,8 @@ result->networks[i].interface_name[copy_len] = '\0';
                 size_t idx = 0;
                 for (struct ifaddrs *ifa = ifaddr; ifa != NULL && idx < result->network_count; ifa = ifa->ifa_next) {
                     if (ifa->ifa_addr && ifa->ifa_addr->sa_family == AF_INET) {
-                        strncpy(result->networks[idx].interface_name, ifa->ifa_name, MAX_INTERFACE_LEN);
+                        snprintf(result->networks[idx].interface_name,
+                                 sizeof(result->networks[idx].interface_name), "%s", ifa->ifa_name);
                         inet_ntop(AF_INET,
                                  &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr,
                                  result->networks[idx].ip_address,
