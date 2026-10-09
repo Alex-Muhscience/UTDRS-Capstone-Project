@@ -1,165 +1,50 @@
-# 🌐 **Unified Threat Detection and Response System (UTDRS)**  
+# UTDRS — Unified Threat Detection and Response System
 
-*A Comprehensive Cybersecurity Solution for Kenyan SMEs*  
+A threat detection and response platform for small and medium-sized organisations that have no security operations team: collect security events from devices, detect threats with several complementary methods, and give an operator alerts they can act on, with the AI components kept explainable.
 
----
+UTDRS was a **Top 5 finalist in the Mozilla Responsible Computing Challenge**.
 
-<div align="center">
-  <img src="https://via.placeholder.com/800x400?text=UTDRS+Logo" alt="UTDRS Logo" width="400">
-</div>
+> **Status:** this repository brings together components that were developed in separate repositories. They are being integrated into one working system; see [Roadmap](#roadmap) for what is done and what is in progress.
 
----
+## How it fits together
 
-## 🔍 **Overview**  
-
-The **UTDRS** is an innovative **AI-powered system** tailored to protect **Small and Medium-sized Enterprises (SMEs)** in Kenya from advanced cyber threats.  
-It combines **real-time threat detection**, **automated response**, and an **intuitive dashboard** to strengthen cybersecurity resilience.
-
----
-
-## 🛠️ **Key Features**  
-
-| Feature                     | Description                                                                                  |
-|-----------------------------|----------------------------------------------------------------------------------------------|
-| ⚡ **Real-Time Threat Detection** | Uses AI and neural networks to identify phishing, ransomware, DDoS, and more.                     |
-| 🤖 **Automated Responses**         | Isolate devices, block malicious IPs, and alert administrators automatically.                |
-| 📊 **Interactive Dashboard**       | Visualize threats, monitor activity logs, and generate customizable reports.               |
-| 🔐 **Role-Based Access Control**   | Assign roles like admin, analyst, or viewer for secure operations.                        |
-| 📈 **Scalable Architecture**       | Easily adapts to the growth and changing needs of SMEs.                                   |
-
----
-
-## 🏗️ **Tech Stack**  
-
-| **Category**       | **Technology**                |
-|--------------------|------------------------------|
-| **Backend**        | ![Python](https://img.shields.io/badge/-Python-3776AB?style=for-the-badge&logo=python&logoColor=white) ![Flask](https://img.shields.io/badge/-Flask-000000?style=for-the-badge&logo=flask&logoColor=white) |
-| **AI Framework**   | ![TensorFlow](https://img.shields.io/badge/-TensorFlow-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white) ![Keras](https://img.shields.io/badge/-Keras-D00000?style=for-the-badge&logo=keras&logoColor=white) |
-| **Frontend**       | ![React](https://img.shields.io/badge/-React-61DAFB?style=for-the-badge&logo=react&logoColor=black) ![D3.js](https://img.shields.io/badge/-D3.js-F9A03C?style=for-the-badge&logo=d3.js&logoColor=black) |
-| **Database**       | ![MongoDB](https://img.shields.io/badge/-MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white) |
-| **Deployment**     | ![Docker](https://img.shields.io/badge/-Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white) ![AWS](https://img.shields.io/badge/-AWS-232F3E?style=for-the-badge&logo=amazon-aws&logoColor=white) |
-
----
-
-## 🚀 **Getting Started**
-
-### **Prerequisites**
-
-Ensure you have the following installed:
-
-- Python 3.9+  
-- Node.js 14+  
-- MongoDB  
-- Docker (optional)  
-
-### **Setup Instructions**
-
-1. **Clone the repository**:  
-
-   ```bash
-   git clone https://github.com/your-username/utdrs.git
-   cd utdrs
-   ```
-
-2. **Install dependencies**:  
-
-   ```bash
-   # Backend
-   cd backend && pip install -r requirements.txt
-   # Frontend
-   cd ../frontend && npm install
-   ```
-
-3. **Run the backend**:  
-
-   ```bash
-   python backend/app.py
-   ```
-
-4. **Run the frontend**:  
-
-   ```bash
-   npm start
-   ```
-
-5. **Access the system**: Open `http://localhost:3000` in your browser.
-
----
-
-## 📂 **Project Structure**  
-
-```plaintext
-UTDRS/
-├── backend/      # Python APIs and AI models
-├── frontend/     # React.js dashboard
-├── models/       # Neural network models
-├── tests/        # Unit and integration tests
-└── docs/         # Documentation
+```mermaid
+flowchart LR
+  agent["Scanner agent<br/>(C, on each device)"] -- "TLS" --> scanserver["Scanner server<br/>(C)"]
+  scanserver --> db[("MongoDB")]
+  web["Web dashboard<br/>(React)"] -- "REST + WebSocket" --> gateway["API gateway<br/>(FastAPI)"]
+  gateway --> db
+  gateway -- "events" --> engine["Core detection engine<br/>(FastAPI)"]
+  engine --> db
+  processor["Data processor<br/>(Python)"] --> db
 ```
 
----
+| Path | Component | Stack |
+|---|---|---|
+| [`frontend/`](frontend) | Web dashboard: user portal and admin console | React, Vite, Tailwind CSS |
+| [`services/api-gateway/`](services/api-gateway) | Public API: authentication, RBAC, alerts, events, assets, detection rules, simulations | Python, FastAPI, MongoDB |
+| [`services/core-engine/`](services/core-engine) | Detection: signature rules mapped to MITRE ATT&CK, anomaly detection, correlation, YARA, threat-intelligence enrichment, risk scoring | Python, FastAPI, scikit-learn |
+| [`services/data-processor/`](services/data-processor) | Batch processing of stored events with retries and a dead-letter collection | Python, MongoDB |
+| [`scanner/`](scanner) | Device scanner agent and collection server with mutual TLS | C, OpenSSL, mongo-c-driver |
+| [`research/capstone/`](research/capstone) | The original capstone prototype, trained models and project report | Python, TensorFlow/Keras, React |
 
-## 📸 **Screenshots**  
+Each component has its own README with setup instructions.
 
-### **Threat Detection Dashboard**  
+## Roadmap
 
-<div align="center">
-  <img src="https://via.placeholder.com/800x400?text=Threat+Detection+Dashboard" alt="Threat Detection Dashboard">
-</div>
+- [x] Bring the components into one repository, keeping their history
+- [ ] Upgrade the Python services to a supported Python and current FastAPI/Pydantic; tests and CI for every component
+- [ ] Connect the gateway to the core engine: event in, detection, alert out, pushed live to the dashboard
+- [ ] Point the dashboard at the gateway's real API and remove features that have no backend
+- [ ] Replace the simulated machine-learning detectors with evaluated models
+- [ ] One-command local stack (`docker compose up`) with seeded demo data and an attack simulator
+- [ ] Public demo deployment
 
-### **Real-Time Threat Map**  
+## Repository history
 
-<div align="center">
-  <img src="https://via.placeholder.com/800x400?text=Real-Time+Threat+Map" alt="Real-Time Threat Map">
-</div>
+This repository started as the UTDRS capstone project. The other components were developed in their own repositories and merged in with their full commit history:
+`utdrs-core-engine`, `utdrs-api-gateway`, `UTDRS-Data-Processor`, `UTDRS-frontend` and `UTDRS-Device-Scanner`. While merging, credentials and key material that had been committed were removed from the imported history, along with vendored build tools and compiled binaries.
 
----
+## Security
 
-## 🤝 **Contributing**  
-
-We welcome contributions from the community! To contribute:  
-
-1. Fork the repo.  
-2. Create a new branch:  
-
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-
-3. Make your changes and commit:  
-
-   ```bash
-   git commit -m "Add feature: your-feature-name"
-   ```
-
-4. Push the branch:  
-
-   ```bash
-   git push origin feature/your-feature-name
-   ```
-
-5. Open a pull request and describe your changes.  
-
----
-
-## 📜 **License**  
-
-This project is licensed under the **MIT License**. See `LICENSE` for more details.  
-
----
-
-## 📧 **Contact**  
-
-| Name               | Email                                   | GitHub                                       |
-|--------------------|-----------------------------------------|---------------------------------------------|
-| **Alex Murimi Kamau** | [info.ak.computerscience@gmail.com](mailto:info.ak.computerscience@gmail.com) | [GitHub: Alex-Muhscience](https://github.com/Alex-Muhscience) |
-| **Wycliffe Cheruiyot** | [info.cheruiyot@gmail.com](mailto:info.cheruiyot@gmail.com) | [GitHub: Cheruiyot-Wycliffe](https://github.com/Cheruiyot-Wycliffe) |
-
----
-
-<div align="center">
-  <strong>"Empowering SMEs with secure, scalable, and intelligent cybersecurity solutions."</strong>
-</div>
-```
-
----
+Never commit credentials, `.env` files or key material; the root `.gitignore` blocks the common cases. The scanner's TLS certificates are generated per deployment with the scripts in [`scanner/scripts/`](scanner/scripts).

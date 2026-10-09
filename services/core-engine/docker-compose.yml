@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  core-engine:
+    build: .
+    ports:
+      - "8001:8000"
+    volumes:
+      - .:/app
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+      - API_GATEWAY_URL=${API_GATEWAY_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - DEBUG=True
+      - LOG_LEVEL=INFO
+    command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
