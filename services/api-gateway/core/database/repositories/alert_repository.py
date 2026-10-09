@@ -31,7 +31,10 @@ class AlertRepository(BaseRepository):
         return await self.find_many({"assigned_to": user_id}, limit=limit, skip=skip)
 
     async def create_alert(
-        self, alert: AlertCreate, user_id: Optional[str] = None
+        self,
+        alert: AlertCreate,
+        user_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         alert_dict = alert.model_dump()
 
@@ -42,7 +45,7 @@ class AlertRepository(BaseRepository):
             **alert_dict,
             "created_at": utcnow(),
             "updated_at": utcnow(),
-            "metadata": {},
+            "metadata": metadata or {},
         }
 
         return await self.insert_one(alert_doc)
