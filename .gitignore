@@ -5,7 +5,6 @@
 .env.*
 !.env.example
 !.env.*.example
-!frontend/.env.production
 *.key
 *.pem
 *.pfx
@@ -15,13 +14,14 @@ scanner/configs/certs/
 
 # Dependencies and virtual environments
 node_modules/
-.venv/
+.venv*/
 venv/
 
 # Build output and binaries
 dist/
 build/
 *.exe
+scanner/bin/
 *.o
 *.obj
 *.so

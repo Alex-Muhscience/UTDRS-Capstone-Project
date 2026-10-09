@@ -580,3 +580,38 @@ def test_model_registry():
         loaded_metadata = registry.get_model_metadata("test_model")
         assert loaded_metadata is not None
         assert loaded_metadata.get("metrics", {}).get("accuracy") == 0.95
+
+def _matching_predefined_rules(event):
+    from core.rules.predefined.rules import get_predefined_rules
+
+    detector = SignatureDetector()
+    return [
+        rule["name"]
+        for rule in get_predefined_rules()
+        if asyncio.run(detector._match_rule(event, rule))
+    ]
+
+
+@pytest.mark.parametrize(
+    "event",
+    [
+        {"event_type": "dns", "data": {"domain": "github.com"}},
+        {"event_type": "network", "data": {"dst_ip": "142.250.185.78", "dst_port": 443}},
+        {"event_type": "authentication", "data": {"status": "success", "user_id": "jsmith"}},
+        {"event_type": "process", "data": {"process_name": "chrome.exe", "command_line": "chrome.exe"}},
+    ],
+)
+def test_routine_events_match_no_predefined_rule(event):
+    assert _matching_predefined_rules(event) == []
+
+
+@pytest.mark.parametrize(
+    "event, rule",
+    [
+        ({"event_type": "dns", "data": {"domain": "evil.net"}}, "DNS Query to Suspicious Domain"),
+        ({"event_type": "network", "data": {"dst_ip": "10.0.0.1"}}, "Connection to Known C2 Server"),
+        ({"event_type": "authentication", "data": {"status": "failed"}}, "Multiple Failed Login Attempts"),
+    ],
+)
+def test_malicious_events_match_their_rule(event, rule):
+    assert rule in _matching_predefined_rules(event)

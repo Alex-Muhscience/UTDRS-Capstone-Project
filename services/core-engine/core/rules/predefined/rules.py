@@ -59,7 +59,7 @@ def get_predefined_rules() -> List[Dict[str, Any]]:
             "description": "Detects network connections to known command and control servers",
             "rule_type": "signature",
             "detection": {
-                "condition_type": "OR",
+                "condition_type": "AND",
                 "conditions": {
                     "event_type": "network",
                     "data.dst_ip": ["192.168.0.1", "10.0.0.1"]  # Example IPs, would be a longer list in production
@@ -76,7 +76,7 @@ def get_predefined_rules() -> List[Dict[str, Any]]:
             "description": "Detects DNS queries to known malicious or suspicious domains",
             "rule_type": "signature",
             "detection": {
-                "condition_type": "OR",
+                "condition_type": "AND",
                 "conditions": {
                     "event_type": "dns",
                     "data.domain": ["malicious.com", "evil.net"]  # Example domains, would be a longer list in production
@@ -256,32 +256,6 @@ def get_predefined_rules() -> List[Dict[str, Any]]:
             "mitre_techniques": ["T1204"]  # User Execution
         }
     ]
-
-def load_rules_to_database(rule_manager):
-    """
-    Load predefined rules into the database if they don't already exist.
-    
-    Args:
-        rule_manager: The RuleManager instance to use
-    """
-    predefined_rules = get_predefined_rules()
-    
-    async def _load_rules():
-        for rule in predefined_rules:
-            # Check if rule with this name already exists
-            existing_rules = await rule_manager.get_rules({"name": rule["name"]})
-            
-            if not existing_rules:
-                logger.info(f"Adding predefined rule: {rule['name']}")
-                await rule_manager.create_rule(rule)
-            else:
-                logger.debug(f"Rule already exists: {rule['name']}")
-    
-    import asyncio
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(_load_rules())
-    
-    logger.info(f"Loaded {len(predefined_rules)} predefined rules")
 
 def save_rules_to_file(output_dir: str = "core/rules/predefined"):
     """

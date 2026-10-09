@@ -33,7 +33,11 @@ app = FastAPI(
 )
 
 # Enhance security middleware
-app.add_middleware(SecurityMiddleware, allowed_hosts=settings.ALLOWED_HOSTS)
+app.add_middleware(
+    SecurityMiddleware,
+    allowed_hosts=settings.ALLOWED_HOSTS,
+    docs_paths=(app.docs_url, app.redoc_url),
+)
 app.add_middleware(RequestValidationMiddleware)
 app.add_middleware(ErrorHandlerMiddleware)
 limiter = Limiter(key_func=get_remote_address)

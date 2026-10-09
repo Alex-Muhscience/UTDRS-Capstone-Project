@@ -1,89 +1,113 @@
-# Unified Threat Detection and Response System (UTDRS) - Core Engine
+# UTDRS core engine
 
-## 🎯 Project Overview
-The UTDRS Core Engine is a robust, scalable, and comprehensive cybersecurity detection system. It provides multi-layered threat detection capabilities using signature-based, anomaly-based, machine learning, and threat intelligence approaches.
+The detection service. It receives events from the [API gateway](../api-gateway), runs them through several detectors at once, and answers with an alert, mapped to MITRE ATT&CK, or with nothing. It is an internal service: only the gateway calls it, and it should not be reachable from the internet.
 
-## Features
-- **Multi-layered detection methods**: Signature, anomaly, ML, YARA, correlation, and TI integration
-- **Rule-based detection engine**: Flexible rules with MITRE ATT&CK mapping
-- **Machine learning model integration**: Dynamic model management and simulation
-- **Threat Intelligence integration**: Multi-vendor support (VirusTotal, AbuseIPDB, OTX)
-- **RESTful API**: Integration endpoints for detection processing and alerts
-- **Containerized deployment**: Docker and Render.com support
+Python 3.12 · FastAPI · PyMongo (async) · scikit-learn · NumPy/SciPy · yara-python
 
-## 🚀 Quick Start
+## Detection
 
-### Prerequisites
-- **Docker & Docker Compose**: For local development
-- **MongoDB**: Can use MongoDB Atlas
+Every event goes to six detectors concurrently (`core/detection/engine.py`). The first verdict in this order wins, from the most specific evidence to the least, and becomes one alert:
 
-### Local Development Setup
-1. **Clone the repository**
-```bash
-git clone <repository-url>
-cd utdrs--core--engine-main
+| Detector | What it looks for | State |
+|---|---|---|
+| **Signature** | Rules matching event fields: exact values, lists, `regex:` patterns and numeric conditions, combined with AND or OR. 13 rules ship with the engine: failed and admin logins, connections to known C2 addresses, DNS lookups of listed domains, suspicious processes and encoded PowerShell, access to sensitive files, security services disabled, new accounts, large outbound uploads, external email attachments, ransomware file operations and known malware hashes, each mapped to MITRE ATT&CK. | Working. The rules are added to the engine's database at startup if missing, and managed through `/rules`. |
+| **YARA** | Files or content referenced by the event, against the YARA rules in `core/rules/yara/` | Working when rules are present (`ENABLE_YARA`) |
+| **Correlation** | Sequences of related events within `CORRELATION_WINDOW` minutes, e.g. failed logins followed by a success | Working |
+| **Threat intelligence** | IPs, domains and hashes looked up in VirusTotal, AbuseIPDB and AlienVault OTX, with a local cache | Off unless `ENABLE_THREAT_INTEL` is on and API keys are set |
+| **ML** | Malware and ransomware behaviour (e.g. deleting shadow copies, T1490), phishing, network and user-behaviour patterns | **Hand-written indicator scoring.** The model files in `ml_models/` are placeholders. Trained, evaluated models are on the [roadmap](../../README.md#roadmap). |
+| **Anomaly** | Deviations from baselines built from the engine's own event history (`ANOMALY_BASELINE_DAYS`): unusual sign-in times and places, beaconing, port scans, traffic volume, unusual processes and file activity | Working; needs history to be useful |
+
+The engine stores every event it sees and every alert it raises in **its own database**, which the correlation and anomaly detectors read. Alerts include a risk score, the matched techniques and tactics, and the detection details. The gateway turns the engine's alert into an alert of its own, linked to the original event.
+
+## API
+
+| Route | |
+|---|---|
+| `GET /health`, `GET /health/db` | Open, for load balancers and the gateway's status check |
+| `POST /detections/process` | Analyse an event: `{ "source", "event_type", "timestamp", "data": { ... } }`. Returns the alert, or `null`. Detector fields go in `data`, e.g. `process_name`, `command_line`, `src_ip`, `dst_ip`, `domain`, `status`, `filepath`. |
+| `GET /detections/alerts`, `GET /detections/alerts/{id}` | The engine's alerts, filterable by `severity` and `source` |
+| `GET`, `POST /rules/`, `GET`, `PUT`, `DELETE /rules/{id}` | Detection rules |
+
+When `INTERNAL_API_TOKEN` is set, every route except health requires the same value in the `X-Internal-Token` header (compared in constant time). Interactive docs are at `/docs`.
+
+A signature rule looks like this:
+
+```json
+{
+  "name": "DNS Query to Suspicious Domain",
+  "description": "Detects DNS queries to known malicious or suspicious domains",
+  "rule_type": "signature",
+  "detection": {
+    "condition_type": "AND",
+    "conditions": { "event_type": "dns", "data.domain": ["malicious.com", "evil.net"] }
+  },
+  "enabled": true,
+  "severity": "high",
+  "mitre_tactics": ["TA0011"],
+  "mitre_techniques": ["T1071.004"]
+}
 ```
 
-2. **Configure environment variables**
-   - Copy the example environment file and update it with your settings
+## Configuration
+
+Settings come from the environment or a `.env` file in this directory (see [`.env.example`](.env.example)).
+
+| Variable | Default | |
+|---|---|---|
+| `MONGODB_URI` | required | |
+| `DB_NAME` | `utdrs_engine` | The engine's own database. Never the gateway's. |
+| `INTERNAL_API_TOKEN` | unset | Shared secret with the gateway |
+| `ENABLE_YARA` | `true` | |
+| `ENABLE_CORRELATION` | `true` | |
+| `CORRELATION_WINDOW` | `60` | Minutes |
+| `ANOMALY_BASELINE_DAYS` | `7` | |
+| `ENABLE_THREAT_INTEL` | `true` | Only providers with a key are queried |
+| `VIRUSTOTAL_API_KEY`, `ABUSEIPDB_API_KEY`, `OTX_API_KEY` | unset | |
+| `MODEL_PATH` | `ml_models` | Loaded with `pickle`: only use model files you trust |
+| `LOG_LEVEL` | `INFO` | |
+
+## Run it
+
 ```bash
-cp .env.example .env
-# Edit .env with your MongoDB connection details and other settings
+python3.12 -m venv .venv && . .venv/bin/activate
+pip install -r requirements-dev.txt
+MONGODB_URI=mongodb://localhost:27017 uvicorn app:app --reload --port 8001
 ```
 
-3. **Run using Docker Compose**
+Then point the gateway at it with `CORE_ENGINE_URL=http://localhost:8001`, and give both the same `INTERNAL_API_TOKEN`. [`scripts/run-stack.sh`](../../scripts/run-stack.sh) does all of this.
+
+## Tests
+
 ```bash
-docker-compose up
+MONGODB_URI=mongodb://localhost:27017 python -m pytest
 ```
 
-The API will be available at `http://localhost:8001`, and you can explore the API documentation at `http://localhost:8001/docs`.
+26 tests:
 
-## Deployment on Render.com
+- `tests/unit/test_detection.py`: each detector, MITRE mapping and risk scoring, and every predefined rule against routine and malicious events.
+- `tests/integration/test_api.py`: the API against MongoDB. A ransomware precursor becomes a stored critical alert; a failed login matches its signature rule; benign events produce nothing; the predefined rules are loaded once; the internal token is enforced.
 
-### Deploy Using the Render Dashboard
-1. **Create a new Web Service**
-2. **Integrate with GitHub/GitLab**: Connect your repository
-3. **Select Docker as the runtime**
-4. Configure environment variables:
-   - `MONGODB_URI`: Your MongoDB connection string
-   - `DB_NAME`: Database name (default is "utdrs")
-   - `API_GATEWAY_URL`: API Gateway URL
-   - `JWT_SECRET`: JWT token secret
-   - `DEBUG`: Set to "false" for production
+## Docker
 
-## 📦 Project Structure
-- **api/**: API routes and controllers
-- **core/**: Core detection engine logic
-  - **detection/**: Detection modules
-  - **models/**: Data schemas and ML models
-  - **rules/**: Rule management
-  - **services/**: Core services
-  - **database/**: Database connections and repositories
-- **utils/**: Utility functions
-- **ml_models/**: Pre-trained models
-- **tests/**: Unit and integration tests
+```bash
+docker build -t utdrs-core-engine .
+docker run -p 8001:8000 -e MONGODB_URI=... -e INTERNAL_API_TOKEN=... utdrs-core-engine
+```
 
-## 🔄 Integration with Other Components
-- **API Gateway**: For centralized API management
-- **MongoDB**: Primary data storage
-- **External Threat Intelligence**: For enriched threat detection
+Python 3.12 slim, run as a non-root user, served by Gunicorn with Uvicorn workers on port 8000 inside the container.
 
-## ⚙️ API Endpoints
-- **/health**: Health check endpoint
-- **/detections/process**: Process events and generate alerts
-- **/detections/alerts**: Manage alerts
-- **/rules**: Manage detection rules
+## Layout
 
-## 💡 Key Highlights
-- **Scalable Architecture**: Async-first design for high concurrency
-- **Reliable Deployment**: Docker and cloud-native deployment on Render
-- **Secure Design**: Input validation, secure configurations, and logging
-- **Integration Ready**: Ready for integration with SIEM/SOC systems
-
-## 📈 Performance Metrics
-- **<100ms** average detection latency
-- **95%+** test coverage on core components
-
----
-
-**This project is production-ready, delivering comprehensive, enterprise-grade cybersecurity threat detection capabilities.**
+```
+app.py                       application; loads the predefined rules at startup
+api/routes/                  health, detections, rules
+api/security.py              the internal token check
+core/detection/              the engine and its six detectors
+core/rules/                  predefined signature rules, rule management, YARA rules
+core/threat_intel/           threat-intelligence providers and cache
+core/mitre/, core/risk/      MITRE ATT&CK mapping and risk scoring
+core/services/               event processing
+core/database/               connection and repositories
+ml_models/                   placeholder models for the ML detector
+tests/                       unit and integration tests
+```

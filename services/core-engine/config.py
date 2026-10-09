@@ -8,7 +8,9 @@ class Settings(BaseSettings):
 
     # MongoDB
     MONGODB_URI: str
-    DB_NAME: str = "utdrs"
+    # The engine keeps its own database: its events, alerts and rules have a different
+    # shape from the gateway's, so the two must not share collections.
+    DB_NAME: str = "utdrs_engine"
 
     # API Gateway
     API_GATEWAY_URL: Optional[str] = None

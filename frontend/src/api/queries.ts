@@ -1,0 +1,409 @@
+/**
+ * Data access for every page: TanStack Query hooks over the typed gateway client.
+ *
+ * Lists that change without the user doing anything (alerts, events, system status)
+ * are polled; mutations invalidate what they change. Paginated lists ask for one row
+ * more than a page to know whether there is a next page, since the gateway's list
+ * endpoints do not return totals.
+ */
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+
+import { PAGE_SIZE, POLL_INTERVAL_MS } from "@/lib/constants"
+
+import {
+  api,
+  unwrap,
+  type Alert,
+  type Asset,
+  type AssetCreate,
+  type DetectionRule,
+  type DetectionRuleCreate,
+  type Event,
+  type EventCreate,
+  type Simulation,
+  type SimulationCreate,
+  type User,
+} from "./client"
+
+export type Page<T> = { rows: T[]; hasMore: boolean }
+
+function toPage<T>(rows: T[]): Page<T> {
+  return { rows: rows.slice(0, PAGE_SIZE), hasMore: rows.length > PAGE_SIZE }
+}
+
+function pageQuery(page: number) {
+  return { limit: PAGE_SIZE + 1, skip: page * PAGE_SIZE }
+}
+
+/** Search endpoints take no filters, so filters are applied to the page of results. */
+function matches<T extends Record<string, unknown>>(row: T, filters: Partial<Record<keyof T, unknown>>) {
+  return Object.entries(filters).every(([key, value]) => !value || row[key] === value)
+}
+
+// ---------------------------------------------------------------------------- Auth
+
+export function useUpdateProfile() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { firstName?: string | null; lastName?: string | null; email?: string | null }) =>
+      unwrap(api.PUT("/api/v1/auth/me", { body })),
+    onSuccess: (user: User) => queryClient.setQueryData(["me"], user),
+  })
+}
+
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (body: { current_password: string; new_password: string }) =>
+      unwrap(api.POST("/api/v1/auth/me/change-password", { body })),
+  })
+}
+
+// ---------------------------------------------------------------------------- System status
+
+export function useDetectionStatus() {
+  return useQuery({
+    queryKey: ["system", "detection"],
+    queryFn: () => unwrap(api.GET("/api/v1/detection/")),
+    refetchInterval: POLL_INTERVAL_MS * 2,
+  })
+}
+
+export function useDatabaseHealth() {
+  return useQuery({
+    queryKey: ["system", "database"],
+    queryFn: () => unwrap(api.GET("/api/v1/health/db")) as Promise<{ status: string; database: string }>,
+    refetchInterval: POLL_INTERVAL_MS * 2,
+  })
+}
+
+// ---------------------------------------------------------------------------- Alerts
+
+export type AlertFilters = { status?: string; severity?: string; search?: string; page: number }
+
+export function useAlerts({ status, severity, search, page }: AlertFilters) {
+  return useQuery({
+    queryKey: ["alerts", "list", { status, severity, search, page }],
+    queryFn: async (): Promise<Page<Alert>> => {
+      if (search) {
+        const rows = await unwrap(
+          api.GET("/api/v1/alerts/search/", { params: { query: { query: search, ...pageQuery(page) } } }),
+        )
+        const page_ = toPage(rows)
+        return { ...page_, rows: page_.rows.filter((row) => matches(row, { status, severity })) }
+      }
+      const rows = await unwrap(
+        api.GET("/api/v1/alerts/", {
+          params: { query: { status: status || undefined, severity: severity || undefined, ...pageQuery(page) } },
+        }),
+      )
+      return toPage(rows)
+    },
+    placeholderData: keepPreviousData,
+    refetchInterval: POLL_INTERVAL_MS,
+  })
+}
+
+export function useLatestAlerts(limit: number) {
+  return useQuery({
+    queryKey: ["alerts", "latest", limit],
+    queryFn: () => unwrap(api.GET("/api/v1/alerts/", { params: { query: { limit } } })),
+    refetchInterval: POLL_INTERVAL_MS,
+  })
+}
+
+export function useAlertSummary() {
+  return useQuery({
+    queryKey: ["alerts", "summary"],
+    queryFn: () => unwrap(api.GET("/api/v1/alerts/summary")),
+    refetchInterval: POLL_INTERVAL_MS,
+  })
+}
+
+export function useAlert(alertId: string) {
+  return useQuery({
+    queryKey: ["alerts", "detail", alertId],
+    queryFn: () => unwrap(api.GET("/api/v1/alerts/{alert_id}", { params: { path: { alert_id: alertId } } })),
+    refetchInterval: POLL_INTERVAL_MS,
+  })
+}
+
+function useAlertMutation<TVariables>(mutationFn: (variables: TVariables) => Promise<unknown>) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["alerts"] }),
+  })
+}
+
+export function useUpdateAlertStatus(alertId: string) {
+  return useAlertMutation((variables: { status: string; notes?: string }) =>
+    unwrap(
+      api.PATCH("/api/v1/alerts/{alert_id}/status", {
+        params: {
+          path: { alert_id: alertId },
+          query: { status: variables.status, notes: variables.notes || undefined },
+        },
+      }),
+    ),
+  )
+}
+
+export function useAssignAlert(alertId: string) {
+  return useAlertMutation((assignedTo: string) =>
+    unwrap(
+      api.PATCH("/api/v1/alerts/{alert_id}/assign", {
+        params: { path: { alert_id: alertId }, query: { assigned_to: assignedTo } },
+      }),
+    ),
+  )
+}
+
+export function useAlertTag(alertId: string) {
+  return useAlertMutation(({ tag, remove }: { tag: string; remove?: boolean }) => {
+    const options = { params: { path: { alert_id: alertId, tag } } }
+    return unwrap(
+      remove
+        ? api.DELETE("/api/v1/alerts/{alert_id}/tags/{tag}", options)
+        : api.POST("/api/v1/alerts/{alert_id}/tags/{tag}", options),
+    )
+  })
+}
+
+// ---------------------------------------------------------------------------- Events
+
+export type EventFilters = { eventType?: string; search?: string; page: number }
+
+export function useEvents({ eventType, search, page }: EventFilters) {
+  return useQuery({
+    queryKey: ["events", "list", { eventType, search, page }],
+    queryFn: async (): Promise<Page<Event>> => {
+      if (search) {
+        const rows = await unwrap(
+          api.GET("/api/v1/events/search/", { params: { query: { query: search, ...pageQuery(page) } } }),
+        )
+        const page_ = toPage(rows)
+        return { ...page_, rows: page_.rows.filter((row) => matches(row, { event_type: eventType })) }
+      }
+      const rows = await unwrap(
+        api.GET("/api/v1/events/", {
+          params: { query: { event_type: eventType || undefined, ...pageQuery(page) } },
+        }),
+      )
+      return toPage(rows)
+    },
+    placeholderData: keepPreviousData,
+    refetchInterval: POLL_INTERVAL_MS,
+  })
+}
+
+/** Most recent events by event time, for the activity chart. */
+export function useRecentEvents(limit: number) {
+  return useQuery({
+    queryKey: ["events", "recent", limit],
+    queryFn: () => unwrap(api.GET("/api/v1/events/recent/", { params: { query: { limit } } })),
+    refetchInterval: POLL_INTERVAL_MS,
+  })
+}
+
+/** How long after creation an event is polled while waiting for the engine's verdict. */
+const ANALYSIS_WAIT_MS = 60_000
+
+export function analysisOf(event: Event): { status?: string; alert_id?: string; error?: string } | undefined {
+  return (event.metadata as { analysis?: { status?: string; alert_id?: string; error?: string } }).analysis
+}
+
+export function isAwaitingAnalysis(event: Event, now = Date.now()): boolean {
+  return !analysisOf(event) && now - new Date(event.created_at).getTime() < ANALYSIS_WAIT_MS
+}
+
+export function useEvent(eventId: string) {
+  return useQuery({
+    queryKey: ["events", "detail", eventId],
+    queryFn: () => unwrap(api.GET("/api/v1/events/{event_id}", { params: { path: { event_id: eventId } } })),
+    refetchInterval: (query) => (query.state.data && isAwaitingAnalysis(query.state.data) ? 1500 : false),
+  })
+}
+
+/** Several events by id (an alert's linked events). */
+export function useEventsById(eventIds: string[]) {
+  return useQuery({
+    queryKey: ["events", "byId", eventIds],
+    queryFn: () =>
+      Promise.all(
+        eventIds.map((eventId) =>
+          unwrap(api.GET("/api/v1/events/{event_id}", { params: { path: { event_id: eventId } } })),
+        ),
+      ),
+    enabled: eventIds.length > 0,
+  })
+}
+
+export function useCreateEvent() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: EventCreate) => unwrap(api.POST("/api/v1/events/", { body })),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["events"] })
+      // The engine's verdict may raise an alert shortly after.
+      void queryClient.invalidateQueries({ queryKey: ["alerts"] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------- Assets
+
+export type AssetFilters = { assetType?: string; criticality?: string; search?: string; page: number }
+
+export function useAssets({ assetType, criticality, search, page }: AssetFilters) {
+  return useQuery({
+    queryKey: ["assets", "list", { assetType, criticality, search, page }],
+    queryFn: async (): Promise<Page<Asset>> => {
+      if (search) {
+        const rows = await unwrap(
+          api.GET("/api/v1/assets/search/", { params: { query: { query: search, ...pageQuery(page) } } }),
+        )
+        const page_ = toPage(rows)
+        return { ...page_, rows: page_.rows.filter((row) => matches(row, { asset_type: assetType, criticality })) }
+      }
+      const rows = await unwrap(
+        api.GET("/api/v1/assets/", {
+          params: {
+            query: { asset_type: assetType || undefined, criticality: criticality || undefined, ...pageQuery(page) },
+          },
+        }),
+      )
+      return toPage(rows)
+    },
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useAsset(assetId: string) {
+  return useQuery({
+    queryKey: ["assets", "detail", assetId],
+    queryFn: () => unwrap(api.GET("/api/v1/assets/{asset_id}", { params: { path: { asset_id: assetId } } })),
+  })
+}
+
+export function useCreateAsset() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: AssetCreate) => unwrap(api.POST("/api/v1/assets/", { body })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["assets"] }),
+  })
+}
+
+export function useAssetVulnerability(assetId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ vulnerability, remove }: { vulnerability: string; remove?: boolean }) => {
+      const options = { params: { path: { asset_id: assetId }, query: { vulnerability } } }
+      return unwrap(
+        remove
+          ? api.PATCH("/api/v1/assets/{asset_id}/vulnerabilities/remove", options)
+          : api.PATCH("/api/v1/assets/{asset_id}/vulnerabilities/add", options),
+      )
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["assets"] }),
+  })
+}
+
+// ---------------------------------------------------------------------------- Detection rules
+
+export type RuleFilters = { status?: string; severity?: string; search?: string; page: number }
+
+export function useRules({ status, severity, search, page }: RuleFilters) {
+  return useQuery({
+    queryKey: ["rules", "list", { status, severity, search, page }],
+    queryFn: async (): Promise<Page<DetectionRule>> => {
+      if (search) {
+        const rows = await unwrap(
+          api.GET("/api/v1/detection/rules/search/", { params: { query: { query: search, ...pageQuery(page) } } }),
+        )
+        const page_ = toPage(rows)
+        return { ...page_, rows: page_.rows.filter((row) => matches(row, { status, severity })) }
+      }
+      const rows = await unwrap(
+        api.GET("/api/v1/detection/rules", {
+          params: { query: { status: status || undefined, severity: severity || undefined, ...pageQuery(page) } },
+        }),
+      )
+      return toPage(rows)
+    },
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useRule(ruleId: string) {
+  return useQuery({
+    queryKey: ["rules", "detail", ruleId],
+    queryFn: () =>
+      unwrap(api.GET("/api/v1/detection/rules/{rule_id}", { params: { path: { rule_id: ruleId } } })),
+  })
+}
+
+export function useCreateRule() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: DetectionRuleCreate) => unwrap(api.POST("/api/v1/detection/rules", { body })),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["rules"] })
+      void queryClient.invalidateQueries({ queryKey: ["system", "detection"] })
+    },
+  })
+}
+
+export function useUpdateRuleStatus() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ ruleId, status }: { ruleId: string; status: string }) =>
+      unwrap(
+        api.PATCH("/api/v1/detection/rules/{rule_id}/status", {
+          params: { path: { rule_id: ruleId }, query: { status } },
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["rules"] })
+      void queryClient.invalidateQueries({ queryKey: ["system", "detection"] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------- Simulations
+
+export type SimulationFilters = { status?: string; page: number }
+
+export function useSimulations({ status, page }: SimulationFilters) {
+  return useQuery({
+    queryKey: ["simulations", "list", { status, page }],
+    queryFn: async (): Promise<Page<Simulation>> =>
+      toPage(
+        await unwrap(
+          api.GET("/api/v1/simulation/", { params: { query: { status: status || undefined, ...pageQuery(page) } } }),
+        ),
+      ),
+    placeholderData: keepPreviousData,
+    refetchInterval: POLL_INTERVAL_MS,
+  })
+}
+
+export function useCreateSimulation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: SimulationCreate) => unwrap(api.POST("/api/v1/simulation/", { body })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["simulations"] }),
+  })
+}
+
+export function useRunSimulation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ simulationId, action }: { simulationId: string; action: "start" | "stop" }) =>
+      unwrap(
+        api.POST(action === "start" ? "/api/v1/simulation/start" : "/api/v1/simulation/stop", {
+          params: { query: { simulation_id: simulationId } },
+        }),
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["simulations"] }),
+  })
+}
