@@ -830,6 +830,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/scans/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record Scan
+         * @description Record a device scan from the device scanner.
+         *
+         *     For UTDRS's own services: send INTERNAL_API_TOKEN in the X-Internal-Token header.
+         *
+         *     The scan creates or updates the asset named after the device. The first scan of a
+         *     device, or one whose inventory has changed, also raises an event, which is analysed
+         *     like any other.
+         */
+        post: operations["record_scan_api_v1_scans__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/detection/": {
         parameters: {
             query?: never;
@@ -1933,6 +1959,56 @@ export interface components {
             current_password: string;
             /** New Password */
             new_password: string;
+        };
+        /** ScanInterface */
+        ScanInterface: {
+            /** Name */
+            name: string;
+            /** Ip Address */
+            ip_address?: string | null;
+            /** Mac Address */
+            mac_address?: string | null;
+        };
+        /**
+         * ScanReport
+         * @description A device's inventory, as collected by the scanner agent.
+         */
+        ScanReport: {
+            /** Hostname */
+            hostname: string;
+            /** Os */
+            os: string;
+            /** Os Version */
+            os_version?: string | null;
+            /** Cpu Cores */
+            cpu_cores?: number | null;
+            /** Memory Kb */
+            memory_kb?: number | null;
+            /** Interfaces */
+            interfaces?: components["schemas"]["ScanInterface"][];
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+            /** Reported From */
+            reported_from?: string | null;
+            /** Scan Id */
+            scan_id?: string | null;
+        };
+        /** ScanResult */
+        ScanResult: {
+            /** Asset Id */
+            asset_id: string;
+            /** New Device */
+            new_device: boolean;
+            /**
+             * Changes
+             * @default []
+             */
+            changes: string[];
+            /** Event Id */
+            event_id?: string | null;
         };
         /**
          * Simulation
@@ -3758,6 +3834,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Asset"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_scan_api_v1_scans__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-internal-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScanReport"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanResult"];
                 };
             };
             /** @description Validation Error */

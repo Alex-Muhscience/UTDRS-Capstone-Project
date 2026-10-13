@@ -13,10 +13,10 @@ UTDRS was a **Top 5 finalist in the Mozilla Responsible Computing Challenge**.
 | Component | Path | Status |
 |---|---|---|
 | **Dashboard**: overview, alert triage, events with the engine's verdict, assets, detection rules, simulations | [`frontend/`](frontend) | Working. React 19, TypeScript, Vite, Tailwind CSS; typed against the gateway's API schema. |
-| **API gateway**: authentication, events, alerts, assets, rules, simulations; sends every event to the engine | [`services/api-gateway/`](services/api-gateway) | Working. Python 3.12, FastAPI, MongoDB. |
+| **API gateway**: authentication, events, alerts, assets, rules, simulations; sends every event to the engine, and turns device scans into assets and events | [`services/api-gateway/`](services/api-gateway) | Working. Python 3.12, FastAPI, MongoDB. |
 | **Core engine**: six detectors, MITRE ATT&CK mapping, risk scoring | [`services/core-engine/`](services/core-engine) | Working. The ML detector uses hand-written indicators for now. |
-| **Data processor**: batch worker with retries and a dead-letter collection | [`services/data-processor/`](services/data-processor) | Works on its own; not yet fed by the rest of the system. |
-| **Device scanner**: inventory agent and collection server over mutual TLS | [`scanner/`](scanner) | Prototype. The server runs; the agent and server do not share a wire format yet. |
+| **Data processor**: batch worker that delivers the scanner's scans to the gateway, with retries and a dead-letter collection | [`services/data-processor/`](services/data-processor) | Working. Python 3.12, PyMongo. |
+| **Device scanner**: inventory agent and collection server over mutual TLS | [`scanner/`](scanner) | Working on Linux. C, OpenSSL. Windows code paths are not built or tested in CI. |
 | **Research models**: the original capstone's trained models and their training scripts | [`research/capstone/models/`](research/capstone/models) | Archived for reference. Not used by the core engine. |
 
 Each component has its own README with setup, configuration and tests. [`docs/architecture.md`](docs/architecture.md) describes how they fit together: data ownership, request flows, trust boundaries and failure handling.
@@ -32,14 +32,18 @@ flowchart LR
   engine -- "alert or nothing" --> gateway
   gateway --> gdb[("Gateway database")]
   engine --> edb[("Engine database")]
-  agent["Scanner agent (C)"] -. "mutual TLS<br/>(prototype)" .-> scanserver["Scanner server (C)"]
-  scanserver -.-> sdb[("Scans")]
+  agent["Scanner agent (C)<br/>on each device"] -- "mutual TLS" --> scanserver["Scanner server (C)"]
+  scanserver --> sdb[("Scans")]
+  sdb --> processor["Data processor"]
+  processor -- "each scan<br/>(internal token)" --> gateway
 ```
 
 1. An event reaches the gateway (from an agent, an integration, or the dashboard's *Send test event*). The gateway stores it and answers at once.
 2. In the background, the gateway sends the event to the core engine, which runs its detectors concurrently and returns the most specific verdict: an alert, or nothing.
 3. A threat becomes an alert in the gateway, linked to the event and carrying the detector, the MITRE ATT&CK techniques and the engine's details. The verdict (threat, clean, or error) is recorded on the event either way.
 4. In the dashboard, analysts triage alerts: investigate, assign, add notes, resolve or mark false positives.
+
+Devices report themselves through the scanner. An agent on each device sends its inventory (host name, operating system, hardware, network interfaces) to the scanner server, which stores it; the data processor delivers each stored scan to the gateway. There the device becomes an asset, kept up to date by later scans, and a device seen for the first time, or one whose inventory has changed, raises an event that follows steps 2 to 4 like any other.
 
 Each service owns its database. The gateway and the engine store differently shaped events and alerts, so they must never share one.
 
@@ -126,10 +130,10 @@ Done:
 - [x] Make the scanner's collection server start and run safely, and verify the server's name on the agent
 - [x] One-command local stack (`docker compose up`) with seeded demo data
 - [x] Roles enforced (administrators and analysts), user administration in the dashboard, and the first administrator created from settings
+- [x] Connect the scanner: one wire format between the agent and the server, and scans delivered through the data processor to the gateway as assets and events
 
 Next:
 
-- [ ] Scanner: one wire format (the agent sends JSON `SCAN` commands with a checksum over the other fields), and scans delivered to the gateway as assets and events
 - [ ] Push new alerts to the dashboard as they happen, instead of polling every 15 seconds
 - [ ] Send rules edited in the dashboard to the engine (the gateway's rule catalogue and the engine's rules are separate today)
 - [ ] Rate-limit sign-in using the client address from the proxy, and API keys for agents and integrations

@@ -38,8 +38,9 @@ flowchart LR
 | `core-engine` | Detection; only the gateway calls it | not published |
 | `mongodb` | MongoDB 7, with its data in the `utdrs_mongo-data` volume | not published |
 | `seed` *(on demand)* | Fills the stack with a day of demo activity | |
-| `data-processor` *(profile `pipeline`)* | The batch worker | http://localhost:5000/health |
-| `scanner-server` *(profile `scanner`)* | The device scanner's collection server (prototype) | localhost:8443 (TLS) |
+| `scanner-server` *(profile `scanner`)* | The device scanner's collection server, which agents report to | localhost:8443 (TLS) |
+| `data-processor` *(profile `scanner`)* | Delivers the scans the server stores to the gateway | http://localhost:5000/health |
+| `scan` *(on demand)* | Sends one scan from the agent, to see a device arrive | |
 
 By default, ports listen on `127.0.0.1` only, so nothing is reachable from other machines.
 
@@ -162,7 +163,7 @@ Every setting lives in `.env`. Restart with `docker compose up -d --wait` after 
 | `BIND_ADDRESS` | `127.0.0.1` | Address the published ports listen on. `0.0.0.0` makes the stack reachable from your network; see the warning below. |
 | `DASHBOARD_PORT` | `8080` | |
 | `GATEWAY_PORT` | `8000` | |
-| `PROCESSOR_PORT` | `5000` | Data processor (profile `pipeline`) |
+| `PROCESSOR_PORT` | `5000` | Data processor (profile `scanner`) |
 | `SCANNER_PORT` | `8443` | Scanner server (profile `scanner`) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | How long a sign-in lasts |
 | `ENABLE_THREAT_INTEL` | `false` | Turns on the engine's threat-intelligence lookups |
@@ -174,55 +175,52 @@ Other settings are fixed in `docker-compose.yml`: the database names, the intern
 
 ## Optional services
 
-### Data processor (`pipeline`)
+### Device scanner (`scanner`)
 
-```bash
-docker compose --profile pipeline up -d --build --wait
-curl http://localhost:5000/health
-```
+The `scanner` profile adds the two services that bring devices into UTDRS: the scanner server, which agents on your devices report to over mutual TLS, and the data processor, which delivers each stored scan to the gateway. A scanned device appears under **Assets**, and under **Events** when it is new or its inventory has changed. See the [scanner](../scanner/README.md) and [data processor](../services/data-processor/README.md) READMEs for the details.
 
-It moves documents from `raw_data` to `processed_data` in the `utdrs_pipeline` database and reports its counts on `/health`. Nothing in UTDRS feeds it yet; see [its README](../services/data-processor/README.md). To try it, insert a document:
-
-```bash
-docker compose exec mongodb mongosh utdrs_pipeline --eval 'db.raw_data.insertOne({ event: "login", user: "jsmith" })'
-```
-
-A few seconds later, the document appears in `processed_data`.
-
-### Device scanner server (`scanner`)
-
-The scanner is a **prototype**: the server runs and enforces mutual TLS, but the agent cannot talk to it yet (see [its README](../scanner/README.md)). To run the server, first create development certificates in `scanner/configs/certs` (git-ignored), in bash or zsh (on Windows, in WSL or Git Bash):
+First create development certificates in `scanner/configs/certs` (git-ignored), in bash or zsh (on Windows, in WSL or Git Bash):
 
 ```bash
 mkdir -p scanner/configs/certs && cd scanner/configs/certs
 openssl req -x509 -newkey rsa:2048 -nodes -keyout ca.key -out ca.crt -days 30 -subj "/CN=UTDRS development CA"
 openssl req -newkey rsa:2048 -nodes -keyout server.key -out server.csr -subj "/CN=localhost"
 openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 30 \
-  -extfile <(printf "subjectAltName=DNS:localhost")
+  -extfile <(printf "subjectAltName=DNS:localhost,DNS:scanner-server")
 openssl req -newkey rsa:2048 -nodes -keyout agent.key -out agent.csr -subj "/CN=agent-1"
 openssl x509 -req -in agent.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out agent.crt -days 30
-chmod 644 server.key        # the container runs as a non-root user and must read it
+chmod 644 server.key agent.key   # the containers run as a non-root user and must read them
 cd ../../..
 ```
 
-Then start it, and talk to it with the agent's certificate:
+The server's certificate names both `localhost`, for agents on this machine, and `scanner-server`, the server's name inside the Compose network. Then start the services and send a scan:
 
 ```bash
 docker compose --profile scanner up -d --build --wait
+docker compose run --rm scan        # "Scan delivered to scanner-server:8443"
+```
+
+`scan` runs the agent once in a container named `demo-device`. A few seconds later, `demo-device` is listed under **Assets** in the dashboard, tagged `scanner`, and **Events** shows *New device discovered: demo-device*. Run it again and the event is *Device inventory changed*, because each run is a new container with a new network address; a real device whose inventory has not changed only has its last-seen time refreshed. `curl http://localhost:5000/health` shows the data processor's counts.
+
+To scan real devices, build the agent on each one, give it the CA certificate and a certificate of its own, and point `server_host` at this machine under a name the server's certificate carries ([scanner README](../scanner/README.md)). That also needs `BIND_ADDRESS` to let them reach port 8443.
+
+To see the server's replies yourself, talk to it with the agent's certificate:
+
+```bash
 printf 'SCAN not-json' | openssl s_client -quiet -connect localhost:8443 -servername localhost \
   -cert scanner/configs/certs/agent.crt -key scanner/configs/certs/agent.key -CAfile scanner/configs/certs/ca.crt
 ```
 
 The server answers `INVALID_JSON`; the scanner README documents its other replies. These certificates are for local testing only. A readable private key is fine on your laptop, but never on a server.
 
-To run everything at once: `docker compose --profile pipeline --profile scanner up -d --build --wait`. To stop services that belong to a profile, include the profile: `docker compose --profile pipeline --profile scanner down`.
+To stop services that belong to a profile, include the profile: `docker compose --profile scanner down`.
 
 ## How the containers are wired
 
 - **One private network** (`utdrs_default`). Containers find each other by service name: the gateway reaches the engine at `http://core-engine:8000`, and everything reaches MongoDB at `mongodb:27017`.
 - **Only the dashboard and the gateway are published.** The engine and MongoDB are reachable only from inside the network.
 - **The dashboard and the API share one origin.** nginx in the dashboard container proxies `/api` to the gateway, so the browser never needs cross-origin access. Port 8000 is published as well, for the API docs, scripts and integrations.
-- **Each service has its own database**, all on the one MongoDB server: `utdrs` (gateway), `utdrs_engine` (engine), `utdrs_pipeline` (data processor) and `utdrs_db` (scanner). The gateway and engine store differently shaped documents in collections with the same names, so they must never share one; [architecture.md](architecture.md) explains why.
+- **Each service has its own database**, all on the one MongoDB server: `utdrs` (gateway), `utdrs_engine` (engine) and `utdrs_db` (scanner; the data processor drains its `scans` collection and delivers each scan to the gateway). The gateway and engine store differently shaped documents in collections with the same names, so they must never share one; [architecture.md](architecture.md) explains why.
 - **Start-up order** follows health checks: MongoDB, then the engine, then the gateway, then the dashboard. Each waits until the one before is healthy.
 - **Restarts**: every long-running service has `restart: unless-stopped`, so it comes back after a crash or a Docker restart, unless you stopped it yourself.
 - **Images** are built from each component's `Dockerfile` and named `utdrs-<service>`. The Python services and the scanner run as non-root users; the dashboard runs as nginx's unprivileged user.
@@ -316,6 +314,8 @@ They register an analyst, send the ransomware test event, wait for the engine's 
 **`docker compose run --rm seed` fails with `Incorrect username or password`.** The administrator's password was changed after the account was created (the gateway only uses `ADMIN_PASSWORD` to create it). Put the current password in `ADMIN_PASSWORD`, or reset the data (`docker compose down -v`).
 
 **Locked out of administration** (the only admin was deactivated, demoted or forgot their password). Set `ADMIN_USERNAME` to an existing account and restart the gateway (`docker compose up -d --wait api-gateway`): it becomes an active administrator again. Another administrator can reset its password under **Users**.
+
+**A scanned device does not appear.** Check each step: `docker compose run --rm scan` should end with *Scan delivered*; `curl http://localhost:5000/health` should show `processed` going up, and a `RetryLater` count under `errors` means the processor cannot reach the gateway or its token is refused (`docker compose --profile scanner logs data-processor`). Scans that could not be delivered are in `failed_scans`, with the reason: `docker compose exec mongodb mongosh utdrs_db --eval 'db.failed_scans.find()'`.
 
 **The scanner server exits at once.** Its certificates are missing or unreadable: check `docker compose --profile scanner logs scanner-server`, the files in `scanner/configs/certs`, and that `server.key` is readable (`chmod 644`, for local testing only).
 

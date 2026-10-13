@@ -2,8 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <openssl/ssl.h>
+#include <jansson.h>
 #include <time.h>
 #include "common/crypto.h"
+#include "common/scan_message.h"
 #include "agent/scanner.h"
 #include "agent/transport.h"
 
@@ -13,7 +15,8 @@
 #define DEFAULT_SCAN_INTERVAL 60
 #define DEFAULT_CONNECT_RETRY_DELAY 5
 #define DEFAULT_MAX_RETRIES 3
-#define HEARTBEAT_INTERVAL 30
+#define MAX_REPORTED_INTERFACES 32  // Keeps the message within the server's command limit
+#define MAX_REPLY_LENGTH 64
 
 // Logging macros
 #ifdef _WIN32
@@ -63,66 +66,68 @@ int load_config(const char *config_path, agent_config_t *config) {
     FILE *file = fopen(config_path, "r");
     if (!file) {
         log_info("Config file not found, using defaults");
-        return 0;
+    } else {
+        char line[512];
+        while (fgets(line, sizeof(line), file)) {
+            // Skip comments and empty lines
+            if (line[0] == '#' || line[0] == '\n') continue;
+
+            // Remove trailing newline
+            line[strcspn(line, "\r\n")] = '\0';
+
+            // Parse key=value pairs
+            char *equals = strchr(line, '=');
+            if (!equals) continue;
+
+            *equals = '\0';
+            char *key = line;
+            char *value = equals + 1;
+
+            if (strcmp(key, "server_host") == 0) {
+                snprintf(config->server_host, sizeof(config->server_host), "%s", value);
+            } else if (strcmp(key, "server_port") == 0) {
+                config->server_port = atoi(value);
+            } else if (strcmp(key, "scan_interval") == 0) {
+                config->scan_interval = (unsigned)atoi(value);
+            } else if (strcmp(key, "connect_retry_delay") == 0) {
+                config->connect_retry_delay = (unsigned)atoi(value);
+            } else if (strcmp(key, "max_retries") == 0) {
+                config->max_retries = (unsigned)atoi(value);
+            } else if (strcmp(key, "ca_cert_path") == 0) {
+                snprintf(config->ca_cert_path, sizeof(config->ca_cert_path), "%s", value);
+            } else if (strcmp(key, "agent_cert_path") == 0) {
+                snprintf(config->agent_cert_path, sizeof(config->agent_cert_path), "%s", value);
+            } else if (strcmp(key, "agent_key_path") == 0) {
+                snprintf(config->agent_key_path, sizeof(config->agent_key_path), "%s", value);
+            }
+        }
+        fclose(file);
     }
 
-    char line[512];
-    while (fgets(line, sizeof(line), file)) {
-        // Skip comments and empty lines
-        if (line[0] == '#' || line[0] == '\n') continue;
-        
-        // Remove trailing newline
-        line[strcspn(line, "\n")] = '\0';
-        
-        // Parse key=value pairs
-        char *equals = strchr(line, '=');
-        if (!equals) continue;
-        
-        *equals = '\0';
-        char *key = line;
-        char *value = equals + 1;
-        
-        if (strcmp(key, "server_host") == 0) {
-            strncpy(config->server_host, value, sizeof(config->server_host) - 1);
-        } else if (strcmp(key, "server_port") == 0) {
-            config->server_port = atoi(value);
-        } else if (strcmp(key, "scan_interval") == 0) {
-            config->scan_interval = (unsigned)atoi(value);
-        } else if (strcmp(key, "connect_retry_delay") == 0) {
-            config->connect_retry_delay = (unsigned)atoi(value);
-        } else if (strcmp(key, "max_retries") == 0) {
-            config->max_retries = (unsigned)atoi(value);
-        } else if (strcmp(key, "ca_cert_path") == 0) {
-            strncpy(config->ca_cert_path, value, sizeof(config->ca_cert_path) - 1);
-        } else if (strcmp(key, "agent_cert_path") == 0) {
-            strncpy(config->agent_cert_path, value, sizeof(config->agent_cert_path) - 1);
-        } else if (strcmp(key, "agent_key_path") == 0) {
-            strncpy(config->agent_key_path, value, sizeof(config->agent_key_path) - 1);
-        }
+    // The environment overrides the file, so one image or package serves any deployment.
+    const char *host = getenv("SCANNER_SERVER_HOST");
+    if (host && host[0]) {
+        snprintf(config->server_host, sizeof(config->server_host), "%s", host);
     }
-    
-    fclose(file);
+    const char *port = getenv("SCANNER_SERVER_PORT");
+    if (port && port[0]) {
+        config->server_port = atoi(port);
+    }
+
+    if (config->max_retries == 0) config->max_retries = 1;
     return 0;
 }
 
-/* Cross-platform sleep with millisecond precision */
+/* Cross-platform sleep that returns early when the agent is asked to stop */
 void platform_sleep(unsigned seconds) {
+    for (unsigned i = 0; i < seconds && running; i++) {
 #ifdef _WIN32
-    Sleep(seconds * 1000);
+        Sleep(1000);
 #else
-    struct timespec ts = {seconds, 0};
-    nanosleep(&ts, NULL);
+        struct timespec ts = {1, 0};
+        nanosleep(&ts, NULL);
 #endif
-}
-
-/* Secure memory zeroing */
-void secure_zero(void *s, size_t n) {
-#ifdef _WIN32
-    SecureZeroMemory(s, n);
-#else
-    volatile char *p = s;
-    while (n--) *p++ = 0;
-#endif
+    }
 }
 
 /* Signal/control handler setup */
@@ -153,82 +158,152 @@ void setup_signal_handling(void) {
     sa.sa_handler = handle_signal;
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
-    sigaction(SIGPIPE, &sa, NULL);  // Handle broken pipes
+    signal(SIGPIPE, SIG_IGN);  // A dropped connection is a failed write, not a reason to stop
 #endif
 }
-void cleanup_resources(SSL_CTX *ctx, SSL *ssl, scan_result_t *scan_data) {
-    if (scan_data) {
-        if (scan_data->networks) {
-            secure_zero(scan_data->networks, 
-                       sizeof(network_info_t) * scan_data->network_count);
-            free(scan_data->networks);
+
+/* The scan as the server's SCAN command. The caller frees the result. */
+char *build_scan_message(const scan_result_t *result) {
+    if (!result) return NULL;
+
+    char timestamp[32];
+    time_t now = time(NULL);
+    struct tm utc;
+#ifdef _WIN32
+    gmtime_s(&utc, &now);
+#else
+    gmtime_r(&now, &utc);
+#endif
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%SZ", &utc);
+
+    json_t *scan = json_object();
+    json_t *interfaces = json_array();
+    if (!scan || !interfaces) {
+        json_decref(scan);
+        json_decref(interfaces);
+        return NULL;
+    }
+
+    json_object_set_new(scan, "hostname", json_string(result->system.hostname));
+    json_object_set_new(scan, "os", json_string(result->system.os_name));
+    json_object_set_new(scan, "os_version", json_string(result->system.os_version));
+    json_object_set_new(scan, "cpu_cores", json_integer(result->system.cpu_cores));
+    json_object_set_new(scan, "memory_kb", json_integer((json_int_t)result->system.memory_kb));
+    json_object_set_new(scan, "timestamp", json_string(timestamp));
+
+    static const uint8_t no_mac[6] = {0};
+    for (size_t i = 0; i < result->network_count && i < MAX_REPORTED_INTERFACES; i++) {
+        const network_info_t *network = &result->networks[i];
+        json_t *interface = json_object();
+        json_object_set_new(interface, "name", json_string(network->interface_name));
+        json_object_set_new(interface, "ip", json_string(network->ip_address));
+        if (memcmp(network->mac_address, no_mac, sizeof(no_mac)) != 0) {
+            char mac[18];
+            snprintf(mac, sizeof(mac), "%02x:%02x:%02x:%02x:%02x:%02x",
+                     network->mac_address[0], network->mac_address[1], network->mac_address[2],
+                     network->mac_address[3], network->mac_address[4], network->mac_address[5]);
+            json_object_set_new(interface, "mac", json_string(mac));
         }
-        secure_zero(scan_data, sizeof(scan_result_t));
-        free(scan_data);
+        json_array_append_new(interfaces, interface);
     }
-    if (ssl) {
-        SSL_shutdown(ssl);
-        SSL_free(ssl);
+    json_object_set_new(scan, "interfaces", interfaces);
+
+    char checksum[SCAN_CHECKSUM_HEX_LEN + 1];
+    char *body = NULL;
+    if (scan_checksum(scan, checksum) == 0) {
+        json_object_set_new(scan, "checksum", json_string(checksum));
+        body = json_dumps(scan, JSON_COMPACT | JSON_SORT_KEYS);
     }
-    if (ctx) {
-        SSL_CTX_free(ctx);
+    json_decref(scan);
+    if (!body) return NULL;
+
+    size_t length = strlen(SCAN_COMMAND_PREFIX) + strlen(body) + 1;
+    char *message = malloc(length);
+    if (message) {
+        snprintf(message, length, "%s%s", SCAN_COMMAND_PREFIX, body);
     }
+    free(body);
+    return message;
 }
 
-int serialize_scan_result(scan_result_t *result, char **out_buf, size_t *out_len) {
-    if (!result || !out_buf || !out_len) return -1;
-    
-    size_t buf_size = sizeof(system_info_t) + sizeof(size_t) + 
-                     (sizeof(network_info_t) * result->network_count);
-    *out_buf = malloc(buf_size);
-    if (!*out_buf) return -1;
-    
-    char *ptr = *out_buf;
-    
-    // Serialize system info
-    memcpy(ptr, &result->system, sizeof(system_info_t));
-    ptr += sizeof(system_info_t);
-    
-    // Serialize network count
-    memcpy(ptr, &result->network_count, sizeof(size_t));
-    ptr += sizeof(size_t);
-    
-    // Serialize networks
-    if (result->network_count > 0) {
-        memcpy(ptr, result->networks, 
-               sizeof(network_info_t) * result->network_count);
-    }
-    
-    *out_len = buf_size;
-    return 0;
-}
-
-int send_heartbeat(SSL *ssl) {
-    const char *heartbeat_msg = "HEARTBEAT";
-    size_t msg_len = strlen(heartbeat_msg);
-    
-    if ((size_t)ssl_write_all(ssl, heartbeat_msg, msg_len) != msg_len) {
-        log_error("Heartbeat failed");
+/* Scan this device and deliver the result. Returns 0 once the server has stored it. */
+int scan_and_report(SSL_CTX *ctx, const agent_config_t *config) {
+    scan_result_t *scan_result = perform_scan();
+    if (!scan_result) {
+        log_error("Scan failed");
         return -1;
     }
-    return 0;
+
+    char *message = build_scan_message(scan_result);
+    free_scan_result(scan_result);
+    if (!message) {
+        log_error("Failed to serialize scan data");
+        return -1;
+    }
+
+    // connect_to_server backs off between attempts and verifies the server's certificate.
+    SSL *ssl = NULL;
+    for (unsigned i = 0; i < config->max_retries && running && !ssl; i++) {
+        ssl = connect_to_server(ctx, config->server_host, config->server_port);
+        if (!ssl) {
+            log_info("Connection failed, attempt %u/%u", i + 1, config->max_retries);
+            if (i + 1 < config->max_retries) platform_sleep(config->connect_retry_delay);
+        }
+    }
+    if (!ssl) {
+        log_error("Could not connect to %s:%d", config->server_host, config->server_port);
+        free(message);
+        return -1;
+    }
+
+    int status = -1;
+    size_t message_len = strlen(message);
+    if (ssl_write_all(ssl, message, message_len) != (ssize_t)message_len) {
+        log_error("Failed to send complete scan data");
+    } else {
+        char reply[MAX_REPLY_LENGTH] = {0};
+        int received = SSL_read(ssl, reply, sizeof(reply) - 1);
+        if (received > 0 && strcmp(reply, "ACK") == 0) {
+            log_info("Scan delivered to %s:%d", config->server_host, config->server_port);
+            status = 0;
+        } else if (received > 0) {
+            log_error("Server rejected the scan: %s", reply);
+        } else {
+            log_error("No reply from the server");
+        }
+    }
+
+    disconnect(ssl);
+    free(message);
+    return status;
 }
 
-int main(void) {
+int main(int argc, char *argv[]) {
+    // --once sends a single scan and exits with its result, for cron jobs and tests.
+    int once = 0;
+    const char *config_path = "configs/agent.conf";
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--once") == 0) {
+            once = 1;
+        } else {
+            config_path = argv[i];
+        }
+    }
+
     // Initialize logging
 #ifndef _WIN32
-    openlog("device-scanner-agent", LOG_PID|LOG_CONS, LOG_DAEMON);
+    openlog("device-scanner-agent", LOG_PID|LOG_CONS|LOG_PERROR, LOG_DAEMON);
 #endif
 
     // Load configuration
     agent_config_t config;
-    if (load_config("configs/agent.conf", &config) != 0) {
+    if (load_config(config_path, &config) != 0) {
         log_error("Failed to load configuration");
         return EXIT_FAILURE;
     }
 
     log_info("Starting device scanner agent");
-    log_info("Configuration loaded - Server: %s:%d", 
+    log_info("Configuration loaded - Server: %s:%d",
              config.server_host, config.server_port);
 
     // Setup signal handling
@@ -245,102 +320,21 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    // Main loop with retry logic
-    int retry_count = 0;
-    time_t last_heartbeat = 0;
-    time_t last_scan = 0;
-    
-    while (running) {
-        SSL *ssl = NULL;
-        scan_result_t *scan_result = NULL;
-        char *serialized_data = NULL;
-        size_t data_len = 0;
-        time_t now = time(NULL);
-
-        // Connect to server with retries
-        for (unsigned int i = 0; i < config.max_retries; i++) {
-            ssl = connect_to_server(ctx, config.server_host, config.server_port);
-            if (ssl) break;
-            
-            if (i == config.max_retries - 1) {
-                log_error("Max connection retries reached");
-                goto cleanup;
-            }
-            
-            log_info("Connection failed, retry %d/%d", i+1, config.max_retries);
-            platform_sleep(config.connect_retry_delay * (i+1));  // Exponential backoff
+    int status = 0;
+    if (once) {
+        status = scan_and_report(ctx, &config);
+    } else {
+        // Each scan uses its own connection: the server takes one command per connection.
+        while (running) {
+            scan_and_report(ctx, &config);
+            platform_sleep(config.scan_interval);
         }
-
-        // Verify server certificate
-        if (!verify_server_certificate(ssl, config.server_host)) {
-            log_error("Server certificate verification failed");
-            cleanup_resources(NULL, ssl, NULL);
-            continue;
-        }
-
-        // Send heartbeat if needed
-        if (difftime(now, last_heartbeat) >= HEARTBEAT_INTERVAL) {
-            if (send_heartbeat(ssl) != 0) {
-                cleanup_resources(NULL, ssl, NULL);
-                continue;
-            }
-            last_heartbeat = now;
-            log_info("Heartbeat sent");
-        }
-
-        // Perform scan if interval has passed
-        if (difftime(now, last_scan) >= config.scan_interval) {
-            scan_result_t *scan_result = perform_scan();
-            if (!scan_result) {
-                log_error("Scan failed");
-                cleanup_resources(NULL, ssl, NULL);
-                platform_sleep(config.scan_interval);
-                continue;
-            }   
-            last_scan = now;
-
-            // Serialize scan data
-            if (serialize_scan_result(scan_result, &serialized_data, &data_len) != 0) {
-                log_error("Failed to serialize scan data");
-                cleanup_resources(NULL, ssl, scan_result);
-                continue;
-            }
-
-            // Secure data transmission
-            if (ssl_write_all(ssl, serialized_data, data_len) != (ssize_t)data_len) {
-                log_error("Failed to send complete scan data");
-                retry_count++;
-                if ((unsigned)retry_count >= config.max_retries) {
-                    log_error("Max transmission retries reached");
-                    running = 0;
-                }
-            } else {
-                log_info("Scan data sent successfully");
-                retry_count = 0;  // Reset on success
-            }
-        }
-
-        cleanup:
-        // Cleanup and wait
-        if (serialized_data) {
-            secure_zero(serialized_data, data_len);
-            free(serialized_data);
-        }
-        cleanup_resources(NULL, ssl, scan_result);
-        
-        // Sleep but wake up for heartbeats
-        time_t sleep_time = config.scan_interval;
-        if (HEARTBEAT_INTERVAL < sleep_time) {
-            sleep_time = HEARTBEAT_INTERVAL;
-        }
-        platform_sleep(sleep_time);
     }
 
-    // Final cleanup
-    cleanup_resources(ctx, NULL, NULL);
+    SSL_CTX_free(ctx);
     log_info("Device scanner agent stopped");
 #ifndef _WIN32
     closelog();
 #endif
-    return EXIT_SUCCESS;
+    return status == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

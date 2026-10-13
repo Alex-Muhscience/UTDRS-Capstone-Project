@@ -14,7 +14,7 @@ extern "C" {
 
 // Configuration constants
 #define MAX_CLIENTS 100               ///< Maximum simultaneous client connections
-#define MAX_CMD_LENGTH 1024           ///< Maximum command length
+#define MAX_CMD_LENGTH 8192           ///< Maximum command length (a scan with its interfaces)
 #define DEFAULT_TIMEOUT_MS 30000      ///< Default connection timeout in milliseconds
 
 /**
@@ -94,14 +94,6 @@ int get_client_ip(SSL *ssl, char *buf, size_t len);
  * @return 0 if access is allowed, -1 if rate limited, -2 if blocked
  */
 int check_client_access(const char *ip);
-
-/**
- * @brief Verify checksum of data
- * @param data Data to verify
- * @param checksum Expected SHA-256 checksum (hex-encoded)
- * @return true if checksum matches, false otherwise
- */
-bool verify_checksum(const char *data, const char *checksum);
 
 #ifdef __cplusplus
 }

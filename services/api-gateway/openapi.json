@@ -2707,6 +2707,66 @@
         }
       }
     },
+    "/api/v1/scans/": {
+      "post": {
+        "tags": [
+          "scans"
+        ],
+        "summary": "Record Scan",
+        "description": "Record a device scan from the device scanner.\n\nFor UTDRS's own services: send INTERNAL_API_TOKEN in the X-Internal-Token header.\n\nThe scan creates or updates the asset named after the device. The first scan of a\ndevice, or one whose inventory has changed, also raises an event, which is analysed\nlike any other.",
+        "operationId": "record_scan_api_v1_scans__post",
+        "parameters": [
+          {
+            "name": "x-internal-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScanReport"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/detection/": {
       "get": {
         "tags": [
@@ -5746,6 +5806,178 @@
           "new_password"
         ],
         "title": "PasswordChange"
+      },
+      "ScanInterface": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Name"
+          },
+          "ip_address": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip Address"
+          },
+          "mac_address": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mac Address"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ScanInterface"
+      },
+      "ScanReport": {
+        "properties": {
+          "hostname": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Hostname"
+          },
+          "os": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Os"
+          },
+          "os_version": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Os Version"
+          },
+          "cpu_cores": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Cores"
+          },
+          "memory_kb": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Kb"
+          },
+          "interfaces": {
+            "items": {
+              "$ref": "#/components/schemas/ScanInterface"
+            },
+            "type": "array",
+            "maxItems": 64,
+            "title": "Interfaces"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "reported_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reported From"
+          },
+          "scan_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hostname",
+          "os",
+          "timestamp"
+        ],
+        "title": "ScanReport",
+        "description": "A device's inventory, as collected by the scanner agent."
+      },
+      "ScanResult": {
+        "properties": {
+          "asset_id": {
+            "type": "string",
+            "title": "Asset Id"
+          },
+          "new_device": {
+            "type": "boolean",
+            "title": "New Device"
+          },
+          "changes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Changes",
+            "default": []
+          },
+          "event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "asset_id",
+          "new_device"
+        ],
+        "title": "ScanResult"
       },
       "Simulation": {
         "properties": {

@@ -203,7 +203,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: python -m py_compile data-processor.py config.py
+      - run: python -m py_compile data-processor.py config.py scan_delivery.py
+      - run: python -m unittest
 
   compose:
     name: Docker Compose stack
@@ -220,11 +221,11 @@ jobs:
           mkdir -p certs && cd certs
           openssl req -x509 -newkey rsa:2048 -nodes -keyout ca.key -out ca.crt -days 2 -subj "/CN=UTDRS CI CA"
           openssl req -newkey rsa:2048 -nodes -keyout server.key -out server.csr -subj "/CN=localhost"
-          openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 2 -extfile <(printf "subjectAltName=DNS:localhost")
+          openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 2 -extfile <(printf "subjectAltName=DNS:localhost,DNS:scanner-server")
           openssl req -newkey rsa:2048 -nodes -keyout agent.key -out agent.csr -subj "/CN=agent-ci"
           openssl x509 -req -in agent.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out agent.crt -days 2
-          chmod 644 server.key
-      - run: docker compose --profile pipeline --profile scanner up -d --build --wait
+          chmod 644 server.key agent.key
+      - run: docker compose --profile scanner up -d --build --wait
       - run: docker compose run --rm seed
       - name: Every service answers
         run: |
@@ -236,6 +237,20 @@ jobs:
             -cert scanner/configs/certs/agent.crt -key scanner/configs/certs/agent.key -CAfile scanner/configs/certs/ca.crt 2>/dev/null || true)
           echo "scanner replied: $reply"
           echo "$reply" | grep -q INVALID_JSON
+      - name: A scan from the agent becomes an asset and an event
+        run: |
+          docker compose run --rm scan
+          . ./.env
+          token=$(curl -fsS -X POST http://localhost:8000/api/v1/auth/login \
+            --data-urlencode "username=$ADMIN_USERNAME" --data-urlencode "password=$ADMIN_PASSWORD" | jq -r .access_token)
+          for attempt in $(seq 1 30); do
+            assets=$(curl -fsS -H "Authorization: Bearer $token" http://localhost:8000/api/v1/assets/)
+            if echo "$assets" | jq -e 'any(.[]; .name == "demo-device" and (.tags | index("scanner")))' >/dev/null; then break; fi
+            sleep 2
+          done
+          echo "$assets" | jq -e 'any(.[]; .name == "demo-device" and (.tags | index("scanner")))'
+          curl -fsS -H "Authorization: Bearer $token" "http://localhost:8000/api/v1/events/?event_type=asset_scan" \
+            | jq -e 'any(.[]; .description == "New device discovered: demo-device")'
       - uses: actions/setup-node@v5
         with:
           node-version: 24
@@ -249,7 +264,7 @@ jobs:
         env:
           E2E_BASE_URL: http://localhost:8080
       - if: failure()
-        run: docker compose --profile pipeline --profile scanner logs --no-color --tail 200
+        run: docker compose --profile scanner logs --no-color --tail 200
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
