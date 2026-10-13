@@ -7,6 +7,7 @@ import pickle
 from utils.logger import get_logger
 from config import settings
 from core.models.ml.model_registry import ModelRegistry
+from core.models.ml.phishing_email_model import get_phishing_email_model
 from utils.time import utcnow
 
 logger = get_logger(__name__)
@@ -20,6 +21,8 @@ class MLDetector:
         self.model_registry = ModelRegistry(settings.MODEL_PATH)
         # Default confidence threshold for ML detections
         self.confidence_threshold = 0.7
+        # The trained phishing model needs enough of an email's words to judge it.
+        self.min_known_email_terms = 5
         
     async def detect(self, event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
@@ -62,6 +65,25 @@ class MLDetector:
         Returns:
             Detection result if phishing is detected, None otherwise
         """
+        # Emails go to the trained classifier. URLs, and emails it cannot judge, are
+        # scored by the indicators below.
+        if 'email' in event.get('event_type', ''):
+            confidence = self._score_email_with_model(event)
+            if confidence is not None:
+                if confidence <= self.confidence_threshold:
+                    return None
+                return {
+                    "name": "Potential Phishing Attempt",
+                    "description": f"The phishing email model classified this message as phishing with {confidence*100:.1f}% confidence",
+                    "severity": "high" if confidence > 0.9 else "medium",
+                    "detection_type": "ml",
+                    "model": "phishing_email_ffnn",
+                    "confidence": confidence,
+                    "tags": ["phishing", "ml-detection"],
+                    "mitre_techniques": ["T1566"],  # Phishing
+                    "mitre_tactics": ["TA0001"]     # Initial Access
+                }
+
         # In a production system, we would:
         # 1. Extract relevant features from the event (URL, email text, etc.)
         # 2. Preprocess those features (tokenization, normalization, etc.)
@@ -112,6 +134,29 @@ class MLDetector:
             
         return None
     
+    def _score_email_with_model(self, event: Dict[str, Any]) -> Optional[float]:
+        """
+        The trained model's phishing probability for an email event.
+
+        Returns:
+            The probability, or None when the model is unavailable or the email has
+            too few words the model knows to be judged by it
+        """
+        model = get_phishing_email_model()
+        if model is None:
+            return None
+
+        email_data = event.get('data', {})
+        text = f"{email_data.get('subject') or ''} {email_data.get('body') or ''}"
+        if model.known_terms(text) < self.min_known_email_terms:
+            return None
+
+        try:
+            return model.predict(text)
+        except Exception as e:
+            logger.error(f"Error in the phishing email model: {str(e)}")
+            return None
+
     def _extract_email_features(self, event: Dict[str, Any]) -> List[float]:
         """
         Extract features from an email event for phishing detection.
