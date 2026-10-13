@@ -17,7 +17,7 @@ UTDRS was a **Top 5 finalist in the Mozilla Responsible Computing Challenge**.
 | **Core engine**: six detectors, MITRE ATT&CK mapping, risk scoring | [`services/core-engine/`](services/core-engine) | Working. The ML detector uses hand-written indicators for now. |
 | **Data processor**: batch worker with retries and a dead-letter collection | [`services/data-processor/`](services/data-processor) | Works on its own; not yet fed by the rest of the system. |
 | **Device scanner**: inventory agent and collection server over mutual TLS | [`scanner/`](scanner) | Prototype. The server runs; the agent and server do not share a wire format yet. |
-| **Research prototype**: the original capstone, its models and report | [`research/capstone/`](research/capstone) | Archived for reference. |
+| **Research models**: the original capstone's trained models and their training scripts | [`research/capstone/models/`](research/capstone/models) | Archived for reference. Not used by the core engine. |
 
 Each component has its own README with setup, configuration and tests. [`docs/architecture.md`](docs/architecture.md) describes how they fit together: data ownership, request flows, trust boundaries and failure handling.
 
