@@ -20,6 +20,24 @@
 #include <netinet/in.h>
 #endif
 
+#ifndef _WIN32
+/* The interface's hardware address from sysfs; left as zeros when it has none. */
+static void read_mac_address(const char *interface_name, uint8_t mac[6]) {
+    char path[64 + MAX_INTERFACE_LEN];
+    snprintf(path, sizeof(path), "/sys/class/net/%s/address", interface_name);
+
+    FILE *file = fopen(path, "r");
+    if (!file) return;
+
+    unsigned int bytes[6];
+    if (fscanf(file, "%2x:%2x:%2x:%2x:%2x:%2x",
+               &bytes[0], &bytes[1], &bytes[2], &bytes[3], &bytes[4], &bytes[5]) == 6) {
+        for (int i = 0; i < 6; i++) mac[i] = (uint8_t)bytes[i];
+    }
+    fclose(file);
+}
+#endif
+
 scan_result_t* perform_scan() {
     scan_result_t *result = malloc(sizeof(scan_result_t));
     if (!result) return NULL;
@@ -30,6 +48,11 @@ scan_result_t* perform_scan() {
     // Windows implementation
     WSADATA wsaData;
     WSAStartup(MAKEWORD(2, 2), &wsaData);
+
+    DWORD hostname_len = sizeof(result->system.hostname);
+    if (!GetComputerNameA(result->system.hostname, &hostname_len)) {
+        result->system.hostname[0] = '\0';
+    }
 
     // Get OS info
     OSVERSIONINFOEX osvi;
@@ -74,7 +97,7 @@ scan_result_t* perform_scan() {
 
         // Allocate memory for interfaces
         if (result->network_count > 0) {
-            result->networks = malloc(result->network_count * sizeof(network_info_t));
+            result->networks = calloc(result->network_count, sizeof(network_info_t));
             if (result->networks) {
                 pAdapter = pAdapterInfo;
                 for (size_t i = 0; i < result->network_count && pAdapter; i++) {
@@ -108,6 +131,11 @@ result->networks[i].interface_name[copy_len] = '\0';
     struct sysinfo mem_info;
     struct ifaddrs *ifaddr;
     
+    if (gethostname(result->system.hostname, sizeof(result->system.hostname)) != 0) {
+        result->system.hostname[0] = '\0';
+    }
+    result->system.hostname[sizeof(result->system.hostname) - 1] = '\0';
+
     // Get OS info
     if (uname(&os_info) == 0) {
         // snprintf always NUL-terminates; strncpy did not when the source filled the buffer.
@@ -132,7 +160,7 @@ result->networks[i].interface_name[copy_len] = '\0';
 
         // Allocate and store interface info
         if (result->network_count > 0) {
-            result->networks = malloc(result->network_count * sizeof(network_info_t));
+            result->networks = calloc(result->network_count, sizeof(network_info_t));
             if (result->networks) {
                 size_t idx = 0;
                 for (struct ifaddrs *ifa = ifaddr; ifa != NULL && idx < result->network_count; ifa = ifa->ifa_next) {
@@ -143,6 +171,8 @@ result->networks[i].interface_name[copy_len] = '\0';
                                  &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr,
                                  result->networks[idx].ip_address,
                                  MAX_IP_LEN);
+                        read_mac_address(result->networks[idx].interface_name,
+                                         result->networks[idx].mac_address);
                         idx++;
                     }
                 }

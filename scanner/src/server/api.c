@@ -30,6 +30,7 @@
 #include "server/storage.h"
 #include "common/utils.h"
 #include "common/crypto.h"
+#include "common/scan_message.h"
 
 // JSON validation result codes
 #define VALID_JSON_OK                0
@@ -213,7 +214,7 @@ int check_client_access(const char *ip) {
         syslog(LOG_WARNING, "Blocked client %s for excessive requests", ip);
     }
     
-    client->last_request = now;
+    if (client) client->last_request = now;
     pthread_mutex_unlock(&clients_mutex);
     return result;
 }
@@ -243,19 +244,15 @@ int get_client_ip(SSL *ssl, char *buf, size_t len) {
     return 0;
 }
 
-bool verify_checksum(const char *data, const char *checksum) {
-    if (!data || !checksum) return false;
+// The checksum covers the other fields (see common/scan_message.h); a hash of the whole
+// message could never match, because the message contains the checksum.
+static bool verify_checksum(const json_t *scan, const char *checksum) {
+    if (!scan || !checksum) return false;
 
-    unsigned char hash[SHA256_DIGEST_LENGTH];
-    SHA256((unsigned char*)data, strlen(data), hash);
-    
-    char hex_hash[2*SHA256_DIGEST_LENGTH+1];
-    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
-        sprintf(hex_hash + 2*i, "%02x", hash[i]);
-    }
-    hex_hash[2*SHA256_DIGEST_LENGTH] = '\0';
-    
-    return strncmp(hex_hash, checksum, 2*SHA256_DIGEST_LENGTH) == 0;
+    char expected[SCAN_CHECKSUM_HEX_LEN + 1];
+    if (scan_checksum(scan, expected) != 0) return false;
+
+    return strcmp(expected, checksum) == 0;
 }
 
 int validate_scan_json(const char *data) {
@@ -283,20 +280,19 @@ int validate_scan_json(const char *data) {
     static const char *required[] = {"hostname", "os", "timestamp", "checksum", NULL};
     for (int i = 0; required[i]; i++) {
         json_t *field = json_object_get(root, required[i]);
-        if (!field) {
+        if (!json_is_string(field) || json_string_length(field) == 0) {
             json_decref(root);
             return VALID_JSON_MISSING_FIELD;
         }
-        
-        if (json_is_string(field) && 
-            json_string_length(field) > MAX_FIELD_LENGTH) {
+
+        if (json_string_length(field) > MAX_FIELD_LENGTH) {
             json_decref(root);
             return VALID_JSON_FIELD_TOO_LONG;
         }
     }
 
     const char *checksum = json_string_value(json_object_get(root, "checksum"));
-    if (!checksum || !verify_checksum(data, checksum)) {
+    if (!checksum || !verify_checksum(root, checksum)) {
         json_decref(root);
         return VALID_JSON_CHECKSUM_FAIL;
     }
@@ -370,16 +366,25 @@ int store_scan_with_retry(SSL *ssl, const char *scan_data) {
         return -1;
     }
 
+    // Stored as a document, not a string, so the data processor can read its fields.
+    bson_error_t error;
+    bson_t *scan = bson_new_from_json((const uint8_t *)scan_data, -1, &error);
+    if (!scan) {
+        syslog(LOG_WARNING, "Could not convert scan to BSON: %s", error.message);
+        mongoc_client_pool_push(mongodb_pool, client);
+        return -1;
+    }
+
     bson_t doc;
     bson_init(&doc);
     BSON_APPEND_UTF8(&doc, "client_ip", client_ip);
-    BSON_APPEND_UTF8(&doc, "scan_data", scan_data);
-    BSON_APPEND_DATE_TIME(&doc, "timestamp", time(NULL) * 1000);
+    BSON_APPEND_DOCUMENT(&doc, "scan", scan);
+    BSON_APPEND_DATE_TIME(&doc, "received_at", (int64_t)time(NULL) * 1000);
     BSON_APPEND_UTF8(&doc, "status", "received");
+    bson_destroy(scan);
 
     int retries = 0;
     bool success = false;
-    bson_error_t error;
 
     while (retries < MONGODB_MAX_RETRIES && !success) {
         mongoc_collection_t *collection = mongoc_client_get_collection(

@@ -12,7 +12,7 @@ from api.middleware.security import (
     SecurityMiddleware,
     rate_limit_handler,
 )
-from api.routes import alerts, assets, auth, detection, events, health, simulation, users
+from api.routes import alerts, assets, auth, detection, events, health, scans, simulation, users
 from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
 from core.services.bootstrap import ensure_admin
@@ -70,6 +70,7 @@ app.include_router(
 app.include_router(
     assets.router, prefix=f"{settings.API_PREFIX}/assets", tags=["assets"]
 )
+app.include_router(scans.router, prefix=f"{settings.API_PREFIX}/scans", tags=["scans"])
 app.include_router(
     detection.router, prefix=f"{settings.API_PREFIX}/detection", tags=["detection"]
 )
