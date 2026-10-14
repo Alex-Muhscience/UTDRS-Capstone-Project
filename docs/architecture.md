@@ -7,22 +7,21 @@ How the parts of UTDRS fit together: what each service owns, how requests flow, 
 | Service | Role | Listens on | Talks to |
 |---|---|---|---|
 | Dashboard (`frontend/`) | The analyst's interface; a static single-page app | 5173 (dev), 4173 (preview), 8080 (Docker, nginx) | The gateway only, through `/api` |
-| API gateway (`services/api-gateway/`) | Public API: users, events, alerts, assets, rules, simulations | 8000 | MongoDB (its own database), the core engine |
+| API gateway (`services/api-gateway/`) | Public API: users, events, alerts, assets, rules, simulations; takes in device scans | 8000 | MongoDB (its own database), the core engine |
 | Core engine (`services/core-engine/`) | Detection: turns an event into an alert or nothing | 8001 locally (8000 in its container) | MongoDB (its own database), threat-intelligence APIs when enabled |
-| Data processor (`services/data-processor/`) | Batch worker between two collections | 5000 (health) | MongoDB |
-| Scanner server (`scanner/`) | Receives device inventories from agents | 8443 (TLS) | MongoDB |
+| Data processor (`services/data-processor/`) | Delivers the scanner server's stored scans to the gateway | 5000 (health) | MongoDB (the scanner's database), the gateway |
+| Scanner server (`scanner/`) | Receives device inventories from agents | 8443 (TLS) | MongoDB (its own database) |
 | Scanner agent (`scanner/`) | Collects a device's inventory | | The scanner server |
 
 ## Data ownership
 
-Each service owns its data and no service reads another's database. The gateway and the engine both have collections named `events`, `alerts` and `detection_rules`, with different document shapes. Sharing one database makes the gateway's lists fail validation, and makes the engine's signature detector read the gateway's rule catalogue instead of its own rules. A system test fails if this happens.
+Each service owns its data and no service reads another's database, with one deliberate hand-off: the scanner's `scans` collection is a queue that the scanner server fills and the data processor drains. The gateway and the engine both have collections named `events`, `alerts` and `detection_rules`, with different document shapes. Sharing one database makes the gateway's lists fail validation, and makes the engine's signature detector read the gateway's rule catalogue instead of its own rules. A system test fails if this happens.
 
 | Database (default name) | Owner | Collections |
 |---|---|---|
 | `utdrs` | API gateway | `users`, `events`, `alerts`, `assets`, `detection_rules` (the catalogue shown in the dashboard), `simulations` |
 | `utdrs_engine` | Core engine | `events` (every event it analyses, the history for correlation and anomaly baselines), `alerts` (its own verdicts), `detection_rules` (signature rules it runs) |
-| `utdrs_db` | Scanner server | `scans` |
-| *(named in its URI)* | Data processor | `raw_data`, `processed_data`, `failed_data` |
+| `utdrs_db` | Scanner server and data processor | `scans` (accepted scans waiting for delivery, written by the server), `delivered_scans` (each with the gateway's answer) and `failed_scans` (scans that could not be delivered, with the error), both written by the processor |
 
 ## Request flows
 
@@ -62,6 +61,27 @@ sequenceDiagram
 
 The engine's verdict priority, from the most specific evidence to the least, is signature, YARA, correlation, threat intelligence, ML, anomaly. One event produces at most one alert.
 
+### A device scan, from the agent to an asset
+
+```mermaid
+sequenceDiagram
+  participant A as Scanner agent
+  participant S as Scanner server
+  participant P as Data processor
+  participant G as API gateway
+  A->>S: SCAN {inventory, checksum} over mutual TLS
+  S->>S: validate, store in scans
+  S-->>A: ACK
+  P->>S: read the next batch from scans (every few seconds)
+  P->>G: POST /api/v1/scans/ (X-Internal-Token)
+  G->>G: create or update the asset named after the device
+  G->>G: new device or changed inventory: create an event, analyse it in the background
+  G-->>P: { asset_id, new_device, changes, event_id }
+  P->>S: move the scan to delivered_scans
+```
+
+A scan always refreshes its asset: operating system, address, last-seen time and the full inventory under `metadata.scanner`. It never overwrites what an analyst sets (type, criticality, owner, location). Only the first scan of a device, or one whose operating system, hardware or network interfaces differ from the previous scan, raises an event (`event_type: asset_scan`, `source: device-scanner`), so a fleet reporting every minute does not flood the event list. That event goes to the core engine like any other.
+
 ## Trust boundaries
 
 | Boundary | Protection |
@@ -69,10 +89,11 @@ The engine's verdict priority, from the most specific evidence to the least, is 
 | Browser → dashboard | Static files only. In the Docker image, nginx sends a Content-Security-Policy with no inline or third-party scripts, plus `X-Frame-Options: DENY`, `nosniff` and a strict referrer policy. |
 | Browser → gateway | JWT bearer tokens (HS256, `JWT_SECRET`), bcrypt password hashes, role checks on administrative routes, CORS limited to `CORS_ORIGINS` (not needed when the dashboard proxies `/api`), Host allow-list, a 10 MB request limit, and security headers with a request ID on every response. Registration, which can be closed, always creates an analyst; a deactivated account's tokens stop working at once. |
 | Gateway → engine | A shared secret in `X-Internal-Token`, compared in constant time. The engine should only be reachable from the gateway's network. |
-| Agent → scanner server | Mutual TLS: the server requires a client certificate from the CA, and the agent verifies the server's certificate chain and name. |
+| Agent → scanner server | Mutual TLS: the server requires a client certificate from the CA, and the agent verifies the server's certificate chain and name. A SHA-256 checksum over the scan's fields catches damaged messages. |
+| Data processor → gateway | The same shared secret, in `X-Internal-Token`, on `POST /api/v1/scans/`. A user's session token is not accepted there, and the route answers 503 when the gateway has no `INTERNAL_API_TOKEN`. |
 | Services → MongoDB | Connection strings from the environment; never committed. |
 
-Roles: administrators manage users, detection rules and simulations; analysts triage alerts and work with events and assets; everyone signed in can read everything. Known gaps, on the [roadmap](../README.md#roadmap): sign-in is not rate limited, devices and integrations need a user's token, and the dashboard polls rather than receiving pushed updates.
+Roles: administrators manage users, detection rules and simulations; analysts triage alerts and work with events and assets; everyone signed in can read everything. Known gaps, on the [roadmap](../README.md#roadmap): sign-in is not rate limited, integrations that post events need a user's token, and the dashboard polls rather than receiving pushed updates.
 
 ## When something fails
 
@@ -83,7 +104,10 @@ Roles: administrators manage users, detection rules and simulations; analysts tr
 | Gateway down | The dashboard's status pill shows *Gateway unreachable* and pages show *Cannot reach the API gateway* with a retry; opening the dashboard while it is down shows *The API gateway is not responding*. |
 | Token expired or revoked | The gateway answers 401, and the dashboard signs out with an explanation and returns to the same page after sign-in. |
 | MongoDB down | `GET /api/v1/health/db` reports `disconnected`, and the dashboard's pipeline-health card shows it. |
-| A document the data processor cannot transform | It is written to the dead-letter collection with its error, and the batch continues. |
+| Gateway down, or refusing the data processor's token | Scans stay in the scanner's `scans` collection and are delivered when the gateway answers again. Agents are not affected: the scanner server keeps accepting scans. |
+| A scan the gateway rejects as invalid, or a document that is not a scan | The data processor moves it to `failed_scans` with the error, and the batch continues. |
+| Scanner server down | The agent logs the failure and tries again at its next scan. |
+| Data processor down | Scans accumulate in `scans` and are delivered when it returns. |
 
 ## Testing strategy
 
@@ -94,4 +118,4 @@ Roles: administrators manage users, detection rules and simulations; analysts tr
 | Contract | The dashboard's types match the gateway's OpenAPI schema | CI job *API contract* |
 | System | The gateway and the engine as separate processes: an event becomes an alert, and the lists stay clean | `tests/system`, `scripts/system-test.sh` |
 | End to end | A person in a browser: register, send an event, triage the alert the engine raised | `frontend/e2e`, CI job *Dashboard end-to-end* |
-| Deployment | The Docker Compose stack builds, starts healthy, takes demo data and passes the same end-to-end tests | `docker-compose.yml`, CI job *Docker Compose stack* |
+| Deployment | The Docker Compose stack builds, starts healthy, takes demo data and passes the same end-to-end tests; a scan sent by the agent becomes an asset and an event in the gateway | `docker-compose.yml`, CI job *Docker Compose stack* |

@@ -5,7 +5,8 @@
 #   docker compose up -d --build  # dashboard on http://localhost:8080
 #   docker compose run --rm seed  # optional: demo data
 #
-# Optional extras: --profile pipeline (data processor), --profile scanner (scanner server).
+# Optional: --profile scanner adds the device scanner's collection server and the data
+# processor that delivers its scans to the gateway (needs certificates; see docs/docker.md).
 
 name: utdrs
 
@@ -99,17 +100,26 @@ services:
       api-gateway:
         condition: service_healthy
 
-  # Optional: the batch worker (docker compose --profile pipeline up -d)
+  # Optional, with the scanner: delivers the scans the scanner server stores to the
+  # gateway, where they become assets and events.
   data-processor:
     build:
       context: ./services/data-processor
       dockerfile: dockerfile
-    profiles: ["pipeline"]
+    profiles: ["scanner"]
     restart: unless-stopped
     environment:
-      MONGODB_URI: mongodb://mongodb:27017/utdrs_pipeline
+      # The scanner server's database: it writes `scans`, the processor drains it.
+      MONGODB_URI: mongodb://mongodb:27017/utdrs_db
+      SOURCE_COLLECTION: scans
+      DESTINATION_COLLECTION: delivered_scans
+      DEAD_LETTER_COLLECTION: failed_scans
+      GATEWAY_URL: http://api-gateway:8000
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?Set INTERNAL_API_TOKEN in .env (see .env.example)}
     depends_on:
       mongodb:
+        condition: service_healthy
+      api-gateway:
         condition: service_healthy
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:${PROCESSOR_PORT:-5000}:5000"
@@ -129,6 +139,18 @@ services:
         condition: service_healthy
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:${SCANNER_PORT:-8443}:8443"
+
+  # One scan from the agent, of the container it runs in, to see the whole path work:
+  # docker compose run --rm scan   (with the scanner profile already up)
+  scan:
+    build: ./scanner
+    profiles: ["demo"]
+    hostname: demo-device
+    command: ["bin/agent", "--once"]
+    environment:
+      SCANNER_SERVER_HOST: scanner-server
+    volumes:
+      - ./scanner/configs/certs:/app/configs/certs:ro
 
 volumes:
   mongo-data:

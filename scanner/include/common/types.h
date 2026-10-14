@@ -8,9 +8,11 @@
 #define MAX_OS_LEN       64  // Sufficient for most OS names and versions
 #define MAX_INTERFACE_LEN 16 // Typical length for network interface names
 #define MAX_IP_LEN       46  // Enough for IPv6 addresses (e.g., "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")
+#define MAX_HOSTNAME_LEN 256 // The server rejects string fields longer than this
 
 /* System information structure */
 struct system_info {
+    char hostname[MAX_HOSTNAME_LEN]; // The device's host name
     char os_name[MAX_OS_LEN];       // Operating system name
     char os_version[MAX_OS_LEN];    // Operating system version
     uint32_t cpu_cores;             // Number of CPU cores
@@ -36,4 +38,4 @@ typedef struct system_info system_info_t;
 typedef struct network_info network_info_t;
 typedef struct scan_result scan_result_t;
 
-#endif // DEVICE_SCANNER_TYPES_H_
+#endif // DEVICE_SCANNER_TYPES_H_

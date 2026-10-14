@@ -1,10 +1,11 @@
 # utils/security.py
+import hmac
 from datetime import timedelta
 from typing import Any, Dict, Optional
 
 import bcrypt
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import ValidationError
 
@@ -112,3 +113,27 @@ async def require_admin(current_user: User = Depends(get_current_active_user)) -
             detail="Only administrators can do this",
         )
     return current_user
+
+
+async def require_internal_token(
+    x_internal_token: Optional[str] = Header(default=None),
+) -> None:
+    """
+    Only UTDRS's own services may call this route.
+
+    They present INTERNAL_API_TOKEN in the X-Internal-Token header, the same shared
+    secret the gateway sends to the core engine. The gateway is public, so unlike the
+    engine it refuses these routes outright when no token is configured.
+    """
+    expected = settings.INTERNAL_API_TOKEN
+    if not expected:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="INTERNAL_API_TOKEN is not configured",
+        )
+    if not x_internal_token or not hmac.compare_digest(
+        x_internal_token.encode("utf-8"), expected.encode("utf-8")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid internal token"
+        )

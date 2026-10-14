@@ -77,6 +77,33 @@ class AssetRepository(BaseRepository):
             return result
         return await self.find_by_id(id)
 
+    async def record_scan(
+        self, name: str, seen: Dict[str, Any], defaults: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Apply a device scan to the asset with this name, creating the asset if needed.
+
+        `seen` is what the scan observed and always overwrites; `defaults` only applies
+        to a new asset, so an analyst's edits to an existing one are kept. Returns the
+        asset as it was before the scan, or None when the scan created it.
+        """
+        now = utcnow()
+        return await self.collection.find_one_and_update(
+            {"name": name},
+            {
+                "$set": {**seen, "last_seen": now, "updated_at": now},
+                "$setOnInsert": {
+                    **defaults,
+                    "name": name,
+                    "created_at": now,
+                    "vulnerabilities": [],
+                },
+                "$addToSet": {"tags": "scanner"},
+            },
+            upsert=True,
+            return_document=ReturnDocument.BEFORE,
+        )
+
     async def update_last_seen(self, id: str) -> bool:
         if not ObjectId.is_valid(id):
             return False

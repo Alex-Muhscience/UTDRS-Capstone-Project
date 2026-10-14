@@ -8,6 +8,8 @@ from datetime import datetime
 from flask import Flask, jsonify
 from collections import defaultdict
 
+from scan_delivery import RetryLater, deliver_scan, scan_to_report
+
 # Initialize logging
 logging.basicConfig(
     level=logging.INFO,
@@ -58,16 +60,24 @@ class DataProcessor:
             processed_doc = doc.copy()
             processed_doc['processed'] = True
             processed_doc['processing_timestamp'] = datetime.now()
-            
-            # Add your custom processing logic here
-            # Example: processed_doc['analyzed_value'] = analyze_data(doc['raw_value'])
-            
+
+            # With a gateway configured, the documents are device scans from the
+            # scanner server: deliver each one, and keep the gateway's answer with it.
+            gateway_url = os.getenv('GATEWAY_URL')
+            if gateway_url:
+                processed_doc['status'] = 'delivered'
+                processed_doc['gateway'] = deliver_scan(
+                    scan_to_report(doc), gateway_url, os.getenv('INTERNAL_API_TOKEN')
+                )
+
             return processed_doc
+        except RetryLater:
+            raise
         except Exception as e:
             error_type = type(e).__name__
             logger.error(f"Error processing document {doc.get('_id')}: {str(e)}")
             self.metrics['errors'][error_type] += 1
-            self.send_to_dead_letter(doc, error_type)
+            self.send_to_dead_letter(doc, f"{error_type}: {e}")
             return None
 
     def send_to_dead_letter(self, doc, error_msg):
@@ -77,7 +87,8 @@ class DataProcessor:
             dead_letter_collection = db[os.getenv('DEAD_LETTER_COLLECTION', 'failed_data')]
             doc['error'] = str(error_msg)
             doc['failed_at'] = datetime.now()
-            dead_letter_collection.insert_one(doc)
+            # Replace, not insert: a document that fails again must not fail on its own id.
+            dead_letter_collection.replace_one({'_id': doc['_id']}, doc, upsert=True)
             logger.info(f"Document {doc.get('_id')} sent to dead letter queue")
         except PyMongoError as e:
             logger.error(f"Failed to send to dead letter queue: {str(e)}")
@@ -98,22 +109,36 @@ class DataProcessor:
             
             # Process batch
             processed_docs = []
+            handled_ids = []
             for doc in batch:
-                processed_doc = self.process_document(doc)
+                try:
+                    processed_doc = self.process_document(doc)
+                except RetryLater as e:
+                    # Leave this document and the rest of the batch for the next cycle.
+                    logger.warning(f"Delivery postponed: {str(e)}")
+                    self.metrics['errors']['RetryLater'] += 1
+                    break
+                handled_ids.append(doc['_id'])
                 if processed_doc:
                     processed_docs.append(processed_doc)
-            
+
             # Store results
-            if processed_docs:
+            if handled_ids:
                 try:
-                    dest_collection.insert_many(processed_docs)
-                    # Delete originals only if storage succeeded
-                    source_collection.delete_many({
-                        '_id': {'$in': [doc['_id'] for doc in batch]}
-                    })
+                    for processed_doc in processed_docs:
+                        # Replace, not insert: if the delete below failed last time,
+                        # the document is processed again and must not fail on its id.
+                        dest_collection.replace_one(
+                            {'_id': processed_doc['_id']}, processed_doc, upsert=True
+                        )
+                    # Delete originals only if storage succeeded. A document that
+                    # failed is already in the dead-letter collection.
+                    source_collection.delete_many({'_id': {'$in': handled_ids}})
                     self.metrics['processed'] += len(processed_docs)
-                    self.metrics['last_processed'] = datetime.now()
-                    logger.info(f"Processed {len(processed_docs)} documents")  # Fixed string quote
+                    self.metrics['failed'] += len(handled_ids) - len(processed_docs)
+                    if processed_docs:
+                        self.metrics['last_processed'] = datetime.now()
+                        logger.info(f"Processed {len(processed_docs)} documents")
                     return True
                 except PyMongoError as e:
                     logger.error(f"Failed to store processed documents: {str(e)}")
