@@ -14,10 +14,10 @@ UTDRS was a **Top 5 finalist in the Mozilla Responsible Computing Challenge**.
 |---|---|---|
 | **Dashboard**: overview, alert triage, events with the engine's verdict, assets, detection rules, simulations | [`frontend/`](frontend) | Working. React 19, TypeScript, Vite, Tailwind CSS; typed against the gateway's API schema. |
 | **API gateway**: authentication, events, alerts, assets, rules, simulations; sends every event to the engine, and turns device scans into assets and events | [`services/api-gateway/`](services/api-gateway) | Working. Python 3.12, FastAPI, MongoDB. |
-| **Core engine**: six detectors, MITRE ATT&CK mapping, risk scoring | [`services/core-engine/`](services/core-engine) | Working. The ML detector classifies emails with the capstone's trained phishing model, and uses hand-written indicators for everything else. |
+| **Core engine**: six detectors, MITRE ATT&CK mapping, risk scoring | [`services/core-engine/`](services/core-engine) | Working. The ML detector classifies emails and network flows with trained models, and uses hand-written indicators for everything else. |
 | **Data processor**: batch worker that delivers the scanner's scans to the gateway, with retries and a dead-letter collection | [`services/data-processor/`](services/data-processor) | Working. Python 3.12, PyMongo. |
 | **Device scanner**: inventory agent and collection server over mutual TLS | [`scanner/`](scanner) | Working on Linux. C, OpenSSL. Windows code paths are not built or tested in CI. |
-| **Research models**: the original capstone's trained models and their training scripts | [`research/capstone/models/`](research/capstone/models) | The phishing email model runs in the core engine. The network-threat model cannot be used yet: its training script, input features and class labels were not kept. |
+| **Research models**: the original capstone's models, and the scripts that train the versions the engine runs | [`research/capstone/models/`](research/capstone/models) | Both models are retrained from public datasets (phishing emails; UNSW-NB15 network flows) because the originals' preprocessing was not kept. |
 
 Each component has its own README with setup, configuration and tests. [`docs/architecture.md`](docs/architecture.md) describes how they fit together: data ownership, request flows, trust boundaries and failure handling.
 
@@ -137,7 +137,8 @@ Next:
 - [ ] Push new alerts to the dashboard as they happen, instead of polling every 15 seconds
 - [ ] Send rules edited in the dashboard to the engine (the gateway's rule catalogue and the engine's rules are separate today)
 - [ ] Rate-limit sign-in using the client address from the proxy, and API keys for agents and integrations
-- [ ] Replace the remaining indicator-based ML detectors (malware, network, user behaviour) with trained, evaluated models; the phishing email model is in
+- [x] Trained, evaluated models for phishing emails and network flows in the core engine
+- [ ] Trained models for the remaining indicator-based ML detectors (malware, user behaviour)
 - [ ] Public demo deployment
 
 ## Security

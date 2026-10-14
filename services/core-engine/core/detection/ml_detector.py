@@ -7,10 +7,26 @@ import pickle
 from utils.logger import get_logger
 from config import settings
 from core.models.ml.model_registry import ModelRegistry
+from core.models.ml.network_threat_model import get_network_threat_model
 from core.models.ml.phishing_email_model import get_phishing_email_model
 from utils.time import utcnow
 
 logger = get_logger(__name__)
+
+# What each of the network threat model's attack classes (UNSW-NB15's categories) is in
+# MITRE ATT&CK terms, and how serious it is. The categories are broad, so these are the
+# closest techniques, not exact ones.
+NETWORK_ATTACKS = {
+    "Analysis": ("Network Probing", "medium", ["T1046"], ["TA0007"]),
+    "Backdoor": ("Backdoor Traffic", "high", ["T1071"], ["TA0011"]),
+    "DoS": ("Denial of Service", "high", ["T1498"], ["TA0040"]),
+    "Exploits": ("Exploit Attempt", "high", ["T1190"], ["TA0001"]),
+    "Fuzzers": ("Fuzzing", "medium", ["T1595"], ["TA0043"]),
+    "Generic": ("Cryptographic Attack", "medium", ["T1600"], ["TA0005"]),
+    "Reconnaissance": ("Reconnaissance Scan", "medium", ["T1595"], ["TA0043"]),
+    "Shellcode": ("Shellcode Delivery", "high", ["T1203"], ["TA0002"]),
+    "Worms": ("Worm Propagation", "high", ["T1210"], ["TA0008"]),
+}
 
 class MLDetector:
     """
@@ -23,6 +39,9 @@ class MLDetector:
         self.confidence_threshold = 0.7
         # The trained phishing model needs enough of an email's words to judge it.
         self.min_known_email_terms = 5
+        # The network threat model alerts only when it is this sure a flow is an attack:
+        # on its test data, that flags 0.65% of normal flows and catches 80% of attacks.
+        self.network_attack_threshold = 0.95
         
     async def detect(self, event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
@@ -156,6 +175,37 @@ class MLDetector:
         except Exception as e:
             logger.error(f"Error in the phishing email model: {str(e)}")
             return None
+
+    def _classify_flow_with_model(self, event_data: Dict[str, Any]):
+        """
+        The network threat model's verdict on a flow record.
+
+        The flow's measurements are read from event data["flow"], or from the event data
+        itself, under their UNSW-NB15 names (dur, sbytes, dbytes, ...).
+
+        Returns:
+            (most likely class, probability of any attack, probability of that class),
+            or None when the model is unavailable or the record lacks a measurement
+        """
+        model = get_network_threat_model()
+        if model is None:
+            return None
+
+        flow = event_data.get('flow') if isinstance(event_data.get('flow'), dict) else event_data
+        values = model.flow_values(flow)
+        if values is None:
+            return None
+
+        try:
+            probabilities = model.predict(values)
+        except Exception as e:
+            logger.error(f"Error in the network threat model: {str(e)}")
+            return None
+        attack_probability = 1.0 - probabilities["Normal"]
+        if attack_probability <= 0.5:
+            return "Normal", attack_probability, probabilities["Normal"]
+        category = max((c for c in probabilities if c != "Normal"), key=probabilities.get)
+        return category, attack_probability, probabilities[category]
 
     def _extract_email_features(self, event: Dict[str, Any]) -> List[float]:
         """
@@ -438,7 +488,31 @@ class MLDetector:
             Detection result if network anomaly is detected, None otherwise
         """
         event_data = event.get('data', {})
-        
+
+        # Flow records with the measurements the trained model reads go to it; other
+        # network events are scored by the indicators below.
+        verdict = self._classify_flow_with_model(event_data)
+        if verdict is not None:
+            category, attack_probability, category_probability = verdict
+            if category == "Normal" or attack_probability <= self.network_attack_threshold:
+                return None
+            name, severity, techniques, tactics = NETWORK_ATTACKS[category]
+            return {
+                "name": f"Potential {name}",
+                "description": (
+                    f"The network threat model judged this flow an attack with {attack_probability*100:.1f}% "
+                    f"confidence, most likely {category} ({category_probability*100:.1f}%)"
+                ),
+                "severity": severity,
+                "detection_type": "ml",
+                "model": "network_threat_cnn_lstm",
+                "confidence": attack_probability,
+                "attack_category": category,
+                "tags": ["network", "ml-detection", category.lower()],
+                "mitre_techniques": techniques,
+                "mitre_tactics": tactics
+            }
+
         # In a real implementation, we would:
         # 1. Extract network traffic patterns and features
         # 2. Apply trained anomaly detection models
