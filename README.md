@@ -120,6 +120,8 @@ Every pull request runs:
 
 ## Roadmap
 
+The plan for turning UTDRS into a commercial product, with every requirement and every gap in today's code, is in [docs/enterprise-plan.md](docs/enterprise-plan.md). The near-term list:
+
 Done:
 
 - [x] Bring the components into one repository with their history, removing committed credentials, vendored tools and binaries
