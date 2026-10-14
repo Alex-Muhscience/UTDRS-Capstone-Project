@@ -17,9 +17,12 @@ RUN apt-get update \
  && mkdir -p /app/bin /app/configs/certs \
  && chown -R scanner /app
 WORKDIR /app
-COPY --from=build /src/bin/server /app/bin/server
+COPY --from=build /src/bin/server /src/bin/agent /app/bin/
 USER scanner
 EXPOSE 8443
 # Mount the CA certificate and the server's certificate and key at /app/configs/certs
 # (ca.crt, server.crt, server.key) and set MONGODB_URI.
+#
+# The image also carries the agent, to send one scan of the container it runs in:
+# `bin/agent --once`, with agent.crt and agent.key mounted too and SCANNER_SERVER_HOST set.
 CMD ["bin/server"]

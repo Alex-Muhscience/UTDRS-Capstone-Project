@@ -37,7 +37,7 @@ The new alert carries the engine's verdict in `metadata`: `detection_type` (sign
 
 ## API
 
-All routes are under `/api/v1`. Interactive documentation is served at `/api/v1/docs` and the OpenAPI schema at `/api/v1/openapi.json` (also committed as [`openapi.json`](openapi.json)). Every route except health, login and registration needs `Authorization: Bearer <token>`. Lists return the newest first and take `limit` (up to 500) and `skip`.
+All routes are under `/api/v1`. Interactive documentation is served at `/api/v1/docs` and the OpenAPI schema at `/api/v1/openapi.json` (also committed as [`openapi.json`](openapi.json)). Every route except health, login, registration and scans needs `Authorization: Bearer <token>`. Lists return the newest first and take `limit` (up to 500) and `skip`.
 
 | Area | Endpoints |
 |---|---|
@@ -47,10 +47,13 @@ All routes are under `/api/v1`. Interactive documentation is served at `/api/v1/
 | Alerts | `GET /alerts/` (`status` and `severity` filters combine), `GET /alerts/summary`, `POST /alerts/`, `GET`/`PUT /alerts/{id}`, `PATCH /alerts/{id}/status` (`status`, optional `notes`), `PATCH /alerts/{id}/assign`, `PATCH /alerts/{id}/events/{event_id}`, `POST`/`DELETE /alerts/{id}/tags/{tag}`, `GET /alerts/assigned/{user_id}`, `GET /alerts/search/` |
 | Events | `GET /events/` (filters: `event_type`, `asset_id`, `user_id`, `ip_address`), `POST /events/`, `GET`/`PUT /events/{id}`, `GET /events/recent/`, `GET /events/timerange/`, `PATCH /events/{id}/severity`, tags, `GET /events/search/` |
 | Assets | `GET /assets/` (filters: `asset_type`, `status`, `criticality`, `department`), `POST /assets/`, `GET`/`PUT /assets/{id}`, lookup by `name`, `ip` or `mac`, `PATCH /assets/{id}/vulnerabilities/add` and `/remove`, `PATCH /assets/{id}/lastseen`, tags, search |
+| Scans | `POST /scans/`: a device's inventory from the [device scanner](../../scanner), sent by the [data processor](../data-processor) with `X-Internal-Token` instead of a user's token. Creates or updates the asset named after the device, and answers `{ asset_id, new_device, changes, event_id }` |
 | Detection | `GET /detection/` (rule counts and whether the core engine is reachable), `GET`/`POST /detection/rules`, `GET`/`PUT /detection/rules/{id}`, `PATCH /detection/rules/{id}/status`, by name, tags, metrics, search |
 | Simulations | `GET`/`POST /simulation/`, `GET`/`PUT /simulation/{id}`, `POST /simulation/start` and `/stop`, scheduled and running lists, results, linked events and alerts, search |
 
 Allowed values: alert status `open`, `in_progress`, `resolved`, `closed`, `false_positive`; severity `critical`, `high`, `medium`, `low`, `info`; rule status `enabled`, `testing`, `disabled`. Documents are returned with `id`, never MongoDB's `_id`.
+
+A scan always refreshes its asset (operating system, address, last-seen time, and the inventory under `metadata.scanner`) and never overwrites the type, criticality, owner or location an analyst has set. Only a device's first scan, or one whose operating system, hardware or network interfaces have changed, raises an event (`event_type: asset_scan`, `source: device-scanner`), which is analysed like any other; `event_id` is null otherwise.
 
 `GET /alerts/summary` returns `{ total, by_status, open_by_severity }`, computed with an aggregation, for dashboards that need counts without fetching every alert. `GET /detection/` reports `status` as `active` (engine reachable), `degraded` (configured but unreachable) or `standalone` (no engine configured).
 
@@ -66,6 +69,7 @@ Allowed values: alert status `open`, `in_progress`, `resolved`, `closed`, `false
 - **CORS** is limited to `CORS_ORIGINS`. The dashboard does not need it when it is served from the same origin (its dev server, preview server and Docker image all proxy `/api`).
 - **Rate limiting**: SlowAPI is set up but no route sets a limit yet. Limiting sign-in attempts needs the client's real address from the proxy in front, and is on the roadmap.
 - **The engine is internal**. Calls to it carry `INTERNAL_API_TOKEN` as `X-Internal-Token`; set the same value on both services and do not expose the engine to the internet.
+- **Scans come from UTDRS's own services**. `POST /scans/` accepts only that same `X-Internal-Token`, compared in constant time; a user's token gets 401, and without `INTERNAL_API_TOKEN` configured the route answers 503.
 
 ## Configuration
 
@@ -84,7 +88,7 @@ Settings come from the environment or a `.env` file in this directory (see [`.en
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | |
 | `CORE_ENGINE_URL` | unset | Base URL of the core engine. Unset: events are stored but not analysed. |
 | `CORE_ENGINE_TIMEOUT_SECONDS` | `10` | |
-| `INTERNAL_API_TOKEN` | unset | Shared secret for the engine |
+| `INTERNAL_API_TOKEN` | unset | Shared secret for the engine, and for the data processor delivering scans |
 | `CORS_ORIGINS` | `["http://localhost:3001","http://localhost:5173"]` | JSON list of browser origins |
 | `ALLOWED_HOSTS` | `["*"]` | JSON list of accepted Host headers |
 | `API_PREFIX` | `/api/v1` | |
@@ -108,11 +112,12 @@ docker run -d --name utdrs-mongo -p 27017:27017 mongo:7      # once
 MONGODB_URI=mongodb://localhost:27017 python -m pytest
 ```
 
-46 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
+51 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
 
 - `tests/e2e/test_flows.py`: registration and sign-in, events, alerts (filters, ordering, summary, status errors), assets, rules, role and password rules, response headers. Against a real MongoDB, with no mocks.
 - `tests/e2e/test_users.py`: role checks on rules and simulations, the team directory, account administration (create, role changes, deactivation, password resets), self-lockout protection, closed registration and the startup administrator.
 - `tests/e2e/test_detection_pipeline.py`: the event-to-alert pipeline against a fake engine (`httpx.MockTransport`), including an unreachable engine and the detection status.
+- `tests/e2e/test_scans.py`: device scans: a new device, an unchanged scan, a changed inventory that keeps an analyst's edits, and the internal token.
 - `tests/unit`: auth and alert routes with mocked repositories, and health. `tests/integration`: the ASGI app over HTTP (health, authentication required).
 
 The [system test](../../tests/system) runs the gateway and the real core engine side by side.
