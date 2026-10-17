@@ -37,7 +37,7 @@ The new alert carries the engine's verdict in `metadata`: `detection_type` (sign
 
 ## API
 
-All routes are under `/api/v1`. Interactive documentation is served at `/api/v1/docs` and the OpenAPI schema at `/api/v1/openapi.json` (also committed as [`openapi.json`](openapi.json)). Every route except health, login, registration and scans needs `Authorization: Bearer <token>`. Lists return the newest first and take `limit` (up to 500) and `skip`.
+All routes are under `/api/v1`. Interactive documentation is served at `/api/v1/docs` and the OpenAPI schema at `/api/v1/openapi.json` (also committed as [`openapi.json`](openapi.json)). Every route except health, login, registration and scans needs `Authorization: Bearer <token>`, where the token is a person's session token or an [API key](#api-keys). Lists return the newest first and take `limit` (up to 500) and `skip`.
 
 | Area | Endpoints |
 |---|---|
@@ -47,6 +47,8 @@ All routes are under `/api/v1`. Interactive documentation is served at `/api/v1/
 | Alerts | `GET /alerts/` (`status` and `severity` filters combine), `GET /alerts/summary`, `POST /alerts/`, `GET`/`PUT /alerts/{id}`, `PATCH /alerts/{id}/status` (`status`, optional `notes`), `PATCH /alerts/{id}/assign`, `PATCH /alerts/{id}/events/{event_id}`, `POST`/`DELETE /alerts/{id}/tags/{tag}`, `GET /alerts/assigned/{user_id}`, `GET /alerts/search/` |
 | Events | `GET /events/` (filters: `event_type`, `asset_id`, `user_id`, `ip_address`), `POST /events/`, `GET`/`PUT /events/{id}`, `GET /events/recent/`, `GET /events/timerange/`, `PATCH /events/{id}/severity`, tags, `GET /events/search/` |
 | Assets | `GET /assets/` (filters: `asset_type`, `status`, `criticality`, `department`), `POST /assets/`, `GET`/`PUT /assets/{id}`, lookup by `name`, `ip` or `mac`, `PATCH /assets/{id}/vulnerabilities/add` and `/remove`, `PATCH /assets/{id}/lastseen`, tags, search |
+| API keys | Admins only: `GET /api-keys/`, `GET /api-keys/scopes`, `POST /api-keys/` (returns the key once), `DELETE /api-keys/{id}` (revoke) |
+| Audit log | Admins only: `GET /audit-log/` (filters: `action`, `actor_id`, `target_type`, `target_id`, `since`, `until`), `GET /audit-log/verify` |
 | Scans | `POST /scans/`: a device's inventory from the [device scanner](../../scanner), sent by the [data processor](../data-processor) with `X-Internal-Token` instead of a user's token. Creates or updates the asset named after the device, and answers `{ asset_id, new_device, changes, event_id }` |
 | Detection | `GET /detection/` (rule counts, whether the core engine is reachable, and the last time the rules were sent to it), `GET`/`POST /detection/rules`, `GET`/`PUT /detection/rules/{id}`, `PATCH /detection/rules/{id}/status`, by name, tags, metrics, search |
 | Simulations | `GET`/`POST /simulation/`, `GET`/`PUT /simulation/{id}`, `POST /simulation/start` and `/stop`, scheduled and running lists, results, linked events and alerts, search |
@@ -81,6 +83,8 @@ Comparisons are `==`, `!=`, `>`, `>=`, `<`, `<=`, `in [...]`, `not in [...]`, `m
 - **Registration** (`ALLOW_REGISTRATION`, on by default) always creates an active analyst, whatever role is sent. With it off, only administrators create accounts, and each new account gets a temporary password, shown once. Administrators can also reset a password to a new temporary one.
 - **Account changes take effect at once**: a deactivated account cannot sign in, and its existing tokens are rejected (401). Administrators cannot change their own role or deactivate themselves, so whoever makes a change remains an administrator.
 - **Users** can change their own name, email and password (8 to 72 bytes, bcrypt's limit), but not their role or active flag.
+- **API keys** let scripts, agents and integrations call the API without a person's password; see [below](#api-keys).
+- **Audit log**: sign-ins (succeeded, failed, throttled), registration, profile and password changes, and every change made through the users, alerts, assets, rules, simulations and API key routes are recorded, with who (a person, an API key, or the username tried), from which address, the request ID, what it acted on, the fields sent (never passwords), and whether it went through. Refused attempts are recorded too. Event ingestion is not, as events are their own record. See [below](#audit-log).
 - **Tokens** are HS256 JWTs signed with `JWT_SECRET`, valid for `ACCESS_TOKEN_EXPIRE_MINUTES` (30 by default). Passwords are hashed with bcrypt.
 - **Middleware**: a request ID on every response (`X-Request-ID`), security headers (`nosniff`, `DENY` framing, a strict referrer policy, and `Content-Security-Policy: default-src 'self'` except on the docs pages, which need Swagger UI's CDN), a Host header allow-list (`ALLOWED_HOSTS`), a 10 MB request size limit, and a central error handler that does not leak internals.
 - **CORS** is limited to `CORS_ORIGINS`. The dashboard does not need it when it is served from the same origin (its dev server, preview server and Docker image all proxy `/api`).
@@ -89,6 +93,19 @@ Comparisons are `==`, `!=`, `>`, `>=`, `<`, `<=`, `in [...]`, `not in [...]`, `m
 - **Unique asset names**: the gateway creates a unique index on asset names at start-up, so a device's scans always update one asset; renaming an asset to a name in use answers 409. If existing data already has repeated names, the gateway logs a warning and starts without the index.
 - **The engine is internal**. Calls to it carry `INTERNAL_API_TOKEN` as `X-Internal-Token`; set the same value on both services and do not expose the engine to the internet.
 - **Scans come from UTDRS's own services**. `POST /scans/` accepts only that same `X-Internal-Token`, compared in constant time; a user's token gets 401, and without `INTERNAL_API_TOKEN` configured the route answers 503.
+
+## API keys
+
+An administrator creates a key on the dashboard's *API keys* page, or with `POST /api-keys/` (`name`, `scopes`, optional `expires_in_days`). The key, `utdrs_<prefix>_<secret>`, is shown once; only its SHA-256 is stored, and the prefix identifies it afterwards. Send it as `Authorization: Bearer <key>`.
+
+- **Scopes** are `<area>:read` (GET) and `<area>:write` (everything else), for `alerts`, `events`, `assets`, `rules` and `simulations`. A route outside a key's scopes answers 403, naming the scope it needs. For example, a firewall forwarder needs only `events:write`, and a SIEM export only `alerts:read`.
+- **A key never acts as an administrator**: user administration, rule and simulation changes, API keys and the audit log stay with administrators, whatever the key's scopes. Keys cannot read the team directory.
+- **Revoked and expired keys** answer 401 at once. Revoked keys stay listed, with when.
+- `last_used_at` is updated at most every five minutes.
+
+## Audit log
+
+Entries are numbered, and each holds the hash of the one before, so `GET /audit-log/verify` (or *Verify the log* on the dashboard) finds an entry that was altered, inserted or removed. A missing number can also mean a write failed part-way: an audit problem is logged and never blocks the action it records. Each entry has `action` (`auth.login_failed`, `rules.update_rule_status`, `api_key.created`, ...), `outcome` (`success`, `denied` or `failed`), `actor`, `address`, `request_id`, `target`, and `details` with the query and fields sent. Filter with `action=rules` for every rule action, or `action=rules.create_rule` for one.
 
 ## Configuration
 
@@ -136,11 +153,12 @@ docker run -d --name utdrs-mongo -p 27017:27017 mongo:7      # once
 MONGODB_URI=mongodb://localhost:27017 python -m pytest
 ```
 
-88 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
+100 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
 
 - `tests/e2e/test_flows.py`: registration and sign-in, events, alerts (filters, ordering, summary, status errors), assets, rules, role and password rules, response headers. Against a real MongoDB, with no mocks.
 - `tests/e2e/test_users.py`: role checks on rules and simulations, the team directory, account administration (create, role changes, deactivation, password resets), self-lockout protection, closed registration and the startup administrator.
 - `tests/e2e/test_detection_pipeline.py`: the event-to-alert pipeline against a fake engine (`httpx.MockTransport`), including an unreachable engine and the detection status.
+- `tests/e2e/test_api_keys_audit.py`: API keys shown once and stored as hashes; scopes allowing and refusing; keys never acting as administrators; revoked, expired and unknown keys refused; sign-ins and changes audited with who made them (people and keys) and refused attempts recorded; no secrets in the log; tampering found by the chain; concurrent entries forming one chain.
 - `tests/e2e/test_hardening.py`: sign-in throttling per account and address and per address, a correct password clearing the count, identical answers for unknown and wrong passwords, client addresses behind trusted proxies, and unique asset names under concurrent scans.
 - `tests/e2e/test_rule_sync.py`: rules reaching a fake engine on create, edit, disable and tag changes; rules the engine cannot run kept but not sent; malformed logic refused; the sync status, including failure.
 - `tests/unit/test_rule_compiler.py`: the rule language: what compiles to which conditions, what is kept but not run, and what is malformed.

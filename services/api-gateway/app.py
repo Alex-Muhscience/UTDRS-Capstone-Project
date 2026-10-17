@@ -1,7 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager, suppress
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
@@ -13,12 +13,14 @@ from api.middleware.security import (
     SecurityMiddleware,
     rate_limit_handler,
 )
-from api.routes import alerts, assets, auth, detection, events, health, scans, simulation, users
+from api.routes import alerts, api_keys, assets, audit, auth, detection, events, health, scans, simulation, users
 from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
 from core.database.indexes import ensure_indexes
 from core.services.bootstrap import ensure_admin
+from core.services.audit import audited
 from core.services.rule_sync import sync_periodically
+from utils.security import require_scope
 
 
 @asynccontextmanager
@@ -63,28 +65,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include API routes
+# Include API routes. Routers people and API keys both use check the key's scopes for
+# their area (require_scope); the rest are for people, or for UTDRS's own services.
+# Changes made through them are also written to the audit log.
+def scoped(area):
+    return [Depends(require_scope(area)), Depends(audited(area))]
+
+
 app.include_router(health.router, prefix=settings.API_PREFIX, tags=["health"])
+app.include_router(auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["authentication"])
+app.include_router(users.router, prefix=f"{settings.API_PREFIX}/users", tags=["users"], dependencies=scoped("users"))
+app.include_router(alerts.router, prefix=f"{settings.API_PREFIX}/alerts", tags=["alerts"], dependencies=scoped("alerts"))
+# Events are ingested in volume and are their own record, so they are not audited.
 app.include_router(
-    auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["authentication"]
+    events.router, prefix=f"{settings.API_PREFIX}/events", tags=["events"], dependencies=[Depends(require_scope("events"))]
 )
-app.include_router(users.router, prefix=f"{settings.API_PREFIX}/users", tags=["users"])
-app.include_router(
-    alerts.router, prefix=f"{settings.API_PREFIX}/alerts", tags=["alerts"]
-)
-app.include_router(
-    events.router, prefix=f"{settings.API_PREFIX}/events", tags=["events"]
-)
-app.include_router(
-    assets.router, prefix=f"{settings.API_PREFIX}/assets", tags=["assets"]
-)
+app.include_router(assets.router, prefix=f"{settings.API_PREFIX}/assets", tags=["assets"], dependencies=scoped("assets"))
 app.include_router(scans.router, prefix=f"{settings.API_PREFIX}/scans", tags=["scans"])
+app.include_router(detection.router, prefix=f"{settings.API_PREFIX}/detection", tags=["detection"], dependencies=scoped("rules"))
 app.include_router(
-    detection.router, prefix=f"{settings.API_PREFIX}/detection", tags=["detection"]
+    simulation.router, prefix=f"{settings.API_PREFIX}/simulation", tags=["simulation"], dependencies=scoped("simulations")
 )
-app.include_router(
-    simulation.router, prefix=f"{settings.API_PREFIX}/simulation", tags=["simulation"]
-)
+app.include_router(api_keys.router, prefix=f"{settings.API_PREFIX}/api-keys", tags=["api keys"])
+app.include_router(audit.router, prefix=f"{settings.API_PREFIX}/audit-log", tags=["audit log"])
 
 
 @app.get("/")

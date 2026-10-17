@@ -3,6 +3,8 @@ import type { RouteObject } from "react-router"
 import { RequireAdmin } from "@/auth/RequireAdmin"
 import { GuestOnly, RequireAuth } from "@/auth/RequireAuth"
 import { AppLayout } from "@/components/layout/AppLayout"
+import { ApiKeysPage } from "@/pages/admin/ApiKeysPage"
+import { AuditLogPage } from "@/pages/admin/AuditLogPage"
 import { AlertDetailPage } from "@/pages/alerts/AlertDetailPage"
 import { AlertsPage } from "@/pages/alerts/AlertsPage"
 import { AssetDetailPage } from "@/pages/assets/AssetDetailPage"
@@ -48,7 +50,14 @@ export const routes: RouteObject[] = [
               { path: "rules/:ruleId", element: <RuleDetailPage /> },
               { path: "simulations", element: <SimulationsPage /> },
               { path: "profile", element: <ProfilePage /> },
-              { element: <RequireAdmin />, children: [{ path: "users", element: <UsersPage /> }] },
+              {
+                element: <RequireAdmin />,
+                children: [
+                  { path: "users", element: <UsersPage /> },
+                  { path: "api-keys", element: <ApiKeysPage /> },
+                  { path: "audit-log", element: <AuditLogPage /> },
+                ],
+              },
               { path: "*", element: <NotFoundPage /> },
             ],
           },

@@ -1,10 +1,11 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, status
 
 from core.models.alert import Alert, AlertCreate, AlertSummary, AlertUpdate
 from core.models.user import User
 from core.services.alert_service import AlertService
+from core.services.audit import created
 from utils.security import get_current_active_user
 
 router = APIRouter()
@@ -32,7 +33,7 @@ async def get_alerts(
 
 @router.post("/", response_model=Alert, status_code=status.HTTP_201_CREATED)
 async def create_alert(
-    alert: AlertCreate, current_user: User = Depends(get_current_active_user)
+    alert: AlertCreate, request: Request, current_user: User = Depends(get_current_active_user)
 ):
     """
     Create a new alert.
@@ -47,6 +48,7 @@ async def create_alert(
             detail="Failed to create alert",
         )
 
+    created(request, "alert", alert_id, alert.title)
     return created_alert
 
 

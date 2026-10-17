@@ -18,6 +18,9 @@ export type Simulation = Schemas["Simulation"]
 export type SimulationCreate = Schemas["SimulationCreate"]
 export type User = Schemas["User"]
 export type UserWithPassword = Schemas["UserWithPassword"]
+export type ApiKey = Schemas["ApiKey"]
+export type ApiKeyWithSecret = Schemas["ApiKeyWithSecret"]
+export type AuditEntry = Schemas["AuditEntry"]
 export type Role = Schemas["UserAdminUpdate"]["role"]
 
 /** An error response from the gateway, or a network failure (status 0). */
