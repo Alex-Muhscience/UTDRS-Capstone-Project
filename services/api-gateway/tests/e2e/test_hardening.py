@@ -96,6 +96,10 @@ def test_two_first_scans_of_one_device_make_one_asset(client):
     name = f"race-{uuid.uuid4().hex[:8]}"
 
     async def scan_twice():
+        from core.services import tenants
+        from core.tenancy import set_tenant
+
+        set_tenant(await tenants.default_id())
         repo = AssetRepository()
         defaults = {"asset_type": "workstation", "status": "active", "criticality": "medium"}
         await asyncio.gather(*(repo.record_scan(name, {"os": "Linux"}, defaults) for _ in range(5)))

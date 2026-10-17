@@ -62,6 +62,9 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env (see .env.example)}
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
+      # join: registering adds an analyst to the default organisation. organisation:
+      # registering creates a new organisation, with the person as its administrator.
+      REGISTRATION_MODE: ${REGISTRATION_MODE:-join}
       CORS_ORIGINS: '["http://localhost:${DASHBOARD_PORT:-8080}"]'
       # The dashboard's nginx forwards each browser's address in X-Forwarded-For; believe
       # it from the private ranges Docker gives its networks, so sign-in throttling

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, sta
 
 from core.models.alert import Alert, AlertCreate, AlertSummary, AlertUpdate
 from core.models.user import User
+from core.database.repositories.user_repository import UserRepository
 from core.services.alert_service import AlertService
 from core.services.audit import created
 from utils.security import get_current_active_user
@@ -146,8 +147,11 @@ async def assign_alert(
     """
     Assign an alert to a user.
 
-    - **assigned_to**: User ID to assign the alert to
+    - **assigned_to**: User ID to assign the alert to, someone in your organisation
     """
+    # Only to a colleague: someone in another organisation is not found here.
+    if not await UserRepository().find_by_id(assigned_to):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="No such user in your organisation")
     alert_service = AlertService()
 
     result = await alert_service.assign_alert(alert_id, assigned_to)

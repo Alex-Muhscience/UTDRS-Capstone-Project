@@ -3,6 +3,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import ConnectionFailure
 
 from config import settings
+from core.tenancy import TenantDatabase
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -36,6 +37,7 @@ async def close_mongo_connection():
 
 
 def get_database() -> AsyncDatabase:
+    """The engine's database, showing only the current tenant's events and alerts while one is set (core.tenancy)."""
     if db.client is None:
         raise ConnectionError("Database connection not established")
-    return db.client[db.db_name]
+    return TenantDatabase(db.client[db.db_name])

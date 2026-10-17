@@ -1,13 +1,14 @@
 from datetime import timedelta
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from config import settings
 from core.database.repositories.user_repository import UserRepository
-from core.services import audit, login_throttle
+from core.services import audit, login_throttle, tenants
+from core.tenancy import PLATFORM, set_tenant
 from core.models.user import (
     User,
     UserCreate,
@@ -45,12 +46,20 @@ class PasswordChange(BaseModel):
 
 class AuthConfig(BaseModel):
     allow_registration: bool
+    # "join": registering adds an analyst to the existing organisation. "organisation":
+    # registering creates a new organisation, with the person as its administrator.
+    registration_mode: str
+
+
+class Registration(UserCreate):
+    # The new organisation's name, needed when registration creates organisations.
+    organisation: Optional[str] = Field(default=None, min_length=1, max_length=100)
 
 
 @router.get("/config", response_model=AuthConfig)
 async def auth_config() -> Any:
     """What the sign-in page needs to know, such as whether anyone can register."""
-    return AuthConfig(allow_registration=settings.ALLOW_REGISTRATION)
+    return AuthConfig(allow_registration=settings.ALLOW_REGISTRATION, registration_mode=settings.REGISTRATION_MODE)
 
 
 @router.post("/login", response_model=Token)
@@ -63,9 +72,15 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     """
     address = client_address(request)
     attempted = {"type": "anonymous", "name": form_data.username}
+    user_repo = UserRepository()
+    user = await user_repo.find_by_username(form_data.username)
+    # Attempts on an account are recorded in its organisation's log; attempts on names
+    # nobody has, in the platform's.
+    audit_tenant = user["tenant_id"] if user else PLATFORM
+
     wait = await login_throttle.retry_after(form_data.username, address)
     if wait:
-        await audit.record("auth.login_throttled", request, actor=attempted, outcome="denied")
+        await audit.record("auth.login_throttled", request, actor=attempted, outcome="denied", tenant_id=audit_tenant)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=(
@@ -75,12 +90,9 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
             headers={"Retry-After": str(wait)},
         )
 
-    user_repo = UserRepository()
-    user = await user_repo.find_by_username(form_data.username)
-
     if not verify_password(form_data.password, user["passwordHash"] if user else _UNKNOWN_USER_HASH) or not user:
         await login_throttle.record_failure(form_data.username, address)
-        await audit.record("auth.login_failed", request, actor=attempted, outcome="denied")
+        await audit.record("auth.login_failed", request, actor=attempted, outcome="denied", tenant_id=audit_tenant)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -89,13 +101,16 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     await login_throttle.record_success(form_data.username, address)
 
     if not user.get("active", True):
-        await audit.record("auth.login_failed", request, actor=attempted, outcome="denied", details={"reason": "deactivated"})
+        await audit.record(
+            "auth.login_failed", request, actor=attempted, outcome="denied", details={"reason": "deactivated"}, tenant_id=audit_tenant
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This account has been deactivated; ask an administrator",
         )
 
-    # Update last login
+    # From here on, this is the person's organisation's business.
+    set_tenant(user["tenant_id"])
     await user_repo.update_last_login(str(user["_id"]))
     await audit.record(
         "auth.login_succeeded",
@@ -113,8 +128,15 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
 
 
 @router.post("/register", response_model=User)
-async def register(user_in: UserCreate, request: Request) -> Any:
-    """Register a new user, as an analyst. Closed when ALLOW_REGISTRATION is false."""
+async def register(user_in: Registration, request: Request) -> Any:
+    """
+    Register. Closed when ALLOW_REGISTRATION is false. With REGISTRATION_MODE "join", the
+    person becomes an analyst in the default organisation; with "organisation", a new
+    organisation named `organisation` is created and the person is its administrator.
+    """
+    creating_organisation = settings.REGISTRATION_MODE == "organisation"
+    if creating_organisation and not user_in.organisation:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Name the organisation to create")
     if not settings.ALLOW_REGISTRATION:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -137,12 +159,17 @@ async def register(user_in: UserCreate, request: Request) -> Any:
             status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
         )
 
-    # Self-registration always creates an active analyst account. Roles are assigned
-    # by an administrator, never chosen by the person registering.
-    user_in = user_in.model_copy(update={"role": "analyst", "active": True})
+    # The person registering never chooses their role: joining makes an analyst, and the
+    # founder of a new organisation is its administrator.
+    role = "admin" if creating_organisation else "analyst"
+    new_account = UserCreate(**user_in.model_dump(exclude={"organisation"}) | {"role": role, "active": True})
+    if creating_organisation:
+        set_tenant(await tenants.create(user_in.organisation))
+    else:
+        set_tenant(await tenants.default_id())
 
     # Create new user
-    user_id = await user_repo.create_user(user_in)
+    user_id = await user_repo.create_user(new_account)
     new_user = await user_repo.find_by_id(user_id)
 
     if not new_user:
@@ -154,8 +181,9 @@ async def register(user_in: UserCreate, request: Request) -> Any:
     await audit.record(
         "auth.registered",
         request,
-        actor={"type": "user", "id": user_id, "name": user_in.username, "role": "analyst"},
+        actor={"type": "user", "id": user_id, "name": user_in.username, "role": role},
         target={"type": "user", "id": user_id, "name": user_in.username},
+        details={"created_organisation": user_in.organisation} if creating_organisation else None,
     )
     return User(**new_user)
 

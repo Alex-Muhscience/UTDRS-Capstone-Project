@@ -86,10 +86,20 @@ export function event(overrides: Partial<Event> = {}): Event {
 }
 
 /** Routes every signed-in page needs (the shell polls these). */
+export const tenant = {
+  id: "665f1c2ab1e2c3d4e5f60900",
+  name: "Acme Clinic",
+  slug: "acme-clinic",
+  status: "active",
+  created_at: now,
+  updated_at: now,
+}
+
 export function shellRoutes(me: User = user) {
   return {
     "GET /api/v1/auth/me": me,
-    "GET /api/v1/auth/config": { allow_registration: true },
+    "GET /api/v1/auth/config": { allow_registration: true, registration_mode: "join" },
+    "GET /api/v1/tenants/current": tenant,
     "GET /api/v1/users/": [user, admin, colleague],
     "GET /api/v1/alerts/summary": { total: 1, by_status: { open: 1 }, open_by_severity: { critical: 1 } },
     "GET /api/v1/detection/": {

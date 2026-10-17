@@ -10,6 +10,8 @@ export type Registration = {
   password: string
   firstName?: string
   lastName?: string
+  // The organisation to create, when registering creates organisations.
+  organisation?: string
 }
 
 export type AuthValue = {

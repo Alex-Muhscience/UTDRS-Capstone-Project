@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from "react"
 import { toast } from "sonner"
 
-import { useChangePassword, useUpdateProfile } from "@/api/queries"
-import { useUser } from "@/auth/context"
+import { useChangePassword, useCurrentTenant, useRenameTenant, useUpdateProfile } from "@/api/queries"
+import { useIsAdmin, useUser } from "@/auth/context"
 import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
 import { Card } from "@/components/ui/Card"
@@ -10,6 +10,43 @@ import { DescriptionList } from "@/components/ui/DescriptionList"
 import { Field, Input } from "@/components/ui/Field"
 import { PageHeader } from "@/components/ui/PageHeader"
 import { formatDateTime, humanize } from "@/lib/format"
+
+function OrganisationCard() {
+  const tenant = useCurrentTenant()
+  const rename = useRenameTenant()
+  const isAdmin = useIsAdmin()
+  if (!tenant.data) return null
+
+  return (
+    <Card
+      title="Organisation"
+      description={isAdmin ? "Everyone in it sees the same alerts, events, assets and rules, and nothing of other organisations." : "Your organisation's data is kept apart from every other's."}
+    >
+      {isAdmin ? (
+        <form
+          className="flex flex-col gap-3 sm:flex-row sm:items-end"
+          onSubmit={(event: FormEvent<HTMLFormElement>) => {
+            event.preventDefault()
+            const name = String(new FormData(event.currentTarget).get("organisation") ?? "").trim()
+            rename.mutate(name, {
+              onSuccess: (updated) => toast.success(`Renamed to ${updated.name}`),
+              onError: (error) => toast.error(error.message),
+            })
+          }}
+        >
+          <Field label="Name" required className="flex-1">
+            {(id) => <Input id={id} name="organisation" defaultValue={tenant.data.name} required maxLength={100} />}
+          </Field>
+          <Button type="submit" loading={rename.isPending}>
+            Rename
+          </Button>
+        </form>
+      ) : (
+        <DescriptionList items={[["Name", tenant.data.name]]} />
+      )}
+    </Card>
+  )
+}
 
 export function ProfilePage() {
   const user = useUser()
@@ -66,6 +103,8 @@ export function ProfilePage() {
             ]}
           />
         </Card>
+
+        <OrganisationCard />
 
         <Card title="Personal details" description="Your role can only be changed by an administrator.">
           <form onSubmit={saveProfile} className="space-y-4">

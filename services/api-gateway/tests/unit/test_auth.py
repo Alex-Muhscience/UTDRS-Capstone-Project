@@ -11,6 +11,15 @@ client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
+def default_tenant():
+    """Registration joins the default organisation, which these tests have no database for."""
+    with patch("api.routes.auth.tenants") as tenants:
+        tenants.default_id = AsyncMock(return_value="tenant-1")
+        tenants.create = AsyncMock(return_value="tenant-2")
+        yield tenants
+
+
+@pytest.fixture(autouse=True)
 def no_login_throttle():
     """These tests run without a database; throttling is tested in tests/e2e."""
     with patch("api.routes.auth.login_throttle") as throttle:
@@ -32,6 +41,7 @@ mock_user_data = {
     "updatedAt": datetime.utcnow(),
     "preferences": {},
     "id": str(ObjectId("60d5ec2dcb43a5e37d0c7513")),
+    "tenant_id": "tenant-1",
 }
 
 

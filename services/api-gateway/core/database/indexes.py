@@ -3,6 +3,7 @@ from pymongo.errors import OperationFailure
 
 from core.database.connection import get_database
 from core.services import api_keys, audit, login_throttle
+from core.tenancy import TENANT_SCOPED
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -13,10 +14,22 @@ async def ensure_indexes() -> None:
     await api_keys.ensure_indexes()
     await audit.ensure_indexes()
 
-    # One asset per name: device scans find and update the asset by its name, and two
-    # first scans arriving together must not create it twice.
+    database = get_database()
+    await database["tenants"].create_index("slug", unique=True)
+    for name in sorted(TENANT_SCOPED):
+        await database[name].create_index("tenant_id")
+
+    # One asset per name within an organisation: device scans find and update the asset
+    # by its name, and two first scans arriving together must not create it twice.
+    assets = database["assets"]
+    if "name_unique" in await assets.index_information():
+        try:
+            await assets.drop_index("name_unique")  # before tenancy, names were unique overall
+        except OperationFailure as e:
+            if e.code != 27:  # IndexNotFound: already dropped
+                raise
     try:
-        await get_database()["assets"].create_index("name", unique=True, name="name_unique")
+        await assets.create_index([("tenant_id", 1), ("name", 1)], unique=True, name="tenant_name_unique")
     except OperationFailure as e:
         if e.code != 11000:  # duplicate key: existing data already has repeated names
             raise

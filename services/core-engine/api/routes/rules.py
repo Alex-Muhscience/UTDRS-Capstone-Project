@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Body
 from typing import List, Literal, Optional, Dict, Any
 from pydantic import BaseModel
 from core.rules.rule_loader import RuleManager
@@ -49,15 +49,16 @@ class ManagedRulesResult(BaseModel):
 
 
 @router.put("/managed/{source}", response_model=ManagedRulesResult)
-async def replace_managed_rules(source: str, body: ManagedRules):
+async def replace_managed_rules(source: str, body: ManagedRules, tenant_id: str = Query(..., min_length=1)):
     '''
     Replace every rule another service manages (the API gateway's rules, edited in the
-    dashboard) with this list. Rules are matched by source_id; those not listed are
-    removed. Built-in rules are left alone.
+    dashboard) for one organisation (`tenant_id`) with this list. Rules are matched by
+    source_id; that organisation's rules not listed are removed. Built-in rules, and other
+    organisations' rules, are left alone.
     '''
     try:
         return await get_rule_manager().replace_managed_rules(
-            source, [rule.model_dump() for rule in body.rules]
+            source, [rule.model_dump() for rule in body.rules], tenant_id
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))

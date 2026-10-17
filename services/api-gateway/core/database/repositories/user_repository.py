@@ -14,11 +14,20 @@ class UserRepository(BaseRepository):
     def __init__(self):
         super().__init__("users")
 
+    # Usernames and email addresses are unique across every tenant, so people sign in
+    # with just a username. These look across tenants: sign-in happens before anyone's
+    # tenant is known.
     async def find_by_username(self, username: str) -> Optional[Dict[str, Any]]:
-        return await self.find_one({"username": username})
+        return await self.collection.unscoped().find_one({"username": username})
 
     async def find_by_email(self, email: str) -> Optional[Dict[str, Any]]:
-        return await self.find_one({"email": email})
+        return await self.collection.unscoped().find_one({"email": email})
+
+    async def find_by_id_any_tenant(self, id: str) -> Optional[Dict[str, Any]]:
+        """For authentication only: the user a token names, before their tenant is set."""
+        if not ObjectId.is_valid(id):
+            return None
+        return await self.collection.unscoped().find_one({"_id": ObjectId(id)})
 
     async def create_user(self, user: UserCreate) -> str:
         user_dict = user.model_dump()

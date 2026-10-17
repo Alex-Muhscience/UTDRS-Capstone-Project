@@ -13,7 +13,7 @@ UTDRS was a **Top 5 finalist in the Mozilla Responsible Computing Challenge**.
 | Component | Path | Status |
 |---|---|---|
 | **Dashboard**: overview, alert triage, events with the engine's verdict, assets, detection rules, simulations | [`frontend/`](frontend) | Working. React 19, TypeScript, Vite, Tailwind CSS; typed against the gateway's API schema. |
-| **API gateway**: authentication, events, alerts, assets, rules, simulations; sends every event to the engine, and turns device scans into assets and events | [`services/api-gateway/`](services/api-gateway) | Working. Python 3.12, FastAPI, MongoDB. |
+| **API gateway**: authentication, events, alerts, assets, rules, simulations, API keys, audit log; sends every event to the engine, and turns device scans into assets and events. Each organisation's data is kept apart | [`services/api-gateway/`](services/api-gateway) | Working. Python 3.12, FastAPI, MongoDB. |
 | **Core engine**: six detectors, MITRE ATT&CK mapping, risk scoring | [`services/core-engine/`](services/core-engine) | Working. The ML detector classifies emails and network flows with trained models, and uses hand-written indicators for everything else. |
 | **Data processor**: batch worker that delivers the scanner's scans to the gateway, with retries and a dead-letter collection | [`services/data-processor/`](services/data-processor) | Working. Python 3.12, PyMongo. |
 | **Device scanner**: inventory agent and collection server over mutual TLS | [`scanner/`](scanner) | Working on Linux. C, OpenSSL. Windows code paths are not built or tested in CI. |
@@ -141,6 +141,7 @@ Next:
 - [x] Throttle sign-in by account and address, using the client address behind trusted proxies
 - [x] Rules edited in the dashboard run in the core engine, with malformed logic refused and unsupported logic marked
 - [x] API keys with scopes for agents and integrations, and a tamper-evident audit log of sign-ins and changes
+- [x] Multi-tenancy: each organisation's data kept apart in the gateway and the engine, enforced in one place, with organisation sign-up
 - [ ] Trained models for the remaining indicator-based ML detectors (malware, user behaviour)
 - [ ] Public demo deployment
 

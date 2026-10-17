@@ -160,6 +160,7 @@ Every setting lives in `.env`. Restart with `docker compose up -d --wait` after 
 | `ADMIN_USERNAME` | `admin` | The first administrator. On every start the gateway makes this account an active admin, which is also how to recover admin access. |
 | `ADMIN_EMAIL` | `admin@localhost.localdomain` | |
 | `ALLOW_REGISTRATION` | `true` | Whether anyone can register an analyst account. With `false`, only administrators create accounts. |
+| `REGISTRATION_MODE` | `join` | `join`: registering adds an analyst to the deployment's organisation. `organisation`: registering creates a new organisation, kept apart from all others, with the person as its administrator. |
 | `BIND_ADDRESS` | `127.0.0.1` | Address the published ports listen on. `0.0.0.0` makes the stack reachable from your network; see the warning below. |
 | `DASHBOARD_PORT` | `8080` | |
 | `GATEWAY_PORT` | `8000` | |
