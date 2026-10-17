@@ -1,4 +1,4 @@
-import { Info, Plus } from "lucide-react"
+import { Plus } from "lucide-react"
 import { useState } from "react"
 import { Link, useNavigate } from "react-router"
 import { toast } from "sonner"
@@ -19,7 +19,9 @@ import { DETECTION_SOURCES, RULE_STATUSES, RULE_TYPES, SEVERITIES } from "@/lib/
 import { formatDateTime, formatRelative, humanize } from "@/lib/format"
 import { useUrlFilters } from "@/lib/useUrlFilters"
 
+import { EngineBadge } from "./EngineBadge"
 import { RuleStatusSelect } from "./RuleStatusSelect"
+import { RuleSyncNotice } from "./RuleSyncNotice"
 
 const FILTERS = ["status", "severity", "q"] as const
 
@@ -86,7 +88,12 @@ function NewRuleDialog({ open, onClose }: { open: boolean; onClose: () => void }
           {(id) => <Select id={id} name="severity" options={SEVERITIES} defaultValue="medium" />}
         </Field>
         <Field label="Status">{(id) => <Select id={id} name="status" options={RULE_STATUSES} defaultValue="testing" />}</Field>
-        <Field label="Logic" required className="sm:col-span-2" hint="The condition the rule matches, in the engine's rule syntax.">
+        <Field
+          label="Logic"
+          required
+          className="sm:col-span-2"
+          hint="Comparisons joined by 'and' (or by 'or'): ==, !=, >, >=, <, <=, in [...], not in [...], matches '<regex>', contains, startswith, endswith, exists. Fields are event_type, source, or anything in the event's data."
+        >
           {(id, describedBy) => (
             <Textarea
               id={id}
@@ -95,7 +102,7 @@ function NewRuleDialog({ open, onClose }: { open: boolean; onClose: () => void }
               spellCheck={false}
               className="font-mono text-xs"
               aria-describedby={describedBy}
-              placeholder="event_type == 'authentication' and action == 'deny'"
+              placeholder="process_name == 'powershell.exe' and command_line matches '(?i)-enc'"
             />
           )}
         </Field>
@@ -128,13 +135,7 @@ export function RulesPage() {
           )
         }
       />
-      <p className="mb-4 flex gap-2 rounded-lg border border-border bg-surface px-4 py-3 text-sm text-muted">
-        <Info className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
-        <span>
-          The core engine currently runs its built-in signature rules alongside its anomaly and ML detectors. Rules
-          edited here are stored by the gateway; sending them to the engine is on the roadmap.
-        </span>
-      </p>
+      <RuleSyncNotice />
       <Card bodyClassName="p-0">
         <div className="flex flex-col gap-2 border-b border-border p-4 sm:flex-row">
           <Select
@@ -174,6 +175,7 @@ export function RulesPage() {
                 <Th className="w-32">Type</Th>
                 <Th className="w-28">Severity</Th>
                 <Th className="w-40">Status</Th>
+                <Th className="w-24">Engine</Th>
                 <Th className="w-32">Updated</Th>
               </tr>
             </thead>
@@ -199,6 +201,9 @@ export function RulesPage() {
                   </Td>
                   <Td>
                     <RuleStatusSelect ruleId={rule.id} status={rule.status} name={rule.name} />
+                  </Td>
+                  <Td>
+                    <EngineBadge engine={rule.engine} />
                   </Td>
                   <Td className="text-muted" title={formatDateTime(rule.updated_at)}>
                     {formatRelative(rule.updated_at)}

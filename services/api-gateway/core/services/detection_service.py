@@ -1,11 +1,9 @@
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
 
-from config import settings
 from core.database.repositories.detection_repository import DetectionRepository
-from core.services import core_engine_client
+from core.services import core_engine_client, rule_sync
 from core.models.detection import (
     DetectionRule,
     DetectionRuleCreate,
@@ -21,8 +19,6 @@ class DetectionService:
     def __init__(self):
         self.detection_repo = DetectionRepository()
 
-        # Initialize integration client if URL is configured
-        self.core_engine_url = settings.CORE_ENGINE_URL
 
     async def get_rules(self, limit: int = 100, skip: int = 0) -> List[Dict[str, Any]]:
         """Get all detection rules."""
@@ -51,10 +47,6 @@ class DetectionService:
             rule_id = await self.detection_repo.create_rule(rule_data, user_id)
             logger.info(f"Created detection rule with ID: {rule_id}")
 
-            # If core engine integration is configured, deploy rule
-            if self.core_engine_url:
-                await self._deploy_rule_to_core_engine(rule_id)
-
             return rule_id
         except Exception as e:
             logger.error(f"Error creating detection rule: {str(e)}")
@@ -73,10 +65,6 @@ class DetectionService:
             )
             if updated_rule:
                 logger.info(f"Updated detection rule with ID: {rule_id}")
-
-                # If core engine integration is configured, update rule
-                if self.core_engine_url:
-                    await self._update_rule_in_core_engine(rule_id)
 
                 return updated_rule
             logger.warning(f"Detection rule with ID {rule_id} not found for update")
@@ -98,10 +86,6 @@ class DetectionService:
             result = await self.detection_repo.update_status(rule_id, status, user_id)
             if result:
                 logger.info(f"Updated detection rule {rule_id} status to {status}")
-
-                # If core engine integration is configured, update rule status
-                if self.core_engine_url:
-                    await self._update_rule_status_in_core_engine(rule_id, status)
 
                 return True
             logger.warning(f"Failed to update detection rule {rule_id} status")
@@ -191,31 +175,6 @@ class DetectionService:
             "disabled_rules": by_status.get("disabled", 0),
             "testing_rules": by_status.get("testing", 0),
             "core_engine": {"configured": client is not None, "reachable": reachable},
+            "rule_sync": await rule_sync.last_sync() if client else None,
             "last_updated": utcnow(),
         }
-
-    # Integration methods for core engine
-    async def _deploy_rule_to_core_engine(self, rule_id: str) -> bool:
-        """Deploy a rule to the core detection engine."""
-        # This would be implemented with actual API calls to the core engine
-        # For now, just log the intent
-        logger.info(
-            f"Would deploy rule {rule_id} to core engine at {self.core_engine_url}"
-        )
-        return True
-
-    async def _update_rule_in_core_engine(self, rule_id: str) -> bool:
-        """Update a rule in the core detection engine."""
-        logger.info(
-            f"Would update rule {rule_id} in core engine at {self.core_engine_url}"
-        )
-        return True
-
-    async def _update_rule_status_in_core_engine(
-        self, rule_id: str, status: str
-    ) -> bool:
-        """Update a rule's status in the core detection engine."""
-        logger.info(
-            f"Would update rule {rule_id} status to {status} in core engine at {self.core_engine_url}"
-        )
-        return True

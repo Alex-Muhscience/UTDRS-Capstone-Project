@@ -2944,7 +2944,7 @@
           "detection"
         ],
         "summary": "Create Rule",
-        "description": "Create a new detection rule.",
+        "description": "Create a new detection rule. Malformed logic answers 422. While the rule is enabled\nand the engine can run its logic (see `engine` in the response), the core engine runs it.",
         "operationId": "create_rule_api_v1_detection_rules_post",
         "security": [
           {
@@ -3037,7 +3037,7 @@
           "detection"
         ],
         "summary": "Update Rule",
-        "description": "Update an existing detection rule.",
+        "description": "Update an existing detection rule. Malformed logic answers 422. The core engine is\nupdated straight after.",
         "operationId": "update_rule_api_v1_detection_rules__rule_id__put",
         "security": [
           {
@@ -5194,6 +5194,10 @@
             "type": "object",
             "title": "Metadata",
             "default": {}
+          },
+          "engine": {
+            "$ref": "#/components/schemas/RuleEngineStatus",
+            "readOnly": true
           }
         },
         "type": "object",
@@ -5206,7 +5210,8 @@
           "logic",
           "id",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "engine"
         ],
         "title": "DetectionRule",
         "example": {
@@ -5431,6 +5436,16 @@
           },
           "core_engine": {
             "$ref": "#/components/schemas/CoreEngineStatus"
+          },
+          "rule_sync": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuleSyncStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "last_updated": {
             "type": "string",
@@ -5806,6 +5821,77 @@
           "new_password"
         ],
         "title": "PasswordChange"
+      },
+      "RuleEngineStatus": {
+        "properties": {
+          "runs": {
+            "type": "boolean",
+            "title": "Runs"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "runs"
+        ],
+        "title": "RuleEngineStatus"
+      },
+      "RuleSyncStatus": {
+        "properties": {
+          "attempted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Attempted At"
+          },
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "rules_sent": {
+            "type": "integer",
+            "title": "Rules Sent"
+          },
+          "succeeded_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Succeeded At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "attempted_at",
+          "ok",
+          "rules_sent"
+        ],
+        "title": "RuleSyncStatus"
       },
       "ScanInterface": {
         "properties": {

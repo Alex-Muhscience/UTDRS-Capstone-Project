@@ -99,6 +99,7 @@ export function shellRoutes(me: User = user) {
       disabled_rules: 0,
       testing_rules: 0,
       core_engine: { configured: true, reachable: true },
+      rule_sync: { attempted_at: now, ok: true, error: null, rules_sent: 1, succeeded_at: now },
       last_updated: now,
     },
   }

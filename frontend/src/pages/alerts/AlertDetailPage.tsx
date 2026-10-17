@@ -44,11 +44,28 @@ const TRANSITIONS: Record<string, Transition[]> = {
   closed: [{ status: "open", label: "Reopen" }],
 }
 
-type EngineDetails = { mitre_techniques?: string[]; tags?: string[]; [key: string]: unknown }
+type EngineDetails = {
+  mitre_techniques?: string[]
+  tags?: string[]
+  // The rule that matched; rule_source is "gateway" for rules from this catalogue.
+  detection?: { rule_source?: string; rule_source_id?: string | null; name?: string }
+  [key: string]: unknown
+}
 
 function engineMetadata(alert: Alert) {
   const metadata = alert.metadata as { detection_type?: string; core_engine_alert_id?: string; details?: EngineDetails }
   return metadata.details || metadata.detection_type ? metadata : null
+}
+
+/** A link to the catalogue rule that raised the alert, when it was one of ours. */
+function ruleLink(details: EngineDetails | undefined) {
+  const detection = details?.detection
+  if (detection?.rule_source !== "gateway" || !detection.rule_source_id) return null
+  return (
+    <Link to={`/rules/${detection.rule_source_id}`} className="text-accent hover:underline">
+      {detection.name ?? "View rule"}
+    </Link>
+  )
 }
 
 function mitreUrl(technique: string) {
@@ -231,6 +248,10 @@ export function AlertDetailPage() {
                 <DescriptionList
                   items={[
                     ["Detector", humanize(engine.detection_type)],
+                    [
+                      "Rule",
+                      ruleLink(engine.details) ?? (engine.details?.detection?.name ? `${engine.details.detection.name} (built in)` : null),
+                    ],
                     ["Engine alert", engine.core_engine_alert_id ? <code className="font-mono text-xs">{engine.core_engine_alert_id}</code> : null],
                   ]}
                 />

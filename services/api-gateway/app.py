@@ -1,4 +1,5 @@
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +18,7 @@ from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
 from core.database.indexes import ensure_indexes
 from core.services.bootstrap import ensure_admin
+from core.services.rule_sync import sync_periodically
 
 
 @asynccontextmanager
@@ -24,7 +26,11 @@ async def lifespan(app: FastAPI):
     await connect_to_mongo()
     await ensure_indexes()
     await ensure_admin()
+    rule_sync = asyncio.create_task(sync_periodically())
     yield
+    rule_sync.cancel()
+    with suppress(asyncio.CancelledError):
+        await rule_sync
     await close_mongo_connection()
 
 
