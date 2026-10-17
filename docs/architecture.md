@@ -19,8 +19,8 @@ Each service owns its data and no service reads another's database, with one del
 
 | Database (default name) | Owner | Collections |
 |---|---|---|
-| `utdrs` | API gateway | `users`, `events`, `alerts`, `assets`, `detection_rules` (the catalogue shown in the dashboard), `simulations` |
-| `utdrs_engine` | Core engine | `events` (every event it analyses, the history for correlation and anomaly baselines), `alerts` (its own verdicts), `detection_rules` (signature rules it runs) |
+| `utdrs` | API gateway | `users`, `events`, `alerts`, `assets`, `detection_rules` (the catalogue shown in the dashboard), `simulations`, `login_failures` (sign-in throttling), `gateway_state` (last rule sync) |
+| `utdrs_engine` | Core engine | `events` (every event it analyses, the history for correlation and anomaly baselines), `alerts` (its own verdicts), `detection_rules` (the signature rules it runs: its built-in rules, and copies of the gateway's runnable rules, which the gateway replaces as a set) |
 | `utdrs_db` | Scanner server and data processor | `scans` (accepted scans waiting for delivery, written by the server), `delivered_scans` (each with the gateway's answer) and `failed_scans` (scans that could not be delivered, with the error), both written by the processor |
 
 ## Request flows
@@ -58,6 +58,10 @@ sequenceDiagram
   D->>G: polls every 15 s (alerts, summary, events)
   D->>G: PATCH /alerts/{id}/status (in_progress, resolved, …) with a note
 ```
+
+### A rule, from the dashboard to the engine
+
+The gateway's catalogue is the source of truth. After every change to a rule, and every minute as a safety net, the gateway compiles the enabled rules whose logic the engine can run and sends the whole set to `PUT /rules/managed/gateway`; the engine replaces its copies of the gateway's rules with it, leaving its built-in rules alone. Rules the engine cannot run yet stay in the catalogue, marked with the reason. An alert from one of these rules carries the gateway's rule id, and the dashboard links to the rule.
 
 The engine's verdict priority, from the most specific evidence to the least, is signature, YARA, correlation, threat intelligence, ML, anomaly. One event produces at most one alert.
 
@@ -99,6 +103,7 @@ Roles: administrators manage users, detection rules and simulations; analysts tr
 
 | Failure | Effect |
 |---|---|
+| Core engine down when rules change | The rules are sent again every minute; the detection status shows the failed attempt, and the engine keeps running the rules it last received. |
 | Core engine down or slow | Events are still stored and returned at once. The event's analysis is recorded as `error`, the dashboard shows *Analysis failed*, its status pill shows *Core engine unreachable*, and `GET /detection/` reports `degraded`. |
 | No core engine configured | Events are stored without analysis (*Not analysed*), and the status is `standalone`. |
 | Gateway down | The dashboard's status pill shows *Gateway unreachable* and pages show *Cannot reach the API gateway* with a retry; opening the dashboard while it is down shows *The API gateway is not responding*. |

@@ -137,10 +137,10 @@ Done:
 Next:
 
 - [ ] Push new alerts to the dashboard as they happen, instead of polling every 15 seconds
-- [ ] Send rules edited in the dashboard to the engine (the gateway's rule catalogue and the engine's rules are separate today)
 - [ ] API keys for agents and integrations
 - [x] Trained, evaluated models for phishing emails and network flows in the core engine
 - [x] Throttle sign-in by account and address, using the client address behind trusted proxies
+- [x] Rules edited in the dashboard run in the core engine, with malformed logic refused and unsupported logic marked
 - [ ] Trained models for the remaining indicator-based ML detectors (malware, user behaviour)
 - [ ] Public demo deployment
 

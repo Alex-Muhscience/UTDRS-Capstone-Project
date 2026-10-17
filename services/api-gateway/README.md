@@ -48,12 +48,29 @@ All routes are under `/api/v1`. Interactive documentation is served at `/api/v1/
 | Events | `GET /events/` (filters: `event_type`, `asset_id`, `user_id`, `ip_address`), `POST /events/`, `GET`/`PUT /events/{id}`, `GET /events/recent/`, `GET /events/timerange/`, `PATCH /events/{id}/severity`, tags, `GET /events/search/` |
 | Assets | `GET /assets/` (filters: `asset_type`, `status`, `criticality`, `department`), `POST /assets/`, `GET`/`PUT /assets/{id}`, lookup by `name`, `ip` or `mac`, `PATCH /assets/{id}/vulnerabilities/add` and `/remove`, `PATCH /assets/{id}/lastseen`, tags, search |
 | Scans | `POST /scans/`: a device's inventory from the [device scanner](../../scanner), sent by the [data processor](../data-processor) with `X-Internal-Token` instead of a user's token. Creates or updates the asset named after the device, and answers `{ asset_id, new_device, changes, event_id }` |
-| Detection | `GET /detection/` (rule counts and whether the core engine is reachable), `GET`/`POST /detection/rules`, `GET`/`PUT /detection/rules/{id}`, `PATCH /detection/rules/{id}/status`, by name, tags, metrics, search |
+| Detection | `GET /detection/` (rule counts, whether the core engine is reachable, and the last time the rules were sent to it), `GET`/`POST /detection/rules`, `GET`/`PUT /detection/rules/{id}`, `PATCH /detection/rules/{id}/status`, by name, tags, metrics, search |
 | Simulations | `GET`/`POST /simulation/`, `GET`/`PUT /simulation/{id}`, `POST /simulation/start` and `/stop`, scheduled and running lists, results, linked events and alerts, search |
 
 Allowed values: alert status `open`, `in_progress`, `resolved`, `closed`, `false_positive`; severity `critical`, `high`, `medium`, `low`, `info`; rule status `enabled`, `testing`, `disabled`. Documents are returned with `id`, never MongoDB's `_id`.
 
 A scan always refreshes its asset (operating system, address, last-seen time, and the inventory under `metadata.scanner`) and never overwrites the type, criticality, owner or location an analyst has set. Only a device's first scan, or one whose operating system, hardware or network interfaces have changed, raises an event (`event_type: asset_scan`, `source: device-scanner`), which is analysed like any other; `event_id` is null otherwise.
+
+### Detection rules and the core engine
+
+The gateway's rule catalogue is what the core engine runs. A rule's `logic` is a list of comparisons joined by `and`, or by `or`:
+
+```
+process_name == 'powershell.exe' and command_line matches '(?i)-enc(odedcommand)?'
+event_type == 'authentication' and status in ['failed', 'locked'] and attempts >= 5
+```
+
+Comparisons are `==`, `!=`, `>`, `>=`, `<`, `<=`, `in [...]`, `not in [...]`, `matches '<regex>'` (anywhere in the value), `contains`, `startswith`, `endswith` and `<field> exists`; values are quoted strings, numbers, `true`, `false` or lists of those. Fields are `event_type`, `source`, `timestamp`, or anything in the event's data. `core/services/rule_compiler.py` turns this into the engine's conditions.
+
+- **Malformed logic is refused** when a rule is created or edited (422, saying what is wrong).
+- **Logic the engine cannot run yet** (counting over a time window with `| count by ...`, functions such as `hour(...)`, comparing with a list such as `threat_intel.domains`, parentheses, or mixing `and` with `or`) is kept in the catalogue but not run. Every rule in a response carries `engine: { runs, reason }`, and the dashboard shows it.
+- **Sending:** after every change to a rule, and every `RULE_SYNC_INTERVAL_SECONDS` (60) in case the engine was down or restarted empty, the gateway compiles the enabled rules it can and sends the whole set to the engine's `PUT /rules/managed/gateway`, which replaces the rules it had from the gateway. Testing and disabled rules are not sent. Tags that are ATT&CK technique ids (`T1059.001`) go with the rule as its techniques. `GET /detection/` reports the last attempt as `rule_sync`.
+- **Built-in rules** that ship with the engine run alongside these, and are not shown in the catalogue.
+- An alert raised by one of these rules names it: `metadata.details.detection.rule_source_id` is the rule's id, and the dashboard links to it.
 
 `GET /alerts/summary` returns `{ total, by_status, open_by_severity }`, computed with an aggregation, for dashboards that need counts without fetching every alert. `GET /detection/` reports `status` as `active` (engine reachable), `degraded` (configured but unreachable) or `standalone` (no engine configured).
 
@@ -91,6 +108,7 @@ Settings come from the environment or a `.env` file in this directory (see [`.en
 | `CORE_ENGINE_URL` | unset | Base URL of the core engine. Unset: events are stored but not analysed. |
 | `CORE_ENGINE_TIMEOUT_SECONDS` | `10` | |
 | `INTERNAL_API_TOKEN` | unset | Shared secret for the engine, and for the data processor delivering scans |
+| `RULE_SYNC_INTERVAL_SECONDS` | `60` | How often the rules are re-sent to the engine, besides after each change |
 | `CORS_ORIGINS` | `["http://localhost:3001","http://localhost:5173"]` | JSON list of browser origins |
 | `ALLOWED_HOSTS` | `["*"]` | JSON list of accepted Host headers. Set it to your domain in production |
 | `TRUSTED_PROXIES` | `[]` | JSON list of proxy addresses or networks whose `X-Forwarded-For` is believed |
@@ -118,12 +136,14 @@ docker run -d --name utdrs-mongo -p 27017:27017 mongo:7      # once
 MONGODB_URI=mongodb://localhost:27017 python -m pytest
 ```
 
-62 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
+88 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
 
 - `tests/e2e/test_flows.py`: registration and sign-in, events, alerts (filters, ordering, summary, status errors), assets, rules, role and password rules, response headers. Against a real MongoDB, with no mocks.
 - `tests/e2e/test_users.py`: role checks on rules and simulations, the team directory, account administration (create, role changes, deactivation, password resets), self-lockout protection, closed registration and the startup administrator.
 - `tests/e2e/test_detection_pipeline.py`: the event-to-alert pipeline against a fake engine (`httpx.MockTransport`), including an unreachable engine and the detection status.
 - `tests/e2e/test_hardening.py`: sign-in throttling per account and address and per address, a correct password clearing the count, identical answers for unknown and wrong passwords, client addresses behind trusted proxies, and unique asset names under concurrent scans.
+- `tests/e2e/test_rule_sync.py`: rules reaching a fake engine on create, edit, disable and tag changes; rules the engine cannot run kept but not sent; malformed logic refused; the sync status, including failure.
+- `tests/unit/test_rule_compiler.py`: the rule language: what compiles to which conditions, what is kept but not run, and what is malformed.
 - `tests/e2e/test_scans.py`: device scans: a new device, an unchanged scan, a changed inventory that keeps an analyst's edits, and the internal token.
 - `tests/unit`: auth and alert routes with mocked repositories, and health. `tests/integration`: the ASGI app over HTTP (health, authentication required).
 
