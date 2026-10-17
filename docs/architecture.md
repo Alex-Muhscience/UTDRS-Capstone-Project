@@ -19,7 +19,7 @@ Each service owns its data and no service reads another's database, with one del
 
 | Database (default name) | Owner | Collections |
 |---|---|---|
-| `utdrs` | API gateway | `users`, `events`, `alerts`, `assets`, `detection_rules` (the catalogue shown in the dashboard), `simulations`, `login_failures` (sign-in throttling), `gateway_state` (last rule sync) |
+| `utdrs` | API gateway | `users`, `events`, `alerts`, `assets`, `detection_rules` (the catalogue shown in the dashboard), `simulations`, `login_failures` (sign-in throttling), `gateway_state` (last rule sync), `api_keys`, `audit_log` and `audit_log_head` |
 | `utdrs_engine` | Core engine | `events` (every event it analyses, the history for correlation and anomaly baselines), `alerts` (its own verdicts), `detection_rules` (the signature rules it runs: its built-in rules, and copies of the gateway's runnable rules, which the gateway replaces as a set) |
 | `utdrs_db` | Scanner server and data processor | `scans` (accepted scans waiting for delivery, written by the server), `delivered_scans` (each with the gateway's answer) and `failed_scans` (scans that could not be delivered, with the error), both written by the processor |
 
@@ -91,13 +91,14 @@ A scan always refreshes its asset: operating system, address, last-seen time and
 | Boundary | Protection |
 |---|---|
 | Browser → dashboard | Static files only. In the Docker image, nginx sends a Content-Security-Policy with no inline or third-party scripts, plus `X-Frame-Options: DENY`, `nosniff` and a strict referrer policy. |
-| Browser → gateway | JWT bearer tokens (HS256, `JWT_SECRET`), bcrypt password hashes, role checks on administrative routes, CORS limited to `CORS_ORIGINS` (not needed when the dashboard proxies `/api`), Host allow-list, a 10 MB request limit, and security headers with a request ID on every response. Registration, which can be closed, always creates an analyst; a deactivated account's tokens stop working at once. |
+| Browser → gateway | JWT bearer tokens (HS256, `JWT_SECRET`), bcrypt password hashes, role checks on administrative routes, CORS limited to `CORS_ORIGINS` (not needed when the dashboard proxies `/api`), Host allow-list, a 10 MB request limit, and security headers with a request ID on every response. Registration, which can be closed, always creates an analyst; a deactivated account's tokens stop working at once. Sign-in is throttled per account and address. |
+| Integrations → gateway | API keys with scopes (`events:write`, `alerts:read`, ...), stored only as hashes, revocable and optionally expiring; a key never has administrator rights. |
 | Gateway → engine | A shared secret in `X-Internal-Token`, compared in constant time. The engine should only be reachable from the gateway's network. |
 | Agent → scanner server | Mutual TLS: the server requires a client certificate from the CA, and the agent verifies the server's certificate chain and name. A SHA-256 checksum over the scan's fields catches damaged messages. |
 | Data processor → gateway | The same shared secret, in `X-Internal-Token`, on `POST /api/v1/scans/`. A user's session token is not accepted there, and the route answers 503 when the gateway has no `INTERNAL_API_TOKEN`. |
 | Services → MongoDB | Connection strings from the environment; never committed. |
 
-Roles: administrators manage users, detection rules and simulations; analysts triage alerts and work with events and assets; everyone signed in can read everything. Known gaps, on the [roadmap](../README.md#roadmap): sign-in is not rate limited, integrations that post events need a user's token, and the dashboard polls rather than receiving pushed updates.
+Roles: administrators manage users, detection rules and simulations; analysts triage alerts and work with events and assets; everyone signed in can read everything. Every sign-in and every change made through the gateway is written to a hash-chained audit log (`audit_log`), which administrators can search and verify. Known gaps, on the [roadmap](../README.md#roadmap): no multi-factor authentication or single sign-on yet, and the dashboard polls rather than receiving pushed updates.
 
 ## When something fails
 

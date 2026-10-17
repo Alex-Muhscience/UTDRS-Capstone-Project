@@ -107,6 +107,48 @@ export function useResetPassword() {
   })
 }
 
+// ---------------------------------------------------------------------------- API keys
+
+export function useApiKeys() {
+  return useQuery({ queryKey: ["api-keys"], queryFn: () => unwrap(api.GET("/api/v1/api-keys/")) })
+}
+
+export function useApiKeyScopes() {
+  return useQuery({ queryKey: ["api-keys", "scopes"], queryFn: () => unwrap(api.GET("/api/v1/api-keys/scopes")), staleTime: Infinity })
+}
+
+export function useCreateApiKey() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { name: string; scopes: string[]; expires_in_days?: number | null }) =>
+      unwrap(api.POST("/api/v1/api-keys/", { body })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["api-keys"] }),
+  })
+}
+
+export function useRevokeApiKey() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (keyId: string) => unwrap(api.DELETE("/api/v1/api-keys/{key_id}", { params: { path: { key_id: keyId } } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["api-keys"] }),
+  })
+}
+
+// ---------------------------------------------------------------------------- Audit log
+
+export function useAuditLog({ action, page }: { action?: string; page: number }) {
+  return useQuery({
+    queryKey: ["audit-log", { action, page }],
+    queryFn: async () =>
+      toPage(await unwrap(api.GET("/api/v1/audit-log/", { params: { query: { action: action || undefined, ...pageQuery(page) } } }))),
+    refetchInterval: POLL_INTERVAL_MS,
+  })
+}
+
+export function useVerifyAuditLog() {
+  return useMutation({ mutationFn: () => unwrap(api.GET("/api/v1/audit-log/verify")) })
+}
+
 // ---------------------------------------------------------------------------- System status
 
 export function useDetectionStatus() {

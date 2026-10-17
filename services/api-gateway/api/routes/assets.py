@@ -1,11 +1,12 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, status
 from pymongo.errors import DuplicateKeyError
 
 from core.models.asset import Asset, AssetCreate, AssetUpdate
 from core.models.user import User
 from core.services.asset_service import AssetService
+from core.services.audit import created
 from utils.security import get_current_active_user
 
 router = APIRouter()
@@ -47,7 +48,7 @@ async def get_assets(
 
 @router.post("/", response_model=Asset, status_code=status.HTTP_201_CREATED)
 async def create_asset(
-    asset: AssetCreate, current_user: User = Depends(get_current_active_user)
+    asset: AssetCreate, request: Request, current_user: User = Depends(get_current_active_user)
 ):
     """
     Create a new asset.
@@ -62,6 +63,7 @@ async def create_asset(
             detail="Failed to create asset",
         )
 
+    created(request, "asset", asset_id, asset.name)
     return created_asset
 
 

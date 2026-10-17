@@ -7,7 +7,7 @@ from pydantic import BaseModel, field_validator
 
 from config import settings
 from core.database.repositories.user_repository import UserRepository
-from core.services import login_throttle
+from core.services import audit, login_throttle
 from core.models.user import (
     User,
     UserCreate,
@@ -62,8 +62,10 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     many from one address, or one address too many across accounts.
     """
     address = client_address(request)
+    attempted = {"type": "anonymous", "name": form_data.username}
     wait = await login_throttle.retry_after(form_data.username, address)
     if wait:
+        await audit.record("auth.login_throttled", request, actor=attempted, outcome="denied")
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=(
@@ -78,6 +80,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
 
     if not verify_password(form_data.password, user["passwordHash"] if user else _UNKNOWN_USER_HASH) or not user:
         await login_throttle.record_failure(form_data.username, address)
+        await audit.record("auth.login_failed", request, actor=attempted, outcome="denied")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -86,6 +89,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     await login_throttle.record_success(form_data.username, address)
 
     if not user.get("active", True):
+        await audit.record("auth.login_failed", request, actor=attempted, outcome="denied", details={"reason": "deactivated"})
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This account has been deactivated; ask an administrator",
@@ -93,6 +97,11 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
 
     # Update last login
     await user_repo.update_last_login(str(user["_id"]))
+    await audit.record(
+        "auth.login_succeeded",
+        request,
+        actor={"type": "user", "id": str(user["_id"]), "name": user["username"], "role": user.get("role")},
+    )
 
     # Create access token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -104,7 +113,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
 
 
 @router.post("/register", response_model=User)
-async def register(user_in: UserCreate) -> Any:
+async def register(user_in: UserCreate, request: Request) -> Any:
     """Register a new user, as an analyst. Closed when ALLOW_REGISTRATION is false."""
     if not settings.ALLOW_REGISTRATION:
         raise HTTPException(
@@ -142,6 +151,12 @@ async def register(user_in: UserCreate) -> Any:
             detail="Failed to create user",
         )
 
+    await audit.record(
+        "auth.registered",
+        request,
+        actor={"type": "user", "id": user_id, "name": user_in.username, "role": "analyst"},
+        target={"type": "user", "id": user_id, "name": user_in.username},
+    )
     return User(**new_user)
 
 
@@ -153,7 +168,7 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)) -
 
 @router.put("/me", response_model=User)
 async def update_user_me(
-    user_update: UserSelfUpdate, current_user: User = Depends(get_current_active_user)
+    user_update: UserSelfUpdate, request: Request, current_user: User = Depends(get_current_active_user)
 ) -> Any:
     """Update current user information (not role or account status)."""
     user_repo = UserRepository()
@@ -166,12 +181,17 @@ async def update_user_me(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to update user"
         )
 
+    await audit.record(
+        "auth.profile_updated", request, target={"type": "user", "id": current_user.id, "name": current_user.username},
+        details={"fields": sorted(user_update.model_dump(exclude_unset=True))},
+    )
     return User(**updated_user)
 
 
 @router.post("/me/change-password")
 async def change_password(
     password_change: PasswordChange,
+    request: Request,
     current_user: User = Depends(get_current_active_user),
 ) -> Any:
     """Change current user password."""
@@ -200,4 +220,5 @@ async def change_password(
             detail="Failed to change password",
         )
 
+    await audit.record("auth.password_changed", request, target={"type": "user", "id": current_user.id, "name": current_user.username})
     return {"message": "Password changed successfully"}

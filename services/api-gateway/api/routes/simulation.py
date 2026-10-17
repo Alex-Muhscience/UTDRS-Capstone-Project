@@ -1,11 +1,12 @@
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, Request, status
 
 from core.models.event import EventCreate
 from core.models.simulation import Simulation, SimulationCreate, SimulationUpdate
 from core.models.user import User
 from core.services.simulation_service import SimulationService
+from core.services.audit import created
 from utils.security import get_current_active_user, require_admin
 
 router = APIRouter()
@@ -41,7 +42,7 @@ async def get_simulations(
 
 @router.post("/", response_model=Simulation, status_code=status.HTTP_201_CREATED)
 async def create_simulation(
-    simulation: SimulationCreate, current_user: User = Depends(require_admin)
+    simulation: SimulationCreate, request: Request, current_user: User = Depends(require_admin)
 ):
     """
     Create a new simulation.
@@ -58,6 +59,7 @@ async def create_simulation(
             detail="Failed to create simulation",
         )
 
+    created(request, "simulation", simulation_id, simulation.name)
     return created_simulation
 
 
