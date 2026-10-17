@@ -1,12 +1,23 @@
 from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from bson import ObjectId
 from fastapi.testclient import TestClient
 
 from app import app
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def no_login_throttle():
+    """These tests run without a database; throttling is tested in tests/e2e."""
+    with patch("api.routes.auth.login_throttle") as throttle:
+        throttle.retry_after = AsyncMock(return_value=None)
+        throttle.record_failure = AsyncMock()
+        throttle.record_success = AsyncMock()
+        yield throttle
 
 mock_user_data = {
     "_id": str(ObjectId("60d5ec2dcb43a5e37d0c7513")),

@@ -177,44 +177,54 @@ SSL_CTX* create_secure_tls_context() {
     return ctx;
 }
 
+// Each address may make MAX_REQUESTS_PER_MIN requests per RATE_LIMIT_WINDOW; requests
+// over the limit are refused until the window ends. An address that has been quiet for
+// a whole window gives up its slot, so the table never fills with old addresses.
 int check_client_access(const char *ip) {
     time_t now = time(NULL);
     int result = 0;
-    
+
     pthread_mutex_lock(&clients_mutex);
-    
+
     client_state_t *client = NULL;
+    client_state_t *free_slot = NULL;
     for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (strcmp(clients[i].ip, ip) == 0) {
+        if (clients[i].ip[0] != '\0' && strcmp(clients[i].ip, ip) == 0) {
             client = &clients[i];
             break;
         }
-        
-        if (!client && clients[i].ip[0] == '\0') {
-            client = &clients[i];
-            strncpy(client->ip, ip, INET_ADDRSTRLEN-1);
-            client->ip[INET_ADDRSTRLEN-1] = '\0';
-            client->first_request = now;
-            break;
+        if (!free_slot &&
+            (clients[i].ip[0] == '\0' || now - clients[i].last_request > RATE_LIMIT_WINDOW)) {
+            free_slot = &clients[i];
         }
     }
-    
-    if (!client) {
-        result = -1; // No available slots
-    } else if (client->blocked) {
-        result = -2; // Permanently blocked
-    } else if (now - client->first_request > RATE_LIMIT_WINDOW) {
-        // Reset counters after window
+
+    if (!client && free_slot) {
+        client = free_slot;
+        memset(client, 0, sizeof(*client));
+        snprintf(client->ip, sizeof(client->ip), "%s", ip);
         client->first_request = now;
-        client->request_count = 1;
-    } else if (client->request_count++ > MAX_REQUESTS_PER_MIN) {
-        // Auto-block clients exceeding limit
-        client->blocked = true;
-        result = -2;
-        syslog(LOG_WARNING, "Blocked client %s for excessive requests", ip);
     }
-    
-    if (client) client->last_request = now;
+
+    if (!client) {
+        result = -1; // Every slot is in use by an active address
+    } else {
+        if (now - client->first_request >= RATE_LIMIT_WINDOW) {
+            client->first_request = now;
+            client->request_count = 0;
+            client->blocked = false;
+        }
+        client->request_count++;
+        if (client->request_count > MAX_REQUESTS_PER_MIN) {
+            if (!client->blocked) {
+                syslog(LOG_WARNING, "Rate limiting %s until its window ends", ip);
+            }
+            client->blocked = true;
+            result = -1;
+        }
+        client->last_request = now;
+    }
+
     pthread_mutex_unlock(&clients_mutex);
     return result;
 }
@@ -314,13 +324,10 @@ void handle_client_connection(SSL *ssl) {
         goto connection_error;
     }
 
-    switch (check_client_access(client_ip)) {
-        case -2: // Blocked client
-            SSL_write(ssl, "BLOCKED", 7);
-            goto connection_error;
-        case -1: // Rate limited
-            SSL_write(ssl, "RATE_LIMITED", 12);
-            goto connection_error;
+    // Over the rate limit: close before the TLS handshake. No reply can be sent before
+    // the handshake, so the agent sees the connection fail and tries again later.
+    if (check_client_access(client_ip) != 0) {
+        goto connection_error;
     }
 
     if (SSL_accept(ssl) <= 0) {

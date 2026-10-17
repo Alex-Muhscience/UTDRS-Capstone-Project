@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
 from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
 
 from core.database.repositories.base_repository import BaseRepository
 from core.models.asset import AssetCreate, AssetUpdate
@@ -88,6 +89,13 @@ class AssetRepository(BaseRepository):
         asset as it was before the scan, or None when the scan created it.
         """
         now = utcnow()
+        try:
+            return await self._record_scan(name, seen, defaults, now)
+        except DuplicateKeyError:
+            # Another scan of the same new device created it a moment ago: update that one.
+            return await self._record_scan(name, seen, defaults, now)
+
+    async def _record_scan(self, name, seen, defaults, now):
         return await self.collection.find_one_and_update(
             {"name": name},
             {

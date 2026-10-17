@@ -478,11 +478,11 @@ What is missing or wrong in today's code against the requirements above. Each ga
 |---|---|---|---|
 | GAP-SEC-01 | No MFA, no SSO, no SCIM (`api/routes/auth.py` is password + JWT only) | FR-TEN-05, FR-TEN-06 | P0 |
 | GAP-SEC-02 | Access tokens are 30-minute HS256 JWTs signed with one shared secret, no refresh tokens, no revocation list beyond deactivation; stored in `sessionStorage` (`frontend/src/auth/session.ts`) | FR-TEN-07 | P0 |
-| GAP-SEC-03 | Sign-in is not rate limited (SlowAPI configured, no limits set; see gateway README) | NFR-08 | P0 |
+| GAP-SEC-03 | Sign-in is not rate limited (SlowAPI configured, no limits set; see gateway README) **Done (#16): throttled per account and address, and per address.** | NFR-08 | P0 |
 | GAP-SEC-04 | No API keys or machine credentials; integrations must use a person's token | FR-API-02, FR-ING-05 | P0 |
 | GAP-SEC-05 | No audit log of changes or actions | FR-TEN-08, FR-RSP-04 | P0 |
 | GAP-SEC-06 | Secrets come from environment variables and `.env` files; no vault, no rotation | NFR-07 | P1 |
-| GAP-SEC-07 | `ALLOWED_HOSTS` defaults to `["*"]` (`services/api-gateway/config.py`); the core engine accepts every request when `INTERNAL_API_TOKEN` is unset (`services/core-engine/api/security.py`) | NFR-08 | P1 |
+| GAP-SEC-07 | `ALLOWED_HOSTS` defaults to `["*"]` (`services/api-gateway/config.py`); the core engine accepts every request when `INTERNAL_API_TOKEN` is unset (`services/core-engine/api/security.py`) **Partly done (#16): the engine now refuses requests without a configured token; `ALLOWED_HOSTS` is still `*` by default.** | NFR-08 | P1 |
 | GAP-SEC-08 | No encryption at rest beyond what the MongoDB deployment provides; no field-level encryption for sensitive data (connector credentials will need it) | NFR-07 | P0 before connectors |
 | GAP-SEC-09 | No container image signing, SBOM, SAST or container scanning in CI (GitGuardian secret scanning and npm audit only) | NFR-08 | P1 |
 | GAP-SEC-10 | No threat model, security policy for the hosted service, or penetration test | NFR-08, NFR-10 | P1 |
@@ -497,7 +497,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 | GAP-API-03 | No cases: alerts are standalone; no grouping, SLA, evidence model or timeline | FR-CAS-01 to 03 | P0 |
 | GAP-API-04 | No event search beyond simple filters and a regex on description (`event_repository.search_events`) | FR-CAS-05 | P1 |
 | GAP-API-05 | Simulations are records only: starting one in the engine is a stub that logs "Would start simulation" (`core/services/simulation_service.py`), and simulation events are stored without detection | Demo and testing value | P2 |
-| GAP-API-06 | Asset matching is by exact name with no unique index; two concurrent first scans of one device can create two assets (`asset_repository.record_scan`) | Data quality | P1 |
+| GAP-API-06 | Asset matching is by exact name with no unique index; two concurrent first scans of one device can create two assets (`asset_repository.record_scan`) **Done (#16): unique index on asset names; racing scans retry.** | Data quality | P1 |
 | GAP-API-07 | Scanned assets default to type `workstation`; no device classification | FR-AGT-03 | P2 |
 | GAP-API-08 | No metering or billing hooks | FR-ING-14, FR-PLT-01 | P1 |
 
@@ -534,7 +534,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 | GAP-AGT-03 | Certificates are created by hand and shared; no enrolment flow, no per-device identity tied to a tenant, no revocation in practice | FR-AGT-02 | P1 |
 | GAP-AGT-04 | No installers, service definitions, self-update or tamper protection | FR-AGT-01, FR-AGT-06 | P1 |
 | GAP-AGT-05 | No telemetry beyond inventory, no response actions | FR-AGT-04, FR-AGT-05 | P2 |
-| GAP-AGT-06 | The server's rate limiter blocks an address **permanently** after more than 30 requests in a minute (`client->blocked = true` in `src/server/api.c`, never cleared until restart); its client table holds 100 addresses and never frees slots | Reliability at scale | P1 |
+| GAP-AGT-06 | The server's rate limiter blocks an address **permanently** after more than 30 requests in a minute (`client->blocked = true` in `src/server/api.c`, never cleared until restart); its client table holds 100 addresses and never frees slots **Done (#16): over-limit addresses wait out the window; quiet addresses free their slot.** | Reliability at scale | P1 |
 | GAP-AGT-07 | Server database and collection names are hard-coded (`utdrs_db.scans` in `api.c`), and `configs/server.conf` is not read; logs go to `server.log` in the working directory | Operability | P2 |
 | GAP-AGT-08 | Dead or misleading code: `src/agent/auth.c` checks a hard-coded fake fingerprint and is unused; `scripts/monitoring/check_heartbeats.sh` queries a PostgreSQL `agents` table that does not exist; the agent no longer sends heartbeats | Maintainability | P2 |
 | GAP-AGT-09 | C codebase with manual memory management for a long-running, network-facing agent; consider Go or Rust for the full agent | FR-AGT-01, NFR-08 | Decision D4 |

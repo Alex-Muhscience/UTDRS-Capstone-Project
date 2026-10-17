@@ -15,12 +15,14 @@ from api.middleware.security import (
 from api.routes import alerts, assets, auth, detection, events, health, scans, simulation, users
 from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
+from core.database.indexes import ensure_indexes
 from core.services.bootstrap import ensure_admin
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await connect_to_mongo()
+    await ensure_indexes()
     await ensure_admin()
     yield
     await close_mongo_connection()

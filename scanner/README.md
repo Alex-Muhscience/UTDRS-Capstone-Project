@@ -22,7 +22,7 @@ One command per connection, up to 8 KB, answered with a single word:
 | `SCAN {"hostname": ..., "os": ..., "timestamp": ..., "checksum": ...}` | `ACK` when stored; `INVALID_JSON`; `DATA_TOO_LARGE`; `VALIDATION_ERROR` for a missing or empty field, a field over 256 characters, or a checksum that does not match; `STORAGE_ERROR` |
 | anything else | `INVALID_CMD` |
 
-Connections from an address over the rate limit are closed. A connection without a valid client certificate fails the TLS handshake.
+An address may connect 30 times a minute; connections over that are closed before the TLS handshake until the minute is up. Addresses quiet for a minute free their place in the limiter's table of 100. A connection without a valid client certificate fails the TLS handshake.
 
 `hostname`, `os`, `timestamp` and `checksum` are required strings. The agent also sends `os_version`, `cpu_cores`, `memory_kb` and `interfaces` (a list of `{"name", "ip", "mac"}`), and the server stores whatever the message carries:
 

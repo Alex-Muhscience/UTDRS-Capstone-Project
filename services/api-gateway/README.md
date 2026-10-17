@@ -67,7 +67,9 @@ A scan always refreshes its asset (operating system, address, last-seen time, an
 - **Tokens** are HS256 JWTs signed with `JWT_SECRET`, valid for `ACCESS_TOKEN_EXPIRE_MINUTES` (30 by default). Passwords are hashed with bcrypt.
 - **Middleware**: a request ID on every response (`X-Request-ID`), security headers (`nosniff`, `DENY` framing, a strict referrer policy, and `Content-Security-Policy: default-src 'self'` except on the docs pages, which need Swagger UI's CDN), a Host header allow-list (`ALLOWED_HOSTS`), a 10 MB request size limit, and a central error handler that does not leak internals.
 - **CORS** is limited to `CORS_ORIGINS`. The dashboard does not need it when it is served from the same origin (its dev server, preview server and Docker image all proxy `/api`).
-- **Rate limiting**: SlowAPI is set up but no route sets a limit yet. Limiting sign-in attempts needs the client's real address from the proxy in front, and is on the roadmap.
+- **Sign-in throttling**: after 5 failed attempts in 15 minutes for one account from one address, or 50 from one address across all accounts, sign-in answers 429 with `Retry-After` until the 15 minutes are up. A correct password clears that account's count from that address. Counts are kept in MongoDB (`login_failures`, removed automatically), so every process and replica shares them. Counting by address as well as account stops guessing quickly without letting anyone lock a person out from elsewhere. An unknown username takes as long to reject as a wrong password, so response times do not reveal which accounts exist.
+- **Client addresses**: the address a request came from is the connection's, unless the connection comes from one of `TRUSTED_PROXIES`; then `X-Forwarded-For` is read from the right, skipping trusted proxies, so a client cannot choose its own address by sending the header. Docker Compose trusts Docker's private ranges, where the dashboard's nginx runs.
+- **Unique asset names**: the gateway creates a unique index on asset names at start-up, so a device's scans always update one asset; renaming an asset to a name in use answers 409. If existing data already has repeated names, the gateway logs a warning and starts without the index.
 - **The engine is internal**. Calls to it carry `INTERNAL_API_TOKEN` as `X-Internal-Token`; set the same value on both services and do not expose the engine to the internet.
 - **Scans come from UTDRS's own services**. `POST /scans/` accepts only that same `X-Internal-Token`, compared in constant time; a user's token gets 401, and without `INTERNAL_API_TOKEN` configured the route answers 503.
 
@@ -90,7 +92,11 @@ Settings come from the environment or a `.env` file in this directory (see [`.en
 | `CORE_ENGINE_TIMEOUT_SECONDS` | `10` | |
 | `INTERNAL_API_TOKEN` | unset | Shared secret for the engine, and for the data processor delivering scans |
 | `CORS_ORIGINS` | `["http://localhost:3001","http://localhost:5173"]` | JSON list of browser origins |
-| `ALLOWED_HOSTS` | `["*"]` | JSON list of accepted Host headers |
+| `ALLOWED_HOSTS` | `["*"]` | JSON list of accepted Host headers. Set it to your domain in production |
+| `TRUSTED_PROXIES` | `[]` | JSON list of proxy addresses or networks whose `X-Forwarded-For` is believed |
+| `LOGIN_MAX_FAILURES_PER_ACCOUNT` | `5` | Failed sign-ins allowed for one account from one address, per window |
+| `LOGIN_MAX_FAILURES_PER_ADDRESS` | `50` | Failed sign-ins allowed from one address across all accounts, per window |
+| `LOGIN_FAILURE_WINDOW_SECONDS` | `900` | |
 | `API_PREFIX` | `/api/v1` | |
 | `DEBUG` | `false` | |
 
@@ -112,11 +118,12 @@ docker run -d --name utdrs-mongo -p 27017:27017 mongo:7      # once
 MONGODB_URI=mongodb://localhost:27017 python -m pytest
 ```
 
-51 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
+62 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
 
 - `tests/e2e/test_flows.py`: registration and sign-in, events, alerts (filters, ordering, summary, status errors), assets, rules, role and password rules, response headers. Against a real MongoDB, with no mocks.
 - `tests/e2e/test_users.py`: role checks on rules and simulations, the team directory, account administration (create, role changes, deactivation, password resets), self-lockout protection, closed registration and the startup administrator.
 - `tests/e2e/test_detection_pipeline.py`: the event-to-alert pipeline against a fake engine (`httpx.MockTransport`), including an unreachable engine and the detection status.
+- `tests/e2e/test_hardening.py`: sign-in throttling per account and address and per address, a correct password clearing the count, identical answers for unknown and wrong passwords, client addresses behind trusted proxies, and unique asset names under concurrent scans.
 - `tests/e2e/test_scans.py`: device scans: a new device, an unchanged scan, a changed inventory that keeps an analyst's edits, and the internal token.
 - `tests/unit`: auth and alert routes with mocked repositories, and health. `tests/integration`: the ASGI app over HTTP (health, authentication required).
 
