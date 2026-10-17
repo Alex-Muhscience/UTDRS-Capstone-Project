@@ -91,7 +91,7 @@ int get_client_ip(SSL *ssl, char *buf, size_t len);
 /**
  * @brief Check client access based on rate limiting and blocking rules
  * @param ip Client IP address
- * @return 0 if access is allowed, -1 if rate limited, -2 if blocked
+ * @return 0 if access is allowed, -1 if rate limited (over the limit, or no free slot)
  */
 int check_client_access(const char *ip);
 

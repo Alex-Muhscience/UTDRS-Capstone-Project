@@ -26,10 +26,13 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
-    # Shared secret the API gateway sends in the X-Internal-Token header. When set,
-    # detection endpoints reject requests without it. The engine is an internal service
-    # and should not be reachable from the internet either way.
+    # Shared secret the API gateway sends in the X-Internal-Token header. Detection
+    # endpoints reject requests without it. The engine is an internal service and should
+    # not be reachable from the internet either way.
     INTERNAL_API_TOKEN: Optional[str] = None
+    # Without a token the detection endpoints refuse every request, unless this is set:
+    # for local development only, never where anything but you can reach the engine.
+    ALLOW_UNAUTHENTICATED: bool = False
 
     # YARA Rules
     YARA_RULES_PATH: str = "rules/yara"

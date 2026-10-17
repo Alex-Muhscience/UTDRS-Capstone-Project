@@ -1,0 +1,25 @@
+"""Indexes the gateway relies on, created at start-up (creating an existing one is a no-op)."""
+from pymongo.errors import OperationFailure
+
+from core.database.connection import get_database
+from core.services import login_throttle
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+async def ensure_indexes() -> None:
+    await login_throttle.ensure_indexes()
+
+    # One asset per name: device scans find and update the asset by its name, and two
+    # first scans arriving together must not create it twice.
+    try:
+        await get_database()["assets"].create_index("name", unique=True, name="name_unique")
+    except OperationFailure as e:
+        if e.code != 11000:  # duplicate key: existing data already has repeated names
+            raise
+        logger.warning(
+            "Assets with the same name exist, so names cannot be made unique. Rename or "
+            "merge them, then restart the gateway; until then, a device scan may create "
+            f"a duplicate asset. ({e.details.get('errmsg', e)})"
+        )

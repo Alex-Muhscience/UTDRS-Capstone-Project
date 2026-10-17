@@ -15,6 +15,8 @@ RUN_DB_TESTS = bool(os.environ.get("MONGODB_URI"))
 
 os.environ.setdefault("MONGODB_URI", "mongodb://localhost:27017")
 os.environ.setdefault("DB_NAME", f"utdrs_core_test_{uuid.uuid4().hex[:8]}")
+# Most tests call the API without the internal token; test_api checks it separately.
+os.environ.setdefault("ALLOW_UNAUTHENTICATED", "true")
 # Never call real threat-intelligence services from tests.
 os.environ["ENABLE_THREAT_INTEL"] = "false"
 for key in ("VIRUSTOTAL_API_KEY", "ABUSEIPDB_API_KEY", "OTX_API_KEY"):
