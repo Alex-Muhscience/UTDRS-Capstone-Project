@@ -67,6 +67,8 @@ sequenceDiagram
 
 The gateway's catalogue is the source of truth. After every change to a rule, and every minute as a safety net, the gateway compiles the enabled rules whose logic the engine can run and sends the whole set to `PUT /rules/managed/gateway`; the engine replaces its copies of the gateway's rules with it, leaving its built-in rules alone. Rules the engine cannot run yet stay in the catalogue, marked with the reason. An alert from one of these rules carries the gateway's rule id, and the dashboard links to the rule.
 
+Every alert is put in a case: an open one from the last day about the same user, device, source address, sender or file, or a new one. Analysts work cases (owner, deadline from priority, timeline, notes), and closing a case closes its open alerts.
+
 The engine's verdict priority, from the most specific evidence to the least, is signature, YARA, correlation, threat intelligence, ML, anomaly. One event produces at most one alert.
 
 ### A device scan, from the agent to an asset

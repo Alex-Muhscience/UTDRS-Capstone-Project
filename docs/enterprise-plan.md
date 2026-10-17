@@ -494,7 +494,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 |---|---|---|---|
 | GAP-API-01 | API is not tenant-aware and not versioned for public use; offset pagination only (`limit`/`skip`); no idempotency keys; error format is ad hoc | FR-API-01 | P0 |
 | GAP-API-02 | No webhooks | FR-API-03 | P1 |
-| GAP-API-03 | No cases: alerts are standalone; no grouping, SLA, evidence model or timeline | FR-CAS-01 to 03 | P0 |
+| GAP-API-03 | No cases: alerts are standalone; no grouping, SLA, evidence model or timeline **Done (#20): cases group alerts by strong entities, with owner, SLA deadline, timeline, notes, evidence, plain-language explanation; closing a case closes its alerts.** | FR-CAS-01 to 03 | P0 |
 | GAP-API-04 | No event search beyond simple filters and a regex on description (`event_repository.search_events`) | FR-CAS-05 | P1 |
 | GAP-API-05 | Simulations are records only: starting one in the engine is a stub that logs "Would start simulation" (`core/services/simulation_service.py`), and simulation events are stored without detection | Demo and testing value | P2 |
 | GAP-API-06 | Asset matching is by exact name with no unique index; two concurrent first scans of one device can create two assets (`asset_repository.record_scan`) **Done (#16): unique index on asset names; racing scans retry.** | Data quality | P1 |

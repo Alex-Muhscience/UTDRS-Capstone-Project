@@ -8,13 +8,14 @@
  */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
-import { PAGE_SIZE, POLL_INTERVAL_MS } from "@/lib/constants"
+import { PAGE_SIZE, POLL_INTERVAL_MS, type CaseStatus } from "@/lib/constants"
 
 import {
   api,
   unwrap,
   type Alert,
   type Asset,
+  type Case,
   type AssetCreate,
   type DetectionRule,
   type DetectionRuleCreate,
@@ -118,6 +119,56 @@ export function useResetPassword() {
   return useMutation({
     mutationFn: (userId: string) =>
       unwrap(api.POST("/api/v1/users/{user_id}/reset-password", { params: { path: { user_id: userId } } })),
+  })
+}
+
+// ---------------------------------------------------------------------------- Cases
+
+export function useCases({ status, page }: { status?: string; page: number }) {
+  return useQuery({
+    queryKey: ["cases", "list", { status, page }],
+    queryFn: async (): Promise<Page<Case>> => {
+      const query = status === "active" ? { open_only: true } : { status: status ? [status as CaseStatus] : undefined }
+      return toPage(await unwrap(api.GET("/api/v1/cases/", { params: { query: { ...query, ...pageQuery(page) } } })))
+    },
+    placeholderData: keepPreviousData,
+    refetchInterval: POLL_INTERVAL_MS,
+  })
+}
+
+export function useCase(caseId: string) {
+  return useQuery({
+    queryKey: ["cases", "detail", caseId],
+    queryFn: () => unwrap(api.GET("/api/v1/cases/{case_id}", { params: { path: { case_id: caseId } } })),
+    refetchInterval: POLL_INTERVAL_MS,
+  })
+}
+
+export function useCaseEvidence(caseId: string) {
+  return useQuery({
+    queryKey: ["cases", "evidence", caseId],
+    queryFn: () => unwrap(api.GET("/api/v1/cases/{case_id}/evidence", { params: { path: { case_id: caseId } } })),
+  })
+}
+
+export function useUpdateCase(caseId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { status?: CaseStatus; priority?: Case["priority"]; owner_id?: string | null; title?: string }) =>
+      unwrap(api.PATCH("/api/v1/cases/{case_id}", { params: { path: { case_id: caseId } }, body })),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(["cases", "detail", caseId], updated)
+      void queryClient.invalidateQueries({ queryKey: ["cases", "list"] })
+      void queryClient.invalidateQueries({ queryKey: ["alerts"] })
+    },
+  })
+}
+
+export function useAddCaseNote(caseId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (text: string) => unwrap(api.POST("/api/v1/cases/{case_id}/notes", { params: { path: { case_id: caseId } }, body: { text } })),
+    onSuccess: (updated) => queryClient.setQueryData(["cases", "detail", caseId], updated),
   })
 }
 
