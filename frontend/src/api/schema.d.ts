@@ -76,6 +76,9 @@ export interface paths {
         /**
          * Login
          * @description OAuth2 compatible token login, get an access token for future requests.
+         *
+         *     Repeated failures are throttled: 429 with Retry-After once an account has had too
+         *     many from one address, or one address too many across accounts.
          */
         post: operations["login_api_v1_auth_login_post"];
         delete?: never;
@@ -648,7 +651,7 @@ export interface paths {
         get: operations["get_asset_api_v1_assets__asset_id__get"];
         /**
          * Update Asset
-         * @description Update an existing asset.
+         * @description Update an existing asset. Asset names are unique: 409 if another asset has the name.
          */
         put: operations["update_asset_api_v1_assets__asset_id__put"];
         post?: never;

@@ -1,12 +1,13 @@
 from datetime import timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, field_validator
 
 from config import settings
 from core.database.repositories.user_repository import UserRepository
+from core.services import login_throttle
 from core.models.user import (
     User,
     UserCreate,
@@ -14,6 +15,7 @@ from core.models.user import (
     UserUpdate,
     validate_password_length,
 )
+from utils.client_address import client_address
 from utils.security import (
     create_access_token,
     get_current_active_user,
@@ -22,6 +24,10 @@ from utils.security import (
 )
 
 router = APIRouter()
+
+# Checked when the username does not exist, so that an unknown name takes as long to
+# reject as a wrong password and the response time does not reveal which names exist.
+_UNKNOWN_USER_HASH = get_password_hash("not-a-real-password")
 
 
 class Token(BaseModel):
@@ -48,24 +54,36 @@ async def auth_config() -> Any:
 
 
 @router.post("/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> Any:
-    """OAuth2 compatible token login, get an access token for future requests."""
+async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()) -> Any:
+    """
+    OAuth2 compatible token login, get an access token for future requests.
+
+    Repeated failures are throttled: 429 with Retry-After once an account has had too
+    many from one address, or one address too many across accounts.
+    """
+    address = client_address(request)
+    wait = await login_throttle.retry_after(form_data.username, address)
+    if wait:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                "Too many failed sign-in attempts; try again in "
+                f"{-(-wait // 60)} minute{'s' if wait > 60 else ''}"
+            ),
+            headers={"Retry-After": str(wait)},
+        )
+
     user_repo = UserRepository()
     user = await user_repo.find_by_username(form_data.username)
 
-    if not user:
+    if not verify_password(form_data.password, user["passwordHash"] if user else _UNKNOWN_USER_HASH) or not user:
+        await login_throttle.record_failure(form_data.username, address)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
-    if not verify_password(form_data.password, user["passwordHash"]):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    await login_throttle.record_success(form_data.username, address)
 
     if not user.get("active", True):
         raise HTTPException(

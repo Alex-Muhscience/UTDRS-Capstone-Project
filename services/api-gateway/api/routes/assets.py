@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from pymongo.errors import DuplicateKeyError
 
 from core.models.asset import Asset, AssetCreate, AssetUpdate
 from core.models.user import User
@@ -91,10 +92,16 @@ async def update_asset(
     current_user: User = Depends(get_current_active_user),
 ):
     """
-    Update an existing asset.
+    Update an existing asset. Asset names are unique: 409 if another asset has the name.
     """
     asset_service = AssetService()
-    updated_asset = await asset_service.update_asset(asset_id, asset_update)
+    try:
+        updated_asset = await asset_service.update_asset(asset_id, asset_update)
+    except DuplicateKeyError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Another asset is already named {asset_update.name}",
+        )
 
     if not updated_asset:
         raise HTTPException(

@@ -26,6 +26,17 @@ class Settings(BaseSettings):
     # e.g. CORS_ORIGINS='["https://dashboard.example.com"]'. Never "*" with credentials.
     CORS_ORIGINS: List[str] = ["http://localhost:3001", "http://localhost:5173"]
 
+    # Proxies in front of the gateway whose X-Forwarded-For header is believed, as a
+    # JSON list of addresses or networks, e.g. '["10.0.0.0/8"]'. Without them, a client's
+    # address is the connection's, and anyone could claim any address in the header.
+    TRUSTED_PROXIES: List[str] = []
+
+    # Sign-in throttling: failed attempts allowed in LOGIN_FAILURE_WINDOW_SECONDS, for one
+    # account from one address, and from one address across all accounts.
+    LOGIN_MAX_FAILURES_PER_ACCOUNT: int = 5
+    LOGIN_MAX_FAILURES_PER_ADDRESS: int = 50
+    LOGIN_FAILURE_WINDOW_SECONDS: int = 900
+
     # Accounts
     # When false, only administrators can create accounts (POST /users/).
     ALLOW_REGISTRATION: bool = True

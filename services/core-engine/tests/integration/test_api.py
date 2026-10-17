@@ -99,3 +99,13 @@ def test_internal_token_is_enforced_when_configured(client, monkeypatch):
     assert client.get("/detections/alerts", headers={"X-Internal-Token": "s3cret-token"}).status_code == 200
     # Health stays open for load balancers and the gateway's checks.
     assert client.get("/health").status_code == 200
+
+
+def test_without_a_token_the_engine_refuses_requests(client, monkeypatch):
+    from config import settings
+
+    monkeypatch.setattr(settings, "INTERNAL_API_TOKEN", None)
+    monkeypatch.setattr(settings, "ALLOW_UNAUTHENTICATED", False)
+    assert client.get("/detections/alerts").status_code == 503
+    assert client.post("/detections/process", json=RANSOMWARE_PRECURSOR).status_code == 503
+    assert client.get("/health").status_code == 200
