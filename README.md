@@ -138,8 +138,9 @@ Next:
 
 - [ ] Push new alerts to the dashboard as they happen, instead of polling every 15 seconds
 - [ ] Send rules edited in the dashboard to the engine (the gateway's rule catalogue and the engine's rules are separate today)
-- [ ] Rate-limit sign-in using the client address from the proxy, and API keys for agents and integrations
+- [ ] API keys for agents and integrations
 - [x] Trained, evaluated models for phishing emails and network flows in the core engine
+- [x] Throttle sign-in by account and address, using the client address behind trusted proxies
 - [ ] Trained models for the remaining indicator-based ML detectors (malware, user behaviour)
 - [ ] Public demo deployment
 

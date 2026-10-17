@@ -63,6 +63,10 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env (see .env.example)}
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
       CORS_ORIGINS: '["http://localhost:${DASHBOARD_PORT:-8080}"]'
+      # The dashboard's nginx forwards each browser's address in X-Forwarded-For; believe
+      # it from the private ranges Docker gives its networks, so sign-in throttling
+      # counts browsers, not the proxy.
+      TRUSTED_PROXIES: '["172.16.0.0/12", "192.168.0.0/16", "10.0.0.0/8"]'
     depends_on:
       mongodb:
         condition: service_healthy

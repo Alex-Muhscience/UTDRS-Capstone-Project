@@ -28,7 +28,7 @@ The engine stores every event it sees and every alert it raises in **its own dat
 | `GET /detections/alerts`, `GET /detections/alerts/{id}` | The engine's alerts, filterable by `severity` and `source` |
 | `GET`, `POST /rules/`, `GET`, `PUT`, `DELETE /rules/{id}` | Detection rules |
 
-When `INTERNAL_API_TOKEN` is set, every route except health requires the same value in the `X-Internal-Token` header (compared in constant time). Interactive docs are at `/docs`.
+Every route except health requires `INTERNAL_API_TOKEN` in the `X-Internal-Token` header (compared in constant time). Without a configured token, those routes answer 503, unless `ALLOW_UNAUTHENTICATED=true` is set for local development. Interactive docs are at `/docs`.
 
 A signature rule looks like this:
 
@@ -56,7 +56,8 @@ Settings come from the environment or a `.env` file in this directory (see [`.en
 |---|---|---|
 | `MONGODB_URI` | required | |
 | `DB_NAME` | `utdrs_engine` | The engine's own database. Never the gateway's. |
-| `INTERNAL_API_TOKEN` | unset | Shared secret with the gateway |
+| `INTERNAL_API_TOKEN` | unset | Shared secret with the gateway. Required: without it, detection routes refuse every request |
+| `ALLOW_UNAUTHENTICATED` | `false` | Accept requests without a token when none is configured. Local development only |
 | `ENABLE_YARA` | `true` | |
 | `ENABLE_CORRELATION` | `true` | |
 | `CORRELATION_WINDOW` | `60` | Minutes |
@@ -85,7 +86,7 @@ MONGODB_URI=mongodb://localhost:27017 python -m pytest
 26 tests:
 
 - `tests/unit/test_detection.py`: each detector, MITRE mapping and risk scoring, and every predefined rule against routine and malicious events.
-- `tests/integration/test_api.py`: the API against MongoDB. A ransomware precursor becomes a stored critical alert; a failed login matches its signature rule; benign events produce nothing; the predefined rules are loaded once; the internal token is enforced.
+- `tests/integration/test_api.py`: the API against MongoDB. A ransomware precursor becomes a stored critical alert; a failed login matches its signature rule; benign events produce nothing; the predefined rules are loaded once; the internal token is enforced, and required.
 
 ## Docker
 

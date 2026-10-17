@@ -73,7 +73,7 @@
           "authentication"
         ],
         "summary": "Login",
-        "description": "OAuth2 compatible token login, get an access token for future requests.",
+        "description": "OAuth2 compatible token login, get an access token for future requests.\n\nRepeated failures are throttled: 429 with Retry-After once an account has had too\nmany from one address, or one address too many across accounts.",
         "operationId": "login_api_v1_auth_login_post",
         "requestBody": {
           "content": {
@@ -2172,7 +2172,7 @@
           "assets"
         ],
         "summary": "Update Asset",
-        "description": "Update an existing asset.",
+        "description": "Update an existing asset. Asset names are unique: 409 if another asset has the name.",
         "operationId": "update_asset_api_v1_assets__asset_id__put",
         "security": [
           {
