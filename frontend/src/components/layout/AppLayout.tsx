@@ -1,10 +1,12 @@
 import {
   Activity,
   FlaskConical,
+  KeyRound,
   LayoutDashboard,
   ListChecks,
   LogOut,
   Menu,
+  ScrollText,
   Server,
   ShieldAlert,
   UserRound,
@@ -32,7 +34,11 @@ const NAVIGATION = [
   { to: "/simulations", label: "Simulations", icon: FlaskConical },
 ] as const
 
-const ADMIN_NAVIGATION = [{ to: "/users", label: "Users", icon: Users }] as const
+const ADMIN_NAVIGATION = [
+  { to: "/users", label: "Users", icon: Users },
+  { to: "/api-keys", label: "API keys", icon: KeyRound },
+  { to: "/audit-log", label: "Audit log", icon: ScrollText },
+] as const
 
 function OpenAlertCount() {
   const { data } = useAlertSummary()

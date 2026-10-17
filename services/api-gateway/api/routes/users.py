@@ -8,7 +8,7 @@ deactivate accounts or reset passwords.
 import secrets
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, status
 
 from core.database.repositories.user_repository import UserRepository
 from core.models.user import (
@@ -20,6 +20,7 @@ from core.models.user import (
     UserUpdate,
     UserWithPassword,
 )
+from core.services.audit import created
 from utils.security import get_current_active_user, require_admin
 
 router = APIRouter()
@@ -64,7 +65,7 @@ async def get_user(
 
 
 @router.post("/", response_model=UserWithPassword, status_code=status.HTTP_201_CREATED)
-async def create_user(new_user: AdminUserCreate, admin: User = Depends(require_admin)):
+async def create_user(new_user: AdminUserCreate, request: Request, admin: User = Depends(require_admin)):
     """
     Create an account (admins only). The response includes a temporary password,
     shown only this once, for the person to sign in with and then change.
@@ -79,6 +80,7 @@ async def create_user(new_user: AdminUserCreate, admin: User = Depends(require_a
     user_id = await user_repo.create_user(
         UserCreate(**new_user.model_dump(), active=True, password=password)
     )
+    created(request, "user", user_id, new_user.username)
     return UserWithPassword(
         user=User(**await find_user_or_404(user_repo, user_id)),
         temporary_password=password,

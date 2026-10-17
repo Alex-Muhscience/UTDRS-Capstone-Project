@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 
 import bcrypt
 import jwt
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import ValidationError
 
@@ -56,8 +56,44 @@ def create_access_token(
     return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
-    """Get current user from JWT token."""
+INTEGRATION = "integration"  # the role an API key acts with; never an administrator
+
+
+async def _api_key_user(request: Request, key: str) -> User:
+    from core.services import api_keys
+
+    doc = await api_keys.authenticate(key)
+    if doc is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid, revoked or expired API key",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    key_id = str(doc["_id"])
+    request.state.principal = {"type": "api_key", "id": key_id, "name": doc["name"], "scopes": doc["scopes"]}
+    # Built without validation: an API key is not a person and has no real email address.
+    return User.model_construct(
+        id=key_id,
+        username=f"api-key:{doc['name']}",
+        email=f"{doc['prefix']}@api-keys.localdomain",
+        firstName=doc["name"],
+        lastName=None,
+        role=INTEGRATION,
+        active=True,
+        lastLogin=doc.get("last_used_at"),
+        createdAt=doc["created_at"],
+        updatedAt=doc["created_at"],
+        preferences={},
+    )
+
+
+async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)) -> User:
+    """The person signed in with this session token, or the API key presented."""
+    from core.services.api_keys import PREFIX
+
+    if token.startswith(PREFIX):
+        return await _api_key_user(request, token)
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -91,7 +127,30 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    return User(**user)
+    current = User(**user)
+    request.state.principal = {"type": "user", "id": current.id, "name": current.username, "role": current.role}
+    return current
+
+
+def require_scope(area: str):
+    """
+    A router-wide check that an API key may use this area: `<area>:read` for GET and
+    HEAD, `<area>:write` for anything else. People are governed by their role instead.
+    It depends on authentication, so it can never run before the caller is known.
+    """
+
+    async def check(request: Request, current_user: User = Depends(get_current_user)) -> None:
+        principal = getattr(request.state, "principal", None) or {}
+        if principal.get("type") != "api_key":
+            return
+        needed = f"{area}:{'read' if request.method in ('GET', 'HEAD') else 'write'}"
+        if needed not in principal.get("scopes", []):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"This API key does not have the {needed} scope",
+            )
+
+    return check
 
 
 async def get_current_active_user(

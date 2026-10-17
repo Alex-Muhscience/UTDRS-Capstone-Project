@@ -479,8 +479,8 @@ What is missing or wrong in today's code against the requirements above. Each ga
 | GAP-SEC-01 | No MFA, no SSO, no SCIM (`api/routes/auth.py` is password + JWT only) | FR-TEN-05, FR-TEN-06 | P0 |
 | GAP-SEC-02 | Access tokens are 30-minute HS256 JWTs signed with one shared secret, no refresh tokens, no revocation list beyond deactivation; stored in `sessionStorage` (`frontend/src/auth/session.ts`) | FR-TEN-07 | P0 |
 | GAP-SEC-03 | Sign-in is not rate limited (SlowAPI configured, no limits set; see gateway README) **Done (#16): throttled per account and address, and per address.** | NFR-08 | P0 |
-| GAP-SEC-04 | No API keys or machine credentials; integrations must use a person's token | FR-API-02, FR-ING-05 | P0 |
-| GAP-SEC-05 | No audit log of changes or actions | FR-TEN-08, FR-RSP-04 | P0 |
+| GAP-SEC-04 | No API keys or machine credentials; integrations must use a person's token **Done (#18): API keys with read/write scopes per area, hashed, revocable, expiring; never administrators.** | FR-API-02, FR-ING-05 | P0 |
+| GAP-SEC-05 | No audit log of changes or actions **Done (#18): hash-chained audit log of sign-ins and every change through the gateway, searchable and verifiable by administrators.** | FR-TEN-08, FR-RSP-04 | P0 |
 | GAP-SEC-06 | Secrets come from environment variables and `.env` files; no vault, no rotation | NFR-07 | P1 |
 | GAP-SEC-07 | `ALLOWED_HOSTS` defaults to `["*"]` (`services/api-gateway/config.py`); the core engine accepts every request when `INTERNAL_API_TOKEN` is unset (`services/core-engine/api/security.py`) **Partly done (#16): the engine now refuses requests without a configured token; `ALLOWED_HOSTS` is still `*` by default.** | NFR-08 | P1 |
 | GAP-SEC-08 | No encryption at rest beyond what the MongoDB deployment provides; no field-level encryption for sensitive data (connector credentials will need it) | NFR-07 | P0 before connectors |
