@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query, Request, status
 
 from core.models.detection import (
     DetectionRule,
@@ -9,6 +9,7 @@ from core.models.detection import (
     DetectionStatus,
 )
 from core.models.user import User
+from core.services.audit import created
 from core.services.detection_service import DetectionService
 from core.services.rule_compiler import RuleSyntaxError, compile_logic
 from core.services.rule_sync import sync_rules
@@ -24,7 +25,7 @@ def _check_logic(logic: Optional[str]) -> None:
     try:
         compile_logic(logic)
     except RuleSyntaxError as e:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Rule logic: {e}")
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=f"Rule logic: {e}")
     except ValueError:
         pass
 
@@ -83,6 +84,7 @@ async def get_rules(
 )
 async def create_rule(
     rule: DetectionRuleCreate,
+    request: Request,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(require_admin),
 ):
@@ -100,6 +102,7 @@ async def create_rule(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create detection rule",
         )
+    created(request, "rule", rule_id, rule.name)
     background_tasks.add_task(sync_rules)
 
     return created_rule

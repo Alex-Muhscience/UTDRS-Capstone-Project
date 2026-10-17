@@ -60,7 +60,7 @@ async def replace_managed_rules(source: str, body: ManagedRules):
             source, [rule.model_dump() for rule in body.rules]
         )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 @router.get("/", response_model=List[DetectionRule])
