@@ -433,6 +433,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cases/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Cases
+         * @description Cases, most recently active first. The list leaves out each case's timeline.
+         */
+        get: operations["list_cases_api_v1_cases__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Case
+         * @description A case with its timeline, and an explanation of it in plain language.
+         */
+        get: operations["get_case_api_v1_cases__case_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Case
+         * @description Change a case's status, priority, owner or title; each change is added to its
+         *     timeline. Resolving, closing or marking it a false positive does the same to its
+         *     alerts that are still open.
+         */
+        patch: operations["update_case_api_v1_cases__case_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Note
+         * @description Add a note to a case's timeline.
+         */
+        post: operations["add_note_api_v1_cases__case_id__notes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Case Evidence
+         * @description The alerts and events behind a case, oldest first, and the entities involved.
+         */
+        get: operations["case_evidence_api_v1_cases__case_id__evidence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/events/": {
         parameters: {
             query?: never;
@@ -1520,6 +1606,8 @@ export interface components {
             event_ids: string[];
             /** Id */
             id: string;
+            /** Case Id */
+            case_id?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -1883,6 +1971,99 @@ export interface components {
              */
             client_secret?: string | null;
         };
+        /** Case */
+        Case: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "investigating" | "contained" | "resolved" | "false_positive" | "closed";
+            /**
+             * Priority
+             * @enum {string}
+             */
+            priority: "critical" | "high" | "medium" | "low" | "info";
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Alert Ids */
+            alert_ids: string[];
+            /** Entities */
+            entities: components["schemas"]["Entity"][];
+            /**
+             * Techniques
+             * @default []
+             */
+            techniques: string[];
+            /**
+             * First Seen
+             * Format: date-time
+             */
+            first_seen: string;
+            /**
+             * Last Seen
+             * Format: date-time
+             */
+            last_seen: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /**
+             * Breached
+             * @default false
+             */
+            breached: boolean;
+            /**
+             * Timeline
+             * @default []
+             */
+            timeline: components["schemas"]["TimelineEntry"][];
+            explanation?: components["schemas"]["Explanation"] | null;
+        };
+        /** CaseEvidence */
+        CaseEvidence: {
+            /** Alerts */
+            alerts: {
+                [key: string]: unknown;
+            }[];
+            /** Events */
+            events: {
+                [key: string]: unknown;
+            }[];
+            /** Entities */
+            entities: components["schemas"]["Entity"][];
+        };
+        /** CaseNote */
+        CaseNote: {
+            /** Text */
+            text: string;
+        };
+        /** CaseUpdate */
+        CaseUpdate: {
+            /** Title */
+            title?: string | null;
+            /** Status */
+            status?: ("open" | "investigating" | "contained" | "resolved" | "false_positive" | "closed") | null;
+            /** Priority */
+            priority?: ("critical" | "high" | "medium" | "low" | "info") | null;
+            /** Owner Id */
+            owner_id?: string | null;
+        };
         /** CoreEngineStatus */
         CoreEngineStatus: {
             /** Configured */
@@ -2045,6 +2226,13 @@ export interface components {
              */
             last_updated: string;
         };
+        /** Entity */
+        Entity: {
+            /** Type */
+            type: string;
+            /** Value */
+            value: string;
+        };
         /**
          * Event
          * @example {
@@ -2179,6 +2367,18 @@ export interface components {
             metadata?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /**
+         * Explanation
+         * @description The case in plain language, for whoever has to act on it.
+         */
+        Explanation: {
+            /** What Happened */
+            what_happened: string;
+            /** Why It Matters */
+            why_it_matters: string;
+            /** Next Steps */
+            next_steps: string[];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -2493,6 +2693,29 @@ export interface components {
         TenantUpdate: {
             /** Name */
             name: string;
+        };
+        /** TimelineEntry */
+        TimelineEntry: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Kind */
+            kind: string;
+            /** Actor */
+            actor?: {
+                [key: string]: unknown;
+            } | null;
+            /** Text */
+            text?: string | null;
+            /**
+             * Data
+             * @default {}
+             */
+            data: {
+                [key: string]: unknown;
+            };
         };
         /** Token */
         Token: {
@@ -3370,6 +3593,177 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Alert"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_cases_api_v1_cases__get: {
+        parameters: {
+            query?: {
+                /** @description One or more statuses */
+                status?: ("open" | "investigating" | "contained" | "resolved" | "false_positive" | "closed")[] | null;
+                priority?: ("critical" | "high" | "medium" | "low" | "info") | null;
+                /** @description A user id, or 'none' for unassigned cases */
+                owner_id?: string | null;
+                /** @description Only open, investigating and contained cases */
+                open_only?: boolean;
+                limit?: number;
+                skip?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Case"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_case_api_v1_cases__case_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Case"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_case_api_v1_cases__case_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Case"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_note_api_v1_cases__case_id__notes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseNote"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Case"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    case_evidence_api_v1_cases__case_id__evidence_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseEvidence"];
                 };
             };
             /** @description Validation Error */

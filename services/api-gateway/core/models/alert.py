@@ -73,6 +73,8 @@ class AlertInDB(AlertBase):
 
 class Alert(AlertBase):
     id: IdString = Field(validation_alias=AliasChoices("_id", "id"))
+    # The case the alert belongs to.
+    case_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     created_by: Optional[str] = None

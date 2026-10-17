@@ -8,6 +8,8 @@ import { AuditLogPage } from "@/pages/admin/AuditLogPage"
 import { AlertDetailPage } from "@/pages/alerts/AlertDetailPage"
 import { AlertsPage } from "@/pages/alerts/AlertsPage"
 import { AssetDetailPage } from "@/pages/assets/AssetDetailPage"
+import { CaseDetailPage } from "@/pages/cases/CaseDetailPage"
+import { CasesPage } from "@/pages/cases/CasesPage"
 import { AssetsPage } from "@/pages/assets/AssetsPage"
 import { LoginPage } from "@/pages/auth/LoginPage"
 import { RegisterPage } from "@/pages/auth/RegisterPage"
@@ -40,6 +42,8 @@ export const routes: RouteObject[] = [
             element: <AppLayout />,
             children: [
               { index: true, element: <OverviewPage /> },
+              { path: "cases", element: <CasesPage /> },
+              { path: "cases/:caseId", element: <CaseDetailPage /> },
               { path: "alerts", element: <AlertsPage /> },
               { path: "alerts/:alertId", element: <AlertDetailPage /> },
               { path: "events", element: <EventsPage /> },

@@ -47,6 +47,7 @@ All routes are under `/api/v1`. Interactive documentation is served at `/api/v1/
 | Alerts | `GET /alerts/` (`status` and `severity` filters combine), `GET /alerts/summary`, `POST /alerts/`, `GET`/`PUT /alerts/{id}`, `PATCH /alerts/{id}/status` (`status`, optional `notes`), `PATCH /alerts/{id}/assign`, `PATCH /alerts/{id}/events/{event_id}`, `POST`/`DELETE /alerts/{id}/tags/{tag}`, `GET /alerts/assigned/{user_id}`, `GET /alerts/search/` |
 | Events | `GET /events/` (filters: `event_type`, `asset_id`, `user_id`, `ip_address`), `POST /events/`, `GET`/`PUT /events/{id}`, `GET /events/recent/`, `GET /events/timerange/`, `PATCH /events/{id}/severity`, tags, `GET /events/search/` |
 | Assets | `GET /assets/` (filters: `asset_type`, `status`, `criticality`, `department`), `POST /assets/`, `GET`/`PUT /assets/{id}`, lookup by `name`, `ip` or `mac`, `PATCH /assets/{id}/vulnerabilities/add` and `/remove`, `PATCH /assets/{id}/lastseen`, tags, search |
+| Cases | `GET /cases/` (filters: `status`, one or more; `priority`; `owner_id`, or `none`; `open_only`), `GET /cases/{id}` (with its timeline and an explanation), `PATCH /cases/{id}` (`status`, `priority`, `owner_id`, `title`), `POST /cases/{id}/notes`, `GET /cases/{id}/evidence` |
 | Organisations | `GET /tenants/current`; admins only: `PATCH /tenants/current` (rename) |
 | API keys | Admins only: `GET /api-keys/`, `GET /api-keys/scopes`, `POST /api-keys/` (returns the key once), `DELETE /api-keys/{id}` (revoke) |
 | Audit log | Admins only: `GET /audit-log/` (filters: `action`, `actor_id`, `target_type`, `target_id`, `since`, `until`), `GET /audit-log/verify` |
@@ -94,6 +95,19 @@ Comparisons are `==`, `!=`, `>`, `>=`, `<`, `<=`, `in [...]`, `not in [...]`, `m
 - **Unique asset names**: the gateway creates a unique index on asset names at start-up, so a device's scans always update one asset; renaming an asset to a name in use answers 409. If existing data already has repeated names, the gateway logs a warning and starts without the index.
 - **The engine is internal**. Calls to it carry `INTERNAL_API_TOKEN` as `X-Internal-Token`; set the same value on both services and do not expose the engine to the internet.
 - **Scans come from UTDRS's own services**. `POST /scans/` accepts only that same `X-Internal-Token`, compared in constant time; a user's token gets 401, and without `INTERNAL_API_TOKEN` configured the route answers 503.
+
+## Cases
+
+Every alert belongs to a case, so related alerts are worked once (`core/services/case_service.py`).
+
+- **Grouping.** A new alert joins an open case (open, investigating or contained) active in the last 24 hours that shares one of its strong entities: the same user, device (host name or asset), source address, email sender or file hash, read from the alert's events. Otherwise it opens a case. Destination addresses do not group alerts, or everything talking to one busy server would end up in one case.
+- **Priority and deadline.** A case takes the highest severity among its alerts, and is due within that priority's time: critical 1 hour, high 4 hours, medium 1 day, low 3 days. `breached` is true for an open case past its deadline.
+- **Timeline.** Opening, every alert added, status, priority, owner and title changes, and notes, each with who and when.
+- **Closing.** Resolving, closing or marking a case a false positive does the same to its alerts that are still open (open or in progress).
+- **Explanation.** `GET /cases/{id}` explains the case in plain language: what happened (its alerts, who and what was involved, when), why it matters (its ATT&CK techniques in words, and how soon to act), and what to do next (steps for phishing, ransomware, password guessing and data theft, or general ones).
+- **Evidence.** `GET /cases/{id}/evidence` returns its alerts and the events behind them, oldest first.
+- Owners must be colleagues. API keys need the `cases` scopes. Changes are audited.
+- Open alerts from before cases are put into cases at start-up.
 
 ## Organisations
 
@@ -172,11 +186,12 @@ docker run -d --name utdrs-mongo -p 27017:27017 mongo:7      # once
 MONGODB_URI=mongodb://localhost:27017 python -m pytest
 ```
 
-111 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
+122 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
 
 - `tests/e2e/test_flows.py`: registration and sign-in, events, alerts (filters, ordering, summary, status errors), assets, rules, role and password rules, response headers. Against a real MongoDB, with no mocks.
 - `tests/e2e/test_users.py`: role checks on rules and simulations, the team directory, account administration (create, role changes, deactivation, password resets), self-lockout protection, closed registration and the startup administrator.
 - `tests/e2e/test_detection_pipeline.py`: the event-to-alert pipeline against a fake engine (`httpx.MockTransport`), including an unreachable engine and the detection status.
+- `tests/e2e/test_cases.py`: grouping by user, address and device and not by destination; old cases not reopened; priority and deadline; working a case (status, owner, notes, closing its alerts); owners must be colleagues; overdue cases; explanations; evidence; cases kept within an organisation; the `cases` scope; open alerts from before cases grouped at start-up.
 - `tests/e2e/test_tenancy.py`: two organisations: lists, search, counts, reads and changes of another organisation's users, events, alerts, assets, rules, simulations and API keys refused; names unique per organisation; API keys confined to their organisation; separate audit chains; rules and events sent to the engine per organisation; organisation registration; scoped collections failing closed.
 - `tests/e2e/test_api_keys_audit.py`: API keys shown once and stored as hashes; scopes allowing and refusing; keys never acting as administrators; revoked, expired and unknown keys refused; sign-ins and changes audited with who made them (people and keys) and refused attempts recorded; no secrets in the log; tampering found by the chain; concurrent entries forming one chain.
 - `tests/e2e/test_hardening.py`: sign-in throttling per account and address and per address, a correct password clearing the count, identical answers for unknown and wrong passwords, client addresses behind trusted proxies, and unique asset names under concurrent scans.

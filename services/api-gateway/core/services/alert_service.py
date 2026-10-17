@@ -7,6 +7,7 @@ from core.database.repositories.alert_repository import AlertRepository
 from core.database.repositories.asset_repository import AssetRepository
 from core.database.repositories.event_repository import EventRepository
 from core.models.alert import Alert, AlertCreate, AlertUpdate
+from core.services import case_service
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -55,6 +56,12 @@ class AlertService:
         try:
             alert_id = await self.alert_repo.create_alert(alert_data, user_id, metadata)
             logger.info(f"Created alert with ID: {alert_id}")
+            # Every alert is part of a case, new or existing; a failure here must not
+            # lose the alert itself.
+            try:
+                await case_service.attach_alert(alert_id)
+            except Exception as e:
+                logger.error(f"Could not put alert {alert_id} in a case: {e}")
             return alert_id
         except Exception as e:
             logger.error(f"Error creating alert: {str(e)}")
