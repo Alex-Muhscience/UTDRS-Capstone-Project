@@ -615,3 +615,22 @@ def test_routine_events_match_no_predefined_rule(event):
 )
 def test_malicious_events_match_their_rule(event, rule):
     assert rule in _matching_predefined_rules(event)
+
+
+@pytest.mark.parametrize(
+    "value, condition, expected",
+    [
+        ("powershell.exe", {"eq": "powershell.exe"}, True),
+        ("cmd.exe", {"ne": "powershell.exe"}, True),
+        ("ssh", {"in": ["ssh", "rdp"]}, True),
+        ("http", {"not_in": ["ssh", "rdp"]}, True),
+        ("powershell -EncodedCommand x", {"search": "(?i)-enc"}, True),
+        ("powershell -nop", {"search": "(?i)-enc"}, False),
+        ("anything", {"exists": True}, True),
+        (12, {"gt": 10, "lte": 12}, True),
+    ],
+)
+def test_signature_condition_operators(value, condition, expected):
+    from core.detection.signature_detector import SignatureDetector
+
+    assert SignatureDetector()._process_condition_matcher(value, condition) is expected

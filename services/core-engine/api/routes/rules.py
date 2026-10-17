@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Body
-from typing import List, Optional, Dict, Any
+from typing import List, Literal, Optional, Dict, Any
 from pydantic import BaseModel
 from core.rules.rule_loader import RuleManager
 
@@ -22,11 +22,52 @@ class DetectionRule(BaseModel):
     enabled: bool = True
     severity: str
     tags: List[str] = []
+    # "gateway" for rules managed through the gateway; absent for built-in rules.
+    source: Optional[str] = None
+    source_id: Optional[str] = None
+
+class ManagedRule(BaseModel):
+    source_id: str
+    name: str
+    description: str = ""
+    rule_type: Literal["signature"] = "signature"
+    detection: Dict[str, Any]
+    enabled: bool = True
+    severity: str
+    tags: List[str] = []
+    mitre_tactics: List[str] = []
+    mitre_techniques: List[str] = []
+
+
+class ManagedRules(BaseModel):
+    rules: List[ManagedRule]
+
+
+class ManagedRulesResult(BaseModel):
+    stored: int
+    removed: int
+
+
+@router.put("/managed/{source}", response_model=ManagedRulesResult)
+async def replace_managed_rules(source: str, body: ManagedRules):
+    '''
+    Replace every rule another service manages (the API gateway's rules, edited in the
+    dashboard) with this list. Rules are matched by source_id; those not listed are
+    removed. Built-in rules are left alone.
+    '''
+    try:
+        return await get_rule_manager().replace_managed_rules(
+            source, [rule.model_dump() for rule in body.rules]
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+
 
 @router.get("/", response_model=List[DetectionRule])
 async def get_rules(
     rule_type: Optional[str] = None, 
     enabled: Optional[bool] = None,
+    source: Optional[str] = None,
     limit: int = 100, 
     skip: int = 0
 ):
@@ -37,6 +78,10 @@ async def get_rules(
         filters["rule_type"] = rule_type
     if enabled is not None:
         filters["enabled"] = enabled
+    if source == "builtin":
+        filters["source"] = {"$exists": False}
+    elif source:
+        filters["source"] = source
         
     rules = await rule_manager.get_rules(filters, limit, skip)
     return rules

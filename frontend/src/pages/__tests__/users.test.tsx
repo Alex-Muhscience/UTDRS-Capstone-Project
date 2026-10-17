@@ -28,7 +28,8 @@ describe("what analysts can do", () => {
           severity: "high",
           status: "enabled",
           tags: [],
-          logic: "x",
+          logic: "x == 1",
+          engine: { runs: true, reason: null },
           created_at: user.createdAt,
           updated_at: user.createdAt,
           performance_metrics: {},
@@ -40,6 +41,8 @@ describe("what analysts can do", () => {
     expect(await screen.findByText("vpn-brute-force")).toBeInTheDocument()
     expect(screen.queryByRole("combobox", { name: /Status of/ })).not.toBeInTheDocument()
     expect(within(screen.getByRole("table", { name: "Detection rules" })).getByText("Enabled")).toBeInTheDocument()
+    expect(within(screen.getByRole("table", { name: "Detection rules" })).getByText("Runs")).toBeInTheDocument()
+    expect(await screen.findByText(/Rules were last sent/)).toBeInTheDocument()
   })
 
   it("treats the users page as not found", async () => {

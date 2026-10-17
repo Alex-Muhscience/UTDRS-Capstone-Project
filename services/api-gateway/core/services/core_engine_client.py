@@ -1,5 +1,5 @@
 """HTTP client for the UTDRS core detection engine."""
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -45,6 +45,21 @@ class CoreEngineClient:
         except (httpx.HTTPError, ValueError) as exc:
             raise CoreEngineError(str(exc)) from exc
 
+
+    async def replace_managed_rules(self, rules: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Make the engine's gateway-managed rules exactly these."""
+        try:
+            async with httpx.AsyncClient(
+                base_url=self.base_url,
+                headers=self.headers,
+                timeout=self.timeout,
+                transport=self.transport,
+            ) as client:
+                response = await client.put("/rules/managed/gateway", json={"rules": rules})
+                response.raise_for_status()
+                return response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            raise CoreEngineError(str(exc)) from exc
 
     async def is_healthy(self) -> bool:
         """Whether the engine answers its health check."""

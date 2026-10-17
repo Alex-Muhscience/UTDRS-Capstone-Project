@@ -26,7 +26,8 @@ The engine stores every event it sees and every alert it raises in **its own dat
 | `GET /health`, `GET /health/db` | Open, for load balancers and the gateway's status check |
 | `POST /detections/process` | Analyse an event: `{ "source", "event_type", "timestamp", "data": { ... } }`. Returns the alert, or `null`. Detector fields go in `data`, e.g. `process_name`, `command_line`, `src_ip`, `dst_ip`, `domain`, `status`, `filepath`. |
 | `GET /detections/alerts`, `GET /detections/alerts/{id}` | The engine's alerts, filterable by `severity` and `source` |
-| `GET`, `POST /rules/`, `GET`, `PUT`, `DELETE /rules/{id}` | Detection rules |
+| `GET`, `POST /rules/`, `GET`, `PUT`, `DELETE /rules/{id}` | Detection rules. `GET /rules/?source=builtin` lists the built-in rules, `?source=gateway` the gateway's |
+| `PUT /rules/managed/{source}` | Replace the rules another service manages with the list sent (`{"rules": [...]}`, each with a `source_id`): store or update each, remove that source's rules not listed. Built-in rules are untouched, and an invalid rule changes nothing (422). The gateway uses this to send the rules edited in the dashboard |
 
 Every route except health requires `INTERNAL_API_TOKEN` in the `X-Internal-Token` header (compared in constant time). Without a configured token, those routes answer 503, unless `ALLOW_UNAUTHENTICATED=true` is set for local development. Interactive docs are at `/docs`.
 
@@ -47,6 +48,8 @@ A signature rule looks like this:
   "mitre_techniques": ["T1071.004"]
 }
 ```
+
+A condition is a value (equal), a list (one of), `"regex:<pattern>"` (matching from the start), or an object of operators that must all hold: `eq`, `ne`, `in`, `not_in`, `search` (a regex anywhere in the value), `contains`, `starts_with`, `ends_with`, `gt`, `gte`, `lt`, `lte`, `length`, `exists`. A field that is missing never matches. When a signature rule matches, the alert's `details.detection` names it, with `rule_source` (`builtin` or `gateway`) and, for the gateway's rules, `rule_source_id`.
 
 ## Configuration
 
@@ -86,7 +89,7 @@ MONGODB_URI=mongodb://localhost:27017 python -m pytest
 26 tests:
 
 - `tests/unit/test_detection.py`: each detector, MITRE mapping and risk scoring, and every predefined rule against routine and malicious events.
-- `tests/integration/test_api.py`: the API against MongoDB. A ransomware precursor becomes a stored critical alert; a failed login matches its signature rule; benign events produce nothing; the predefined rules are loaded once; the internal token is enforced, and required.
+- `tests/integration/test_api.py`: the API against MongoDB. A ransomware precursor becomes a stored critical alert; a failed login matches its signature rule; benign events produce nothing; the predefined rules are loaded once; managed rules are replaced as a set, detect, stop when disabled, and leave built-in rules alone, and an invalid set changes nothing; the internal token is enforced, and required.
 
 ## Docker
 

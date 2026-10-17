@@ -2,7 +2,9 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, computed_field
+
+from core.services.rule_compiler import engine_status
 
 from utils.time import utcnow
 from core.models.common import IdString, PyObjectId
@@ -74,8 +76,22 @@ class DetectionRuleInDB(DetectionRuleBase):
     )
 
 
+class RuleEngineStatus(BaseModel):
+    # Whether the core engine can run this rule's logic. It does so while the rule is enabled.
+    runs: bool
+    # Why not, when it cannot.
+    reason: Optional[str] = None
+
+
 class DetectionRule(DetectionRuleBase):
     id: IdString = Field(validation_alias=AliasChoices("_id", "id"))
+
+    @computed_field
+    @property
+    def engine(self) -> RuleEngineStatus:
+        runs, reason = engine_status(self.logic)
+        return RuleEngineStatus(runs=runs, reason=reason)
+
     created_at: datetime
     updated_at: datetime
     created_by: Optional[str] = None
@@ -117,6 +133,15 @@ class CoreEngineStatus(BaseModel):
     reachable: bool
 
 
+class RuleSyncStatus(BaseModel):
+    attempted_at: datetime
+    ok: bool
+    error: Optional[str] = None
+    # The enabled rules the engine can run, as sent in the last attempt.
+    rules_sent: int
+    succeeded_at: Optional[datetime] = None
+
+
 class DetectionStatus(BaseModel):
     # standalone: no core engine configured; active: engine reachable; degraded: configured but unreachable
     status: str
@@ -125,4 +150,6 @@ class DetectionStatus(BaseModel):
     disabled_rules: int
     testing_rules: int
     core_engine: CoreEngineStatus
+    # The last time the rules were sent to the core engine; null without an engine.
+    rule_sync: Optional[RuleSyncStatus] = None
     last_updated: datetime

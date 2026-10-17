@@ -109,3 +109,63 @@ def test_without_a_token_the_engine_refuses_requests(client, monkeypatch):
     assert client.get("/detections/alerts").status_code == 503
     assert client.post("/detections/process", json=RANSOMWARE_PRECURSOR).status_code == 503
     assert client.get("/health").status_code == 200
+
+
+def managed_rule(source_id, **overrides):
+    return {
+        "source_id": source_id,
+        "name": f"Sync test ({source_id})",
+        "description": "A test process with a marker argument",
+        "detection": {
+            "condition_type": "AND",
+            "conditions": {
+                # A process no built-in rule knows, so only this rule can match.
+                "data.process_name": {"eq": "utdrs-sync-test.exe"},
+                "data.command_line": {"search": "(?i)--sync-marker"},
+            },
+        },
+        "severity": "high",
+        "tags": ["T1059.001"],
+        **overrides,
+    }
+
+
+MARKED_PROCESS = {
+    "source": "endpoint_agent",
+    "event_type": "process",
+    "timestamp": datetime.now(timezone.utc).isoformat(),
+    "data": {"process_name": "utdrs-sync-test.exe", "command_line": "utdrs-sync-test --SYNC-MARKER"},
+}
+
+
+def test_managed_rules_are_replaced_as_a_set_and_detect(client):
+    response = client.put("/rules/managed/gateway", json={"rules": [managed_rule("r1"), managed_rule("r2")]})
+    assert response.json() == {"stored": 2, "removed": 0}
+
+    alert = client.post("/detections/process", json=MARKED_PROCESS).json()
+    assert alert is not None
+    assert alert["details"]["detection"]["rule_source"] == "gateway"
+    assert alert["details"]["detection"]["rule_source_id"] in {"r1", "r2"}
+
+    # r1 is edited, r2 is gone.
+    response = client.put("/rules/managed/gateway", json={"rules": [managed_rule("r1", severity="critical")]})
+    assert response.json() == {"stored": 1, "removed": 1}
+    managed = client.get("/rules/", params={"source": "gateway"}).json()
+    assert [(r["source_id"], r["severity"]) for r in managed] == [("r1", "critical")]
+
+    # Built-in rules are not touched, and a disabled managed rule stops detecting.
+    assert len(client.get("/rules/", params={"source": "builtin"}).json()) > 0
+    client.put("/rules/managed/gateway", json={"rules": [managed_rule("r1", enabled=False)]})
+    assert client.post("/detections/process", json=MARKED_PROCESS).json() is None
+
+    client.put("/rules/managed/gateway", json={"rules": []})
+    assert client.get("/rules/", params={"source": "gateway"}).json() == []
+
+
+def test_an_invalid_managed_rule_changes_nothing(client):
+    client.put("/rules/managed/gateway", json={"rules": [managed_rule("keep")]})
+    bad = managed_rule("bad", detection={"condition_type": "AND"})  # no conditions
+    response = client.put("/rules/managed/gateway", json={"rules": [managed_rule("new"), bad]})
+    assert response.status_code == 422
+    assert [r["source_id"] for r in client.get("/rules/", params={"source": "gateway"}).json()] == ["keep"]
+    client.put("/rules/managed/gateway", json={"rules": []})
