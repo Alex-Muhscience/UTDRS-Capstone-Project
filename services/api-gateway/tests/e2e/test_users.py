@@ -138,7 +138,7 @@ def test_registration_can_be_closed(client, monkeypatch):
     from config import settings
 
     monkeypatch.setattr(settings, "ALLOW_REGISTRATION", False)
-    assert client.get("/api/v1/auth/config").json() == {"allow_registration": False}
+    assert client.get("/api/v1/auth/config").json() == {"allow_registration": False, "registration_mode": "join"}
     response = client.post(
         "/api/v1/auth/register",
         json={"username": "closed_reg", "email": "closed@example.com", "password": uuid.uuid4().hex},

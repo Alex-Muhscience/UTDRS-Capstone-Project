@@ -634,3 +634,26 @@ def test_signature_condition_operators(value, condition, expected):
     from core.detection.signature_detector import SignatureDetector
 
     assert SignatureDetector()._process_condition_matcher(value, condition) is expected
+
+
+def test_a_tenant_scoped_collection_shows_and_stamps_only_its_tenant():
+    import asyncio
+
+    from core.tenancy import ScopedCollection, TenantScopeError
+
+    class Recorder:
+        name = "events"
+
+        def find(self, filter=None, *args, **kwargs):
+            return filter
+
+        async def insert_one(self, document, *args, **kwargs):
+            return document
+
+    events = ScopedCollection(Recorder(), "clinic")
+    assert events.find({"event_type": "dns"}) == {"event_type": "dns", "tenant_id": "clinic"}
+    assert asyncio.run(events.insert_one({"x": 1})) == {"x": 1, "tenant_id": "clinic"}
+    with pytest.raises(TenantScopeError):
+        events.find({"tenant_id": "school"})
+    with pytest.raises(TenantScopeError):
+        asyncio.run(events.insert_one({"tenant_id": "school"}))

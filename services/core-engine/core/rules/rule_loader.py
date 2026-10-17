@@ -11,6 +11,11 @@ class RuleManager:
     def __init__(self):
         self.rule_repository = RuleRepository()
 
+    async def remove_untenanted_managed_rules(self) -> int:
+        """Managed rules from before tenancy belong to no organisation; the gateway sends them again."""
+        result = await self.rule_repository.collection.delete_many({"source": {"$exists": True}, "tenant_id": {"$exists": False}})
+        return result.deleted_count
+
     async def load_predefined_rules(self) -> int:
         """
         Store each predefined rule that is not stored yet, matched by name, so rules
@@ -62,12 +67,13 @@ class RuleManager:
     async def delete_rule(self, rule_id):
         return await self.rule_repository.delete_one(rule_id)
 
-    async def replace_managed_rules(self, source: str, rules: List[Dict[str, Any]]) -> Dict[str, int]:
+    async def replace_managed_rules(self, source: str, rules: List[Dict[str, Any]], tenant_id: str) -> Dict[str, int]:
         """
-        Make the rules managed by `source` (the API gateway) exactly `rules`: store or
-        update each one, matched by its source_id, and remove that source's rules that
-        are no longer listed. Built-in rules are not touched. Every rule is validated
-        before anything is written, so a bad rule changes nothing.
+        Make the rules `source` (the API gateway) manages for one organisation exactly
+        `rules`: store or update each one, matched by its source_id, and remove that
+        organisation's rules from that source that are no longer listed. Built-in rules
+        and other organisations' rules are not touched. Every rule is validated before
+        anything is written, so a bad rule changes nothing.
         """
         for rule in rules:
             self._validate_rule(rule)
@@ -76,12 +82,12 @@ class RuleManager:
         collection = self.rule_repository.collection
         for rule in rules:
             await collection.update_one(
-                {"source": source, "source_id": rule["source_id"]},
-                {"$set": {**rule, "source": source, "updated_at": now}, "$setOnInsert": {"created_at": now}},
+                {"source": source, "tenant_id": tenant_id, "source_id": rule["source_id"]},
+                {"$set": {**rule, "source": source, "tenant_id": tenant_id, "updated_at": now}, "$setOnInsert": {"created_at": now}},
                 upsert=True,
             )
         keep = [rule["source_id"] for rule in rules]
-        removed = await collection.delete_many({"source": source, "source_id": {"$nin": keep}})
+        removed = await collection.delete_many({"source": source, "tenant_id": tenant_id, "source_id": {"$nin": keep}})
         return {"stored": len(rules), "removed": removed.deleted_count}
         
     def _validate_rule(self, rule_data):

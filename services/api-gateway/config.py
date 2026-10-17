@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -36,6 +36,16 @@ class Settings(BaseSettings):
     LOGIN_MAX_FAILURES_PER_ACCOUNT: int = 5
     LOGIN_MAX_FAILURES_PER_ADDRESS: int = 50
     LOGIN_FAILURE_WINDOW_SECONDS: int = 900
+
+    # Tenancy: each organisation's data is kept apart (core/tenancy.py).
+    # The tenant a single-organisation deployment uses, created at start-up.
+    DEFAULT_TENANT_SLUG: str = "default"
+    DEFAULT_TENANT_NAME: str = "Default organisation"
+    # Self-registration (ALLOW_REGISTRATION): "join" adds an analyst to the default
+    # tenant; "organisation" creates a new tenant with the person as its administrator.
+    REGISTRATION_MODE: Literal["join", "organisation"] = "join"
+    # The tenant device scans are recorded in, by slug (unset: the default tenant).
+    SCANS_TENANT: Optional[str] = None
 
     # Accounts
     # When false, only administrators can create accounts (POST /users/).

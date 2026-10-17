@@ -98,7 +98,9 @@ export interface paths {
         put?: never;
         /**
          * Register
-         * @description Register a new user, as an analyst. Closed when ALLOW_REGISTRATION is false.
+         * @description Register. Closed when ALLOW_REGISTRATION is false. With REGISTRATION_MODE "join", the
+         *     person becomes an analyst in the default organisation; with "organisation", a new
+         *     organisation named `organisation` is created and the person is its administrator.
          */
         post: operations["register_api_v1_auth_register_post"];
         delete?: never;
@@ -334,7 +336,7 @@ export interface paths {
          * Assign Alert
          * @description Assign an alert to a user.
          *
-         *     - **assigned_to**: User ID to assign the alert to
+         *     - **assigned_to**: User ID to assign the alert to, someone in your organisation
          */
         patch: operations["assign_alert_api_v1_alerts__alert_id__assign_patch"];
         trace?: never;
@@ -850,7 +852,8 @@ export interface paths {
          *
          *     The scan creates or updates the asset named after the device. The first scan of a
          *     device, or one whose inventory has changed, also raises an event, which is analysed
-         *     like any other.
+         *     like any other. Scans are recorded in the SCANS_TENANT organisation (by default, the
+         *     default one): the scanner does not yet tie devices to organisations.
          */
         post: operations["record_scan_api_v1_scans__post"];
         delete?: never;
@@ -1384,6 +1387,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenants/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Current Tenant
+         * @description The organisation you belong to.
+         */
+        get: operations["get_current_tenant_api_v1_tenants_current_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename Current Tenant
+         * @description Rename your organisation (administrators only).
+         */
+        patch: operations["rename_current_tenant_api_v1_tenants_current_patch"];
+        trace?: never;
+    };
     "/": {
         parameters: {
             query?: never;
@@ -1829,6 +1856,8 @@ export interface components {
         AuthConfig: {
             /** Allow Registration */
             allow_registration: boolean;
+            /** Registration Mode */
+            registration_mode: string;
         };
         /** Body_login_api_v1_auth_login_post */
         Body_login_api_v1_auth_login_post: {
@@ -2163,6 +2192,34 @@ export interface components {
             /** New Password */
             new_password: string;
         };
+        /** Registration */
+        Registration: {
+            /** Username */
+            username: string;
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Firstname */
+            firstName?: string | null;
+            /** Lastname */
+            lastName?: string | null;
+            /**
+             * Role
+             * @default analyst
+             */
+            role: string;
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+            /** Password */
+            password: string;
+            /** Organisation */
+            organisation?: string | null;
+        };
         /** RuleEngineStatus */
         RuleEngineStatus: {
             /** Runs */
@@ -2408,6 +2465,35 @@ export interface components {
             /** Notes */
             notes?: string | null;
         };
+        /**
+         * Tenant
+         * @description An organisation: the people, data and settings kept apart from every other.
+         */
+        Tenant: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Status */
+            status: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** TenantUpdate */
+        TenantUpdate: {
+            /** Name */
+            name: string;
+        };
         /** Token */
         Token: {
             /** Access Token */
@@ -2459,6 +2545,8 @@ export interface components {
             active: boolean;
             /** Id */
             id: string;
+            /** Tenant Id */
+            tenant_id?: string | null;
             /** Lastlogin */
             lastLogin?: string | null;
             /**
@@ -2488,32 +2576,6 @@ export interface components {
             role?: ("admin" | "analyst") | null;
             /** Active */
             active?: boolean | null;
-        };
-        /** UserCreate */
-        UserCreate: {
-            /** Username */
-            username: string;
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-            /** Firstname */
-            firstName?: string | null;
-            /** Lastname */
-            lastName?: string | null;
-            /**
-             * Role
-             * @default analyst
-             */
-            role: string;
-            /**
-             * Active
-             * @default true
-             */
-            active: boolean;
-            /** Password */
-            password: string;
         };
         /**
          * UserSelfUpdate
@@ -2664,7 +2726,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UserCreate"];
+                "application/json": components["schemas"]["Registration"];
             };
         };
         responses: {
@@ -5017,6 +5079,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditVerification"];
+                };
+            };
+        };
+    };
+    get_current_tenant_api_v1_tenants_current_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Tenant"];
+                };
+            };
+        };
+    };
+    rename_current_tenant_api_v1_tenants_current_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Tenant"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

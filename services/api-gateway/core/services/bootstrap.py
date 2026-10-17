@@ -4,6 +4,8 @@ from pydantic import ValidationError
 from config import settings
 from core.database.repositories.user_repository import UserRepository
 from core.models.user import ADMIN, UserCreate, UserUpdate
+from core.services import tenants
+from core.tenancy import tenant_context
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -23,7 +25,8 @@ async def ensure_admin() -> None:
     existing = await users.find_by_username(username)
     if existing:
         if existing.get("role") != ADMIN or not existing.get("active", True):
-            await users.update_user(str(existing["_id"]), UserUpdate(role=ADMIN, active=True))
+            with tenant_context(existing["tenant_id"]):
+                await users.update_user(str(existing["_id"]), UserUpdate(role=ADMIN, active=True))
             logger.info(f"Made {username} an active administrator")
         return
 
@@ -42,5 +45,7 @@ async def ensure_admin() -> None:
     except ValidationError as exc:
         problems = "; ".join(error["msg"].removeprefix("Value error, ") for error in exc.errors())
         raise RuntimeError(f"Cannot create the administrator from ADMIN_* settings: {problems}") from None
-    await users.create_user(admin)
+    # The first administrator administers the default tenant.
+    with tenant_context(await tenants.default_id()):
+        await users.create_user(admin)
     logger.info(f"Created the administrator {username}")

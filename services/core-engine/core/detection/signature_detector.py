@@ -20,9 +20,13 @@ class SignatureDetector:
             Detection result dict if a rule matches, None otherwise
         """
         # Get all enabled signature rules
+        # Built-in rules, and the rules of the event's own organisation.
+        from core.tenancy import current_tenant
+
         rules = await self.rule_manager.get_rules({
-            "rule_type": "signature", 
-            "enabled": True
+            "rule_type": "signature",
+            "enabled": True,
+            "$or": [{"source": {"$exists": False}}, {"tenant_id": current_tenant()}],
         }, limit=0)  # every enabled rule, however many there are
         
         logger.debug(f"Loaded {len(rules)} signature rules for detection")

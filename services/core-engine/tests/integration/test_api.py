@@ -139,7 +139,7 @@ MARKED_PROCESS = {
 
 
 def test_managed_rules_are_replaced_as_a_set_and_detect(client):
-    response = client.put("/rules/managed/gateway", json={"rules": [managed_rule("r1"), managed_rule("r2")]})
+    response = client.put("/rules/managed/gateway", params={"tenant_id": "default"}, json={"rules": [managed_rule("r1"), managed_rule("r2")]})
     assert response.json() == {"stored": 2, "removed": 0}
 
     alert = client.post("/detections/process", json=MARKED_PROCESS).json()
@@ -148,24 +148,70 @@ def test_managed_rules_are_replaced_as_a_set_and_detect(client):
     assert alert["details"]["detection"]["rule_source_id"] in {"r1", "r2"}
 
     # r1 is edited, r2 is gone.
-    response = client.put("/rules/managed/gateway", json={"rules": [managed_rule("r1", severity="critical")]})
+    response = client.put("/rules/managed/gateway", params={"tenant_id": "default"}, json={"rules": [managed_rule("r1", severity="critical")]})
     assert response.json() == {"stored": 1, "removed": 1}
     managed = client.get("/rules/", params={"source": "gateway"}).json()
     assert [(r["source_id"], r["severity"]) for r in managed] == [("r1", "critical")]
 
     # Built-in rules are not touched, and a disabled managed rule stops detecting.
     assert len(client.get("/rules/", params={"source": "builtin"}).json()) > 0
-    client.put("/rules/managed/gateway", json={"rules": [managed_rule("r1", enabled=False)]})
+    client.put("/rules/managed/gateway", params={"tenant_id": "default"}, json={"rules": [managed_rule("r1", enabled=False)]})
     assert client.post("/detections/process", json=MARKED_PROCESS).json() is None
 
-    client.put("/rules/managed/gateway", json={"rules": []})
+    client.put("/rules/managed/gateway", params={"tenant_id": "default"}, json={"rules": []})
     assert client.get("/rules/", params={"source": "gateway"}).json() == []
 
 
 def test_an_invalid_managed_rule_changes_nothing(client):
-    client.put("/rules/managed/gateway", json={"rules": [managed_rule("keep")]})
+    client.put("/rules/managed/gateway", params={"tenant_id": "default"}, json={"rules": [managed_rule("keep")]})
     bad = managed_rule("bad", detection={"condition_type": "AND"})  # no conditions
-    response = client.put("/rules/managed/gateway", json={"rules": [managed_rule("new"), bad]})
+    response = client.put("/rules/managed/gateway", params={"tenant_id": "default"}, json={"rules": [managed_rule("new"), bad]})
     assert response.status_code == 422
     assert [r["source_id"] for r in client.get("/rules/", params={"source": "gateway"}).json()] == ["keep"]
-    client.put("/rules/managed/gateway", json={"rules": []})
+    client.put("/rules/managed/gateway", params={"tenant_id": "default"}, json={"rules": []})
+
+
+def test_an_organisations_rules_detect_only_its_events(client):
+    client.put("/rules/managed/gateway", params={"tenant_id": "clinic"}, json={"rules": [managed_rule("c1")]})
+    try:
+        own = client.post("/detections/process", json={**MARKED_PROCESS, "tenant_id": "clinic"}).json()
+        assert own is not None and own["details"]["detection"]["rule_source_id"] == "c1"
+        # The same event in another organisation: the clinic's rule does not apply.
+        assert client.post("/detections/process", json={**MARKED_PROCESS, "tenant_id": "school"}).json() is None
+        # Replacing one organisation's rules leaves the other's alone.
+        client.put("/rules/managed/gateway", params={"tenant_id": "school"}, json={"rules": []})
+        assert [r["source_id"] for r in client.get("/rules/", params={"source": "gateway"}).json()] == ["c1"]
+    finally:
+        client.put("/rules/managed/gateway", params={"tenant_id": "clinic"}, json={"rules": []})
+
+
+def test_managed_rules_need_an_organisation(client):
+    assert client.put("/rules/managed/gateway", json={"rules": []}).status_code == 422
+
+
+def test_each_organisations_history_and_alerts_are_its_own(client):
+    import asyncio
+
+    from core.database.connection import get_database
+    from core.tenancy import tenant_context
+
+    import uuid
+
+    clinic, school = f"clinic-{uuid.uuid4().hex[:6]}", f"school-{uuid.uuid4().hex[:6]}"
+    # Alerts raised for one organisation are stored as its own.
+    client.post("/detections/process", json={**RANSOMWARE_PRECURSOR, "tenant_id": clinic})
+
+    async def look():
+        with tenant_context(clinic):
+            clinic_alerts = await get_database().alerts.count_documents({})
+            clinic_events = await get_database().events.count_documents({})
+        with tenant_context(school):
+            school_alerts = await get_database().alerts.count_documents({})
+            school_events = await get_database()["events"].count_documents({})
+        everything = await get_database().alerts.count_documents({})
+        return clinic_alerts, clinic_events, school_alerts, school_events, everything
+
+    clinic_alerts, clinic_events, school_alerts, school_events, everything = client.portal.call(look)
+    assert clinic_alerts >= 1 and clinic_events >= 1
+    assert school_alerts == 0 and school_events == 0
+    assert everything >= clinic_alerts  # outside an event, the whole database is visible

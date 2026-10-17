@@ -66,6 +66,20 @@ export function useAuthConfig() {
   })
 }
 
+// ---------------------------------------------------------------------------- Organisation
+
+export function useCurrentTenant() {
+  return useQuery({ queryKey: ["tenant"], queryFn: () => unwrap(api.GET("/api/v1/tenants/current")), staleTime: 5 * 60_000 })
+}
+
+export function useRenameTenant() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) => unwrap(api.PATCH("/api/v1/tenants/current", { body: { name } })),
+    onSuccess: (tenant) => queryClient.setQueryData(["tenant"], tenant),
+  })
+}
+
 // ---------------------------------------------------------------------------- Users
 
 /** Everyone with an account: for names, assignment and administration. */
