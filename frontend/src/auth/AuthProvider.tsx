@@ -58,11 +58,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const register = useCallback(
-    async ({ username, email, password, firstName, lastName }: Registration) => {
+    async ({ username, email, password, firstName, lastName, organisation }: Registration) => {
       await unwrap(
         api.POST("/api/v1/auth/register", {
-          // The gateway always registers new users as active analysts, whatever is sent.
+          // The gateway decides the role (an analyst, or a new organisation's administrator), whatever is sent.
           body: {
+            organisation: organisation || null,
             username,
             email,
             password,

@@ -12,6 +12,7 @@ from core.models.alert import AlertCreate
 from core.models.event import EventCreate
 from core.services import core_engine_client
 from core.services.alert_service import AlertService
+from core.tenancy import current_tenant
 from utils.logger import get_logger
 from utils.time import utcnow
 
@@ -41,6 +42,8 @@ def to_engine_event(event_id: str, event: EventCreate) -> Dict[str, Any]:
                 data.setdefault(name, value)
     data["gateway_event_id"] = event_id
     return {
+        # The engine keeps each organisation's history and rules apart.
+        "tenant_id": current_tenant(),
         "source": event.source,
         "event_type": event.event_type,
         "timestamp": event.timestamp.isoformat(),

@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from pymongo import DESCENDING
 
 from core.database.connection import get_database
+from core.tenancy import scoped
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -12,7 +13,8 @@ T = TypeVar("T", bound=BaseModel)
 class BaseRepository:
     def __init__(self, collection_name: str):
         self.db = get_database()
-        self.collection = self.db[collection_name]
+        # Scoped to the current tenant for collections that hold an organisation's data.
+        self.collection = scoped(self.db, collection_name)
 
     async def find_one(self, query: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return await self.collection.find_one(query)

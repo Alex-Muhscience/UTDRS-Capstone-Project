@@ -462,7 +462,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 
 | ID | Gap | Blocks | Priority |
 |---|---|---|---|
-| GAP-ARC-01 | No tenancy anywhere: no tenant field on any document, no scoping in repositories (`services/api-gateway/core/database/repositories/`), no tenant in tokens | FR-TEN-01 and almost everything | P0 |
+| GAP-ARC-01 | No tenancy anywhere: no tenant field on any document, no scoping in repositories (`services/api-gateway/core/database/repositories/`), no tenant in tokens **Done (#19): every organisation-owned collection is scoped through one wrapper that fails closed; the engine scopes history, alerts and rules per organisation; existing data moves to a default organisation at start-up.** | FR-TEN-01 and almost everything | P0 |
 | GAP-ARC-02 | Events go gateway → engine by synchronous HTTP per event (`core/services/detection_pipeline.py`); no queue, no replay, no back-pressure; an engine outage leaves events unanalysed for good (`metadata.analysis.status = error` with no retry) | FR-ING-12, FR-DET-01 | P0 |
 | GAP-ARC-03 | No common event schema; events are free-form dicts mapped ad hoc (`DETECTOR_FIELDS` in `detection_pipeline.py`) | FR-ING-01 | P0 |
 | GAP-ARC-04 | MongoDB is the only store, including for high-volume events; the engine's anomaly and correlation detectors query raw event history in MongoDB per event (`anomaly_detector.py`, `correlation_detector.py`), which will not scale | NFR-02, FR-CAS-05 | P1 |

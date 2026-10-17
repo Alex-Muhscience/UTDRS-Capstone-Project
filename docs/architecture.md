@@ -13,13 +13,17 @@ How the parts of UTDRS fit together: what each service owns, how requests flow, 
 | Scanner server (`scanner/`) | Receives device inventories from agents | 8443 (TLS) | MongoDB (its own database) |
 | Scanner agent (`scanner/`) | Collects a device's inventory | | The scanner server |
 
+## Organisations
+
+Each organisation (tenant) has its own users, events, alerts, assets, rules, simulations, API keys and audit log, and cannot see another's. In the gateway this is enforced in one place: authentication sets the caller's organisation, and every collection holding organisation data is reached through a wrapper that adds the organisation to every query and refuses to run without one. In the engine, each event carries its organisation, and while it is processed the detectors see only that organisation's history and alerts, and only the built-in rules plus that organisation's own. A deployment starts with one organisation; it can host many (`REGISTRATION_MODE=organisation`). See the [gateway README](../services/api-gateway/README.md#organisations).
+
 ## Data ownership
 
 Each service owns its data and no service reads another's database, with one deliberate hand-off: the scanner's `scans` collection is a queue that the scanner server fills and the data processor drains. The gateway and the engine both have collections named `events`, `alerts` and `detection_rules`, with different document shapes. Sharing one database makes the gateway's lists fail validation, and makes the engine's signature detector read the gateway's rule catalogue instead of its own rules. A system test fails if this happens.
 
 | Database (default name) | Owner | Collections |
 |---|---|---|
-| `utdrs` | API gateway | `users`, `events`, `alerts`, `assets`, `detection_rules` (the catalogue shown in the dashboard), `simulations`, `login_failures` (sign-in throttling), `gateway_state` (last rule sync), `api_keys`, `audit_log` and `audit_log_head` |
+| `utdrs` | API gateway | `tenants`, `platform_locks`, and per organisation: `users`, `events`, `alerts`, `assets`, `detection_rules` (the catalogue shown in the dashboard), `simulations`, `login_failures` (sign-in throttling), `gateway_state` (last rule sync), `api_keys`, `audit_log` and `audit_log_head` |
 | `utdrs_engine` | Core engine | `events` (every event it analyses, the history for correlation and anomaly baselines), `alerts` (its own verdicts), `detection_rules` (the signature rules it runs: its built-in rules, and copies of the gateway's runnable rules, which the gateway replaces as a set) |
 | `utdrs_db` | Scanner server and data processor | `scans` (accepted scans waiting for delivery, written by the server), `delivered_scans` (each with the gateway's answer) and `failed_scans` (scans that could not be delivered, with the error), both written by the processor |
 

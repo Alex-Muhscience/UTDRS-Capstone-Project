@@ -10,6 +10,7 @@ from fastapi.security import OAuth2PasswordBearer
 from pydantic import ValidationError
 
 from config import settings
+from core.tenancy import set_tenant
 from core.models.user import User
 from utils.time import utcnow
 
@@ -70,6 +71,8 @@ async def _api_key_user(request: Request, key: str) -> User:
             headers={"WWW-Authenticate": "Bearer"},
         )
     key_id = str(doc["_id"])
+    # Everything this request does from here on is the key's organisation's.
+    set_tenant(doc["tenant_id"])
     request.state.principal = {"type": "api_key", "id": key_id, "name": doc["name"], "scopes": doc["scopes"]}
     # Built without validation: an API key is not a person and has no real email address.
     return User.model_construct(
@@ -84,6 +87,7 @@ async def _api_key_user(request: Request, key: str) -> User:
         createdAt=doc["created_at"],
         updatedAt=doc["created_at"],
         preferences={},
+        tenant_id=doc["tenant_id"],
     )
 
 
@@ -114,7 +118,8 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
     from core.database.repositories.user_repository import UserRepository
 
     user_repo = UserRepository()
-    user = await user_repo.find_by_id(user_id)
+    # Before the tenant is known: the token names the user, and the user names the tenant.
+    user = await user_repo.find_by_id_any_tenant(user_id)
 
     if user is None:
         raise credentials_exception
@@ -128,6 +133,7 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
         )
 
     current = User(**user)
+    set_tenant(user["tenant_id"])
     request.state.principal = {"type": "user", "id": current.id, "name": current.username, "role": current.role}
     return current
 

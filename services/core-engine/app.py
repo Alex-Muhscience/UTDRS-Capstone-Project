@@ -20,6 +20,9 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await connect_to_mongo()
+    removed = await RuleManager().remove_untenanted_managed_rules()
+    if removed:
+        logger.info(f"Removed {removed} managed rules from before tenancy; the gateway sends them again")
     added = await RuleManager().load_predefined_rules()
     logger.info(f"Detection rules ready ({added} predefined rules added)")
     yield

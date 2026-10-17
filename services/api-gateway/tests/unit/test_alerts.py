@@ -42,6 +42,7 @@ mock_user_data = {
     "createdAt": datetime.utcnow(),
     "updatedAt": datetime.utcnow(),
     "id": str(ObjectId("60d5ec2dcb43a5e37d0c7514")),
+    "tenant_id": "tenant-1",
 }
 
 
@@ -57,6 +58,7 @@ def test_get_alerts(mock_user_repo_class, mock_alert_service_class):
     # Setup mocks
     mock_user_repo = mock_user_repo_class.return_value
     mock_user_repo.find_by_id = AsyncMock(return_value=mock_user_data)
+    mock_user_repo.find_by_id_any_tenant = mock_user_repo.find_by_id
     
     mock_alert_service = mock_alert_service_class.return_value
     mock_alert_service.get_alerts = AsyncMock(return_value=[mock_alert_data])
@@ -75,6 +77,7 @@ def test_create_alert(mock_user_repo_class, mock_alert_service_class):
     # Setup mocks
     mock_user_repo = mock_user_repo_class.return_value
     mock_user_repo.find_by_id = AsyncMock(return_value=mock_user_data)
+    mock_user_repo.find_by_id_any_tenant = mock_user_repo.find_by_id
     
     mock_alert_service = mock_alert_service_class.return_value
     mock_alert_service.create_alert = AsyncMock(return_value=str(mock_alert_data["_id"]))
@@ -108,6 +111,7 @@ def test_get_alert_by_id(mock_user_repo_class, mock_alert_service_class):
     # Setup mocks
     mock_user_repo = mock_user_repo_class.return_value
     mock_user_repo.find_by_id = AsyncMock(return_value=mock_user_data)
+    mock_user_repo.find_by_id_any_tenant = mock_user_repo.find_by_id
     
     mock_alert_service = mock_alert_service_class.return_value
     mock_alert_service.get_alert_by_id = AsyncMock(return_value=mock_alert_data)
@@ -128,6 +132,7 @@ def test_get_alert_not_found(mock_user_repo_class, mock_alert_service_class):
     # Setup mocks
     mock_user_repo = mock_user_repo_class.return_value
     mock_user_repo.find_by_id = AsyncMock(return_value=mock_user_data)
+    mock_user_repo.find_by_id_any_tenant = mock_user_repo.find_by_id
     
     mock_alert_service = mock_alert_service_class.return_value
     mock_alert_service.get_alert_by_id = AsyncMock(return_value=None)
@@ -147,6 +152,7 @@ def test_update_alert(mock_user_repo_class, mock_alert_service_class):
     # Setup mocks
     mock_user_repo = mock_user_repo_class.return_value
     mock_user_repo.find_by_id = AsyncMock(return_value=mock_user_data)
+    mock_user_repo.find_by_id_any_tenant = mock_user_repo.find_by_id
     
     mock_alert_service = mock_alert_service_class.return_value
     

@@ -115,13 +115,13 @@
           "authentication"
         ],
         "summary": "Register",
-        "description": "Register a new user, as an analyst. Closed when ALLOW_REGISTRATION is false.",
+        "description": "Register. Closed when ALLOW_REGISTRATION is false. With REGISTRATION_MODE \"join\", the\nperson becomes an analyst in the default organisation; with \"organisation\", a new\norganisation named `organisation` is created and the person is its administrator.",
         "operationId": "register_api_v1_auth_register_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UserCreate"
+                "$ref": "#/components/schemas/Registration"
               }
             }
           },
@@ -921,7 +921,7 @@
           "alerts"
         ],
         "summary": "Assign Alert",
-        "description": "Assign an alert to a user.\n\n- **assigned_to**: User ID to assign the alert to",
+        "description": "Assign an alert to a user.\n\n- **assigned_to**: User ID to assign the alert to, someone in your organisation",
         "operationId": "assign_alert_api_v1_alerts__alert_id__assign_patch",
         "security": [
           {
@@ -2713,7 +2713,7 @@
           "scans"
         ],
         "summary": "Record Scan",
-        "description": "Record a device scan from the device scanner.\n\nFor UTDRS's own services: send INTERNAL_API_TOKEN in the X-Internal-Token header.\n\nThe scan creates or updates the asset named after the device. The first scan of a\ndevice, or one whose inventory has changed, also raises an event, which is analysed\nlike any other.",
+        "description": "Record a device scan from the device scanner.\n\nFor UTDRS's own services: send INTERNAL_API_TOKEN in the X-Internal-Token header.\n\nThe scan creates or updates the asset named after the device. The first scan of a\ndevice, or one whose inventory has changed, also raises an event, which is analysed\nlike any other. Scans are recorded in the SCANS_TENANT organisation (by default, the\ndefault one): the scanner does not yet tie devices to organisations.",
         "operationId": "record_scan_api_v1_scans__post",
         "parameters": [
           {
@@ -4500,6 +4500,78 @@
         ]
       }
     },
+    "/api/v1/tenants/current": {
+      "get": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Get Current Tenant",
+        "description": "The organisation you belong to.",
+        "operationId": "get_current_tenant_api_v1_tenants_current_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Tenant"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Rename Current Tenant",
+        "description": "Rename your organisation (administrators only).",
+        "operationId": "rename_current_tenant_api_v1_tenants_current_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Tenant"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
     "/": {
       "get": {
         "summary": "Root",
@@ -5636,11 +5708,16 @@
           "allow_registration": {
             "type": "boolean",
             "title": "Allow Registration"
+          },
+          "registration_mode": {
+            "type": "string",
+            "title": "Registration Mode"
           }
         },
         "type": "object",
         "required": [
-          "allow_registration"
+          "allow_registration",
+          "registration_mode"
         ],
         "title": "AuthConfig"
       },
@@ -6446,6 +6523,75 @@
         ],
         "title": "PasswordChange"
       },
+      "Registration": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "firstName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firstname"
+          },
+          "lastName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastname"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "default": "analyst"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active",
+            "default": true
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          },
+          "organisation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organisation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "email",
+          "password"
+        ],
+        "title": "Registration"
+      },
       "RuleEngineStatus": {
         "properties": {
           "runs": {
@@ -7102,6 +7248,62 @@
         "type": "object",
         "title": "SimulationUpdate"
       },
+      "Tenant": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "Tenant",
+        "description": "An organisation: the people, data and settings kept apart from every other."
+      },
+      "TenantUpdate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "TenantUpdate"
+      },
       "Token": {
         "properties": {
           "access_token": {
@@ -7170,6 +7372,17 @@
           "id": {
             "type": "string",
             "title": "Id"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
           },
           "lastLogin": {
             "anyOf": [
@@ -7258,62 +7471,6 @@
         "type": "object",
         "title": "UserAdminUpdate",
         "description": "What an administrator can change on someone else's account."
-      },
-      "UserCreate": {
-        "properties": {
-          "username": {
-            "type": "string",
-            "title": "Username"
-          },
-          "email": {
-            "type": "string",
-            "format": "email",
-            "title": "Email"
-          },
-          "firstName": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Firstname"
-          },
-          "lastName": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Lastname"
-          },
-          "role": {
-            "type": "string",
-            "title": "Role",
-            "default": "analyst"
-          },
-          "active": {
-            "type": "boolean",
-            "title": "Active",
-            "default": true
-          },
-          "password": {
-            "type": "string",
-            "title": "Password"
-          }
-        },
-        "type": "object",
-        "required": [
-          "username",
-          "email",
-          "password"
-        ],
-        "title": "UserCreate"
       },
       "UserSelfUpdate": {
         "properties": {

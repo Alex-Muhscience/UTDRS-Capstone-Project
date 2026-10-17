@@ -28,6 +28,7 @@ export function RegisterPage() {
         password: String(form.get("password") ?? ""),
         firstName: value("firstName"),
         lastName: value("lastName"),
+        organisation: value("organisation"),
       })
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Registration failed.")
@@ -45,12 +46,16 @@ export function RegisterPage() {
     )
   }
 
+  const creatingOrganisation = config.data?.registration_mode === "organisation"
   return (
     <AuthLayout
-      title="Create an account"
+      title={creatingOrganisation ? "Create your organisation" : "Create an account"}
       subtitle={
         <>
-          New accounts are analysts. Already registered?{" "}
+          {creatingOrganisation
+            ? "You will be its administrator, and can add your team after. "
+            : "New accounts are analysts. "}
+          Already registered?{" "}
           <Link to="/login" className="font-medium text-accent hover:underline">
             Sign in
           </Link>
@@ -64,6 +69,11 @@ export function RegisterPage() {
         </p>
       )}
       <form onSubmit={onSubmit} className="space-y-4">
+        {creatingOrganisation && (
+          <Field label="Organisation" required>
+            {(id) => <Input id={id} name="organisation" autoComplete="organization" required maxLength={100} />}
+          </Field>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <Field label="First name">{(id) => <Input id={id} name="firstName" autoComplete="given-name" />}</Field>
           <Field label="Last name">{(id) => <Input id={id} name="lastName" autoComplete="family-name" />}</Field>
