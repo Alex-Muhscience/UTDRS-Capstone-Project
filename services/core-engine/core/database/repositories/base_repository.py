@@ -27,8 +27,9 @@ class BaseRepository:
         return await self.find_one({"_id": ObjectId(id)})
     
     async def find_many(self, query: Dict[str, Any], limit: int = 100, skip: int = 0) -> List[Dict[str, Any]]:
+        """Matching documents; a limit of 0 means all of them."""
         cursor = self.collection.find(query).skip(skip).limit(limit)
-        results = await cursor.to_list(length=limit)
+        results = await cursor.to_list(length=limit or None)
         for result in results:
             result["_id"] = str(result["_id"])
         return results

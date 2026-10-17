@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     CORE_ENGINE_TIMEOUT_SECONDS: float = 10.0
     # Shared secret sent to the core engine as X-Internal-Token (must match its setting).
     INTERNAL_API_TOKEN: Optional[str] = None
+    # How often the detection rules are re-sent to the core engine, besides after each change.
+    RULE_SYNC_INTERVAL_SECONDS: int = 60
 
 
 settings = Settings()

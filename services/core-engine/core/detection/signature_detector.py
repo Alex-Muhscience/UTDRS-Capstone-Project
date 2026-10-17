@@ -23,7 +23,7 @@ class SignatureDetector:
         rules = await self.rule_manager.get_rules({
             "rule_type": "signature", 
             "enabled": True
-        })
+        }, limit=0)  # every enabled rule, however many there are
         
         logger.debug(f"Loaded {len(rules)} signature rules for detection")
         
@@ -41,6 +41,10 @@ class SignatureDetector:
                     "severity": rule['severity'],
                     "detection_type": "signature",
                     "rule_id": str(rule.get('_id', '')),
+                    # Set for rules managed elsewhere (the gateway's rule id), so the
+                    # alert can point back to the rule as the analyst knows it.
+                    "rule_source": rule.get('source', 'builtin'),
+                    "rule_source_id": rule.get('source_id'),
                     "tags": rule.get('tags', []),
                     "mitre_tactics": mitre_tactics,
                     "mitre_techniques": mitre_techniques
@@ -134,7 +138,29 @@ class SignatureDetector:
             True if the condition is met, False otherwise
         """
         for op, expected in condition.items():
-            if op == 'gt':
+            if op == 'eq':
+                if value != expected:
+                    return False
+            elif op == 'ne':
+                if value == expected:
+                    return False
+            elif op == 'in':
+                if value not in expected:
+                    return False
+            elif op == 'not_in':
+                if value in expected:
+                    return False
+            elif op == 'search':
+                # Anywhere in the value, unlike the 'regex:' matcher, which anchors at the start.
+                try:
+                    if not re.search(expected, str(value)):
+                        return False
+                except re.error:
+                    logger.error(f"Invalid regex pattern: {expected}")
+                    return False
+            elif op == 'exists':
+                pass  # the field is present: a missing field never reaches this point
+            elif op == 'gt':
                 if not (isinstance(value, (int, float)) and value > expected):
                     return False
             elif op == 'lt':

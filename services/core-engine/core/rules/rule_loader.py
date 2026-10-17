@@ -19,7 +19,8 @@ class RuleManager:
         """
         added = 0
         for rule in get_predefined_rules():
-            if await self.rule_repository.find_one({"name": rule["name"]}):
+            # Built-in rules only: a managed rule may share a built-in rule's name.
+            if await self.rule_repository.find_one({"name": rule["name"], "source": {"$exists": False}}):
                 continue
             await self.create_rule(dict(rule))
             added += 1
@@ -60,6 +61,28 @@ class RuleManager:
         
     async def delete_rule(self, rule_id):
         return await self.rule_repository.delete_one(rule_id)
+
+    async def replace_managed_rules(self, source: str, rules: List[Dict[str, Any]]) -> Dict[str, int]:
+        """
+        Make the rules managed by `source` (the API gateway) exactly `rules`: store or
+        update each one, matched by its source_id, and remove that source's rules that
+        are no longer listed. Built-in rules are not touched. Every rule is validated
+        before anything is written, so a bad rule changes nothing.
+        """
+        for rule in rules:
+            self._validate_rule(rule)
+
+        now = utcnow()
+        collection = self.rule_repository.collection
+        for rule in rules:
+            await collection.update_one(
+                {"source": source, "source_id": rule["source_id"]},
+                {"$set": {**rule, "source": source, "updated_at": now}, "$setOnInsert": {"created_at": now}},
+                upsert=True,
+            )
+        keep = [rule["source_id"] for rule in rules]
+        removed = await collection.delete_many({"source": source, "source_id": {"$nin": keep}})
+        return {"stored": len(rules), "removed": removed.deleted_count}
         
     def _validate_rule(self, rule_data):
         required_fields = ['name', 'description', 'rule_type', 'detection']

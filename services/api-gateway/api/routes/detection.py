@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query, status
 
 from core.models.detection import (
     DetectionRule,
@@ -10,9 +10,23 @@ from core.models.detection import (
 )
 from core.models.user import User
 from core.services.detection_service import DetectionService
+from core.services.rule_compiler import RuleSyntaxError, compile_logic
+from core.services.rule_sync import sync_rules
 from utils.security import get_current_active_user, require_admin
 
 router = APIRouter()
+
+
+def _check_logic(logic: Optional[str]) -> None:
+    """Refuse malformed logic. Logic the engine cannot run yet is allowed, and kept but not run."""
+    if logic is None:
+        return
+    try:
+        compile_logic(logic)
+    except RuleSyntaxError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Rule logic: {e}")
+    except ValueError:
+        pass
 
 
 @router.get("/", response_model=DetectionStatus)
@@ -68,11 +82,15 @@ async def get_rules(
     "/rules", response_model=DetectionRule, status_code=status.HTTP_201_CREATED
 )
 async def create_rule(
-    rule: DetectionRuleCreate, current_user: User = Depends(require_admin)
+    rule: DetectionRuleCreate,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(require_admin),
 ):
     """
-    Create a new detection rule.
+    Create a new detection rule. Malformed logic answers 422. While the rule is enabled
+    and the engine can run its logic (see `engine` in the response), the core engine runs it.
     """
+    _check_logic(rule.logic)
     detection_service = DetectionService()
     rule_id = await detection_service.create_rule(rule, current_user.id)
 
@@ -82,6 +100,7 @@ async def create_rule(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create detection rule",
         )
+    background_tasks.add_task(sync_rules)
 
     return created_rule
 
@@ -109,12 +128,15 @@ async def get_rule(
 @router.put("/rules/{rule_id}", response_model=DetectionRule)
 async def update_rule(
     rule_update: DetectionRuleUpdate,
+    background_tasks: BackgroundTasks,
     rule_id: str = Path(..., title="The ID of the rule to update"),
     current_user: User = Depends(require_admin),
 ):
     """
-    Update an existing detection rule.
+    Update an existing detection rule. Malformed logic answers 422. The core engine is
+    updated straight after.
     """
+    _check_logic(rule_update.logic)
     detection_service = DetectionService()
     updated_rule = await detection_service.update_rule(
         rule_id, rule_update, current_user.id
@@ -126,11 +148,13 @@ async def update_rule(
             detail=f"Detection rule with ID {rule_id} not found",
         )
 
+    background_tasks.add_task(sync_rules)
     return updated_rule
 
 
 @router.patch("/rules/{rule_id}/status", response_model=DetectionRule)
 async def update_rule_status(
+    background_tasks: BackgroundTasks,
     new_status: str = Query(..., alias="status"),
     rule_id: str = Path(..., title="The ID of the rule to update"),
     current_user: User = Depends(require_admin),
@@ -160,6 +184,7 @@ async def update_rule_status(
         )
 
     updated_rule = await detection_service.get_rule_by_id(rule_id)
+    background_tasks.add_task(sync_rules)
     return updated_rule
 
 
@@ -185,6 +210,7 @@ async def get_rule_by_name(
 
 @router.post("/rules/{rule_id}/tags/{tag}")
 async def add_tag_to_rule(
+    background_tasks: BackgroundTasks,
     rule_id: str = Path(..., title="The ID of the rule"),
     tag: str = Path(..., title="The tag to add"),
     current_user: User = Depends(require_admin),
@@ -201,6 +227,8 @@ async def add_tag_to_rule(
             detail=f"Detection rule with ID {rule_id} not found",
         )
 
+    # Technique tags (T1059.001) go to the engine with the rule.
+    background_tasks.add_task(sync_rules)
     return {
         "status": "success",
         "message": f"Tag '{tag}' added to detection rule {rule_id}",
@@ -209,6 +237,7 @@ async def add_tag_to_rule(
 
 @router.delete("/rules/{rule_id}/tags/{tag}")
 async def remove_tag_from_rule(
+    background_tasks: BackgroundTasks,
     rule_id: str = Path(..., title="The ID of the rule"),
     tag: str = Path(..., title="The tag to remove"),
     current_user: User = Depends(require_admin),
@@ -225,6 +254,8 @@ async def remove_tag_from_rule(
             detail=f"Detection rule with ID {rule_id} not found or tag '{tag}' not present",
         )
 
+    # Technique tags (T1059.001) go to the engine with the rule.
+    background_tasks.add_task(sync_rules)
     return {
         "status": "success",
         "message": f"Tag '{tag}' removed from detection rule {rule_id}",

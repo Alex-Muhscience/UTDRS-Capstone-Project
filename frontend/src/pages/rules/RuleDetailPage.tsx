@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/ui/PageHeader"
 import { ErrorState, SkeletonRows } from "@/components/ui/States"
 import { formatDateTime, humanize } from "@/lib/format"
 
+import { EngineBadge } from "./EngineBadge"
 import { RuleStatusSelect } from "./RuleStatusSelect"
 
 export function RuleDetailPage() {
@@ -44,10 +45,17 @@ export function RuleDetailPage() {
       />
       <div className="grid gap-4 xl:grid-cols-3">
         <div className="space-y-4 xl:col-span-2">
-          <Card title="Logic">
+          <Card title="Logic" actions={<EngineBadge engine={data.engine} />}>
             <pre className="overflow-x-auto rounded-lg border border-border bg-surface-2 p-4 font-mono text-xs leading-relaxed">
               {data.logic}
             </pre>
+            <p className="mt-3 text-sm text-muted">
+              {data.engine.runs
+                ? data.status === "enabled"
+                  ? "The core engine runs this rule."
+                  : "The core engine can run this rule, and does while it is enabled."
+                : `The core engine does not run this rule: ${data.engine.reason}`}
+            </p>
           </Card>
           {Object.keys(metrics).length > 0 && (
             <Card title="Performance">

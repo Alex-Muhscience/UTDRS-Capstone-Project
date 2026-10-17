@@ -902,7 +902,8 @@ export interface paths {
         put?: never;
         /**
          * Create Rule
-         * @description Create a new detection rule.
+         * @description Create a new detection rule. Malformed logic answers 422. While the rule is enabled
+         *     and the engine can run its logic (see `engine` in the response), the core engine runs it.
          */
         post: operations["create_rule_api_v1_detection_rules_post"];
         delete?: never;
@@ -925,7 +926,8 @@ export interface paths {
         get: operations["get_rule_api_v1_detection_rules__rule_id__get"];
         /**
          * Update Rule
-         * @description Update an existing detection rule.
+         * @description Update an existing detection rule. Malformed logic answers 422. The core engine is
+         *     updated straight after.
          */
         put: operations["update_rule_api_v1_detection_rules__rule_id__put"];
         post?: never;
@@ -1748,6 +1750,7 @@ export interface components {
             metadata: {
                 [key: string]: unknown;
             };
+            readonly engine: components["schemas"]["RuleEngineStatus"];
         };
         /** DetectionRuleCreate */
         DetectionRuleCreate: {
@@ -1810,6 +1813,7 @@ export interface components {
             /** Testing Rules */
             testing_rules: number;
             core_engine: components["schemas"]["CoreEngineStatus"];
+            rule_sync?: components["schemas"]["RuleSyncStatus"] | null;
             /**
              * Last Updated
              * Format: date-time
@@ -1962,6 +1966,29 @@ export interface components {
             current_password: string;
             /** New Password */
             new_password: string;
+        };
+        /** RuleEngineStatus */
+        RuleEngineStatus: {
+            /** Runs */
+            runs: boolean;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** RuleSyncStatus */
+        RuleSyncStatus: {
+            /**
+             * Attempted At
+             * Format: date-time
+             */
+            attempted_at: string;
+            /** Ok */
+            ok: boolean;
+            /** Error */
+            error?: string | null;
+            /** Rules Sent */
+            rules_sent: number;
+            /** Succeeded At */
+            succeeded_at?: string | null;
         };
         /** ScanInterface */
         ScanInterface: {

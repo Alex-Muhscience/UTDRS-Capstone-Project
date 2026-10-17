@@ -47,7 +47,7 @@ RULE = {
     "rule_type": "signature",
     "detection_source": "network",
     "severity": "low",
-    "logic": "x",
+    "logic": "x == 1",
 }
 
 

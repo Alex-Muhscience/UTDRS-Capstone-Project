@@ -29,7 +29,11 @@ test("an event becomes an alert that an analyst can triage", async ({ page }) =>
   await expect(page.getByText("Threat detected")).toBeVisible()
   await page.getByRole("link", { name: "Open the alert" }).click()
 
-  await expect(page.getByRole("heading", { name: "Potential Ransomware Activity: Recovery Inhibited" })).toBeVisible()
+  // The ML detector names it, unless the demo data's "shadow-copy-deletion" rule is loaded:
+  // signature rules from the catalogue take priority.
+  await expect(
+    page.getByRole("heading", { name: /^(Potential Ransomware Activity: Recovery Inhibited|shadow-copy-deletion)$/ }),
+  ).toBeVisible()
   await expect(page.getByRole("link", { name: /T1490/ })).toBeVisible()
 
   await page.getByLabel("Note").fill("Isolated the laptop from the network.")
