@@ -71,6 +71,8 @@ class UserInDB(UserBase):
 
 class User(UserBase):
     id: IdString = Field(validation_alias=AliasChoices("_id", "id"))
+    # The organisation the account belongs to.
+    tenant_id: Optional[str] = None
     lastLogin: Optional[datetime] = None
     createdAt: datetime
     updatedAt: datetime

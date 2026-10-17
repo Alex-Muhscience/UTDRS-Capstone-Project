@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Optional
 
 from config import settings
 from core.database.connection import get_database
+from core.services import tenants
+from core.tenancy import current_tenant, scoped, tenant_context
 from core.services import core_engine_client
 from core.services.rule_compiler import RuleNotSupported, RuleSyntaxError, compile_logic
 from utils.logger import get_logger
@@ -19,7 +21,7 @@ from utils.time import utcnow
 
 logger = get_logger(__name__)
 
-STATE = {"_id": "rule_sync"}
+STATE = {"kind": "rule_sync"}
 _lock = asyncio.Lock()
 
 # Gateway tags that are MITRE ATT&CK technique ids (T1059, T1059.001) are passed on as such.
@@ -48,35 +50,45 @@ def to_engine_rule(rule: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 
 async def sync_rules() -> Optional[Dict[str, Any]]:
-    """Send the catalogue's runnable, enabled rules to the engine. None when no engine is configured."""
+    """
+    Send the current organisation's runnable, enabled rules to the engine, which keeps
+    each organisation's rules apart. None when no engine is configured.
+    """
     client = core_engine_client.get_core_engine_client()
     if client is None:
         return None
 
+    tenant_id = current_tenant()
     async with _lock:
-        rules = await get_database()["detection_rules"].find({"status": "enabled"}).to_list(None)
+        rules = await scoped(get_database(), "detection_rules").find({"status": "enabled"}).to_list(None)
         engine_rules = [r for r in map(to_engine_rule, rules) if r]
         state: Dict[str, Any] = {"attempted_at": utcnow(), "rules_sent": len(engine_rules)}
         try:
-            result = await client.replace_managed_rules(engine_rules)
+            result = await client.replace_managed_rules(tenant_id, engine_rules)
             state.update(ok=True, error=None, succeeded_at=state["attempted_at"], removed=result.get("removed", 0))
             logger.info(f"Sent {len(engine_rules)} rules to the core engine")
         except core_engine_client.CoreEngineError as e:
             state.update(ok=False, error=str(e))
             logger.warning(f"Could not send rules to the core engine: {e}")
-        await get_database()["gateway_state"].update_one(STATE, {"$set": state}, upsert=True)
+        await scoped(get_database(), "gateway_state").update_one(STATE, {"$set": state}, upsert=True)
         return state
 
 
 async def last_sync() -> Optional[Dict[str, Any]]:
-    return await get_database()["gateway_state"].find_one(STATE, {"_id": 0})
+    return await scoped(get_database(), "gateway_state").find_one(STATE, {"_id": 0, "kind": 0, "tenant_id": 0})
+
+
+async def sync_all_tenants() -> None:
+    for tenant_id in await tenants.all_ids():
+        with tenant_context(tenant_id):
+            await sync_rules()
 
 
 async def sync_periodically() -> None:
     """Run for the life of the process: sync now, then every RULE_SYNC_INTERVAL_SECONDS."""
     while True:
         try:
-            await sync_rules()
+            await sync_all_tenants()
         except Exception as e:  # never let the loop die
             logger.error(f"Rule sync failed: {e}")
         await asyncio.sleep(settings.RULE_SYNC_INTERVAL_SECONDS)

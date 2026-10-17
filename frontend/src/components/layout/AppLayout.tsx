@@ -16,7 +16,7 @@ import {
 import { useEffect, useState } from "react"
 import { Link, NavLink, Outlet, useLocation } from "react-router"
 
-import { useAlertSummary } from "@/api/queries"
+import { useAlertSummary, useCurrentTenant } from "@/api/queries"
 import { useAuth, useIsAdmin, useUser } from "@/auth/context"
 import { cx } from "@/lib/cx"
 import { humanize } from "@/lib/format"
@@ -125,12 +125,26 @@ function UserPanel({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
+/** The organisation whose data is shown: every page is that organisation's alone. */
+function OrganisationName() {
+  const { data } = useCurrentTenant()
+  if (!data) return null
+  return (
+    <p className="truncate px-2 text-xs text-subtle" title={data.name}>
+      {data.name}
+    </p>
+  )
+}
+
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col gap-6 p-4">
-      <Link to="/" onClick={onNavigate} className="px-2 pt-1" aria-label="UTDRS overview">
-        <Logo />
-      </Link>
+      <div className="space-y-1">
+        <Link to="/" onClick={onNavigate} className="block px-2 pt-1" aria-label="UTDRS overview">
+          <Logo />
+        </Link>
+        <OrganisationName />
+      </div>
       <Navigation onNavigate={onNavigate} />
       <div className="mt-auto space-y-3">
         <ThemeSwitcher />

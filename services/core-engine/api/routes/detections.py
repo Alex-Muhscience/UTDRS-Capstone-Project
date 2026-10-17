@@ -17,6 +17,8 @@ def get_detection_engine():
     return _detection_engine
 
 class EventData(BaseModel):
+    # The organisation the event belongs to; its history and rules are kept apart.
+    tenant_id: Optional[str] = None
     source: str
     event_type: str
     timestamp: str
@@ -26,8 +28,11 @@ class EventData(BaseModel):
 async def process_event_data(event: EventData):
     '''Process an event and generate an alert if a threat is detected.'''
     from core.services.event_processor import process_event
-    alert = await process_event(event.model_dump())
-    return alert
+    from core.tenancy import DEFAULT_TENANT, tenant_context
+
+    payload = event.model_dump()
+    with tenant_context(payload.pop("tenant_id") or DEFAULT_TENANT):
+        return await process_event(payload)
 
 @router.get("/alerts", response_model=List[Alert])
 async def get_alerts(

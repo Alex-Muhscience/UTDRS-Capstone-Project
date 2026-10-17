@@ -47,6 +47,7 @@ All routes are under `/api/v1`. Interactive documentation is served at `/api/v1/
 | Alerts | `GET /alerts/` (`status` and `severity` filters combine), `GET /alerts/summary`, `POST /alerts/`, `GET`/`PUT /alerts/{id}`, `PATCH /alerts/{id}/status` (`status`, optional `notes`), `PATCH /alerts/{id}/assign`, `PATCH /alerts/{id}/events/{event_id}`, `POST`/`DELETE /alerts/{id}/tags/{tag}`, `GET /alerts/assigned/{user_id}`, `GET /alerts/search/` |
 | Events | `GET /events/` (filters: `event_type`, `asset_id`, `user_id`, `ip_address`), `POST /events/`, `GET`/`PUT /events/{id}`, `GET /events/recent/`, `GET /events/timerange/`, `PATCH /events/{id}/severity`, tags, `GET /events/search/` |
 | Assets | `GET /assets/` (filters: `asset_type`, `status`, `criticality`, `department`), `POST /assets/`, `GET`/`PUT /assets/{id}`, lookup by `name`, `ip` or `mac`, `PATCH /assets/{id}/vulnerabilities/add` and `/remove`, `PATCH /assets/{id}/lastseen`, tags, search |
+| Organisations | `GET /tenants/current`; admins only: `PATCH /tenants/current` (rename) |
 | API keys | Admins only: `GET /api-keys/`, `GET /api-keys/scopes`, `POST /api-keys/` (returns the key once), `DELETE /api-keys/{id}` (revoke) |
 | Audit log | Admins only: `GET /audit-log/` (filters: `action`, `actor_id`, `target_type`, `target_id`, `since`, `until`), `GET /audit-log/verify` |
 | Scans | `POST /scans/`: a device's inventory from the [device scanner](../../scanner), sent by the [data processor](../data-processor) with `X-Internal-Token` instead of a user's token. Creates or updates the asset named after the device, and answers `{ asset_id, new_device, changes, event_id }` |
@@ -94,6 +95,21 @@ Comparisons are `==`, `!=`, `>`, `>=`, `<`, `<=`, `in [...]`, `not in [...]`, `m
 - **The engine is internal**. Calls to it carry `INTERNAL_API_TOKEN` as `X-Internal-Token`; set the same value on both services and do not expose the engine to the internet.
 - **Scans come from UTDRS's own services**. `POST /scans/` accepts only that same `X-Internal-Token`, compared in constant time; a user's token gets 401, and without `INTERNAL_API_TOKEN` configured the route answers 503.
 
+## Organisations
+
+UTDRS keeps each organisation's data apart: a *tenant*. Every user, event, alert, asset, rule, simulation, API key and audit entry belongs to one, and nobody in one organisation can see or change another's, through any route. That is enforced in one place, `core/tenancy.py`, not query by query:
+
+- Authentication sets the caller's organisation for the rest of the request: the user's, or the API key's.
+- Collections holding an organisation's data are reached through `ScopedCollection`, which adds the organisation to every filter, update, count and aggregation, stamps it on every document inserted, and refuses to move a document to another organisation. With no organisation set it refuses to run, so a forgotten case fails closed.
+- The few places that must look across organisations do so explicitly with `unscoped()`: sign-in, which looks up a username before anyone's organisation is known (usernames and email addresses are unique across organisations), and start-up tasks.
+- Each event sent to the core engine carries its organisation, and each organisation's rules are sent separately, so detections never cross organisations either.
+- An item from another organisation answers 404, as if it did not exist. Alerts can be assigned only to colleagues. Asset names are unique within an organisation.
+- Each organisation has its own audit chain. A sign-in attempt goes to the log of the account it names, or to the platform's for a name nobody has.
+
+**One organisation, or many.** A deployment starts with one, the default (`DEFAULT_TENANT_SLUG`, `DEFAULT_TENANT_NAME`), which the first administrator administers. Data from before tenancy is moved into it at start-up. With `REGISTRATION_MODE=organisation`, registering creates a new organisation with the person as its administrator; with `join` (the default), registering adds an analyst to the default one. Device scans are recorded in `SCANS_TENANT` (default: the default organisation), as the scanner does not yet tie devices to organisations.
+
+**Start-up** tasks (the default organisation, moving old data, indexes, the first administrator) run in every gateway process; a lock in MongoDB (`platform_locks`) makes the processes take turns, so they cannot race.
+
 ## API keys
 
 An administrator creates a key on the dashboard's *API keys* page, or with `POST /api-keys/` (`name`, `scopes`, optional `expires_in_days`). The key, `utdrs_<prefix>_<secret>`, is shown once; only its SHA-256 is stored, and the prefix identifies it afterwards. Send it as `Authorization: Bearer <key>`.
@@ -119,7 +135,10 @@ Settings come from the environment or a `.env` file in this directory (see [`.en
 | `ADMIN_USERNAME` | unset | The first administrator; made an active admin on every start |
 | `ADMIN_PASSWORD` | unset | Its password, used only when creating it (8 to 72 bytes) |
 | `ADMIN_EMAIL` | `<username>@localhost.localdomain` | |
-| `ALLOW_REGISTRATION` | `true` | Whether anyone can register an analyst account |
+| `ALLOW_REGISTRATION` | `true` | Whether anyone can register |
+| `REGISTRATION_MODE` | `join` | `join`: an analyst in the default organisation. `organisation`: a new organisation, with the person as its administrator |
+| `DEFAULT_TENANT_SLUG`, `DEFAULT_TENANT_NAME` | `default`, `Default organisation` | The organisation a single-organisation deployment uses |
+| `SCANS_TENANT` | unset | The organisation (by slug) device scans are recorded in; unset means the default one |
 | `JWT_ALGORITHM` | `HS256` | |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | |
 | `CORE_ENGINE_URL` | unset | Base URL of the core engine. Unset: events are stored but not analysed. |
@@ -153,11 +172,12 @@ docker run -d --name utdrs-mongo -p 27017:27017 mongo:7      # once
 MONGODB_URI=mongodb://localhost:27017 python -m pytest
 ```
 
-100 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
+111 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
 
 - `tests/e2e/test_flows.py`: registration and sign-in, events, alerts (filters, ordering, summary, status errors), assets, rules, role and password rules, response headers. Against a real MongoDB, with no mocks.
 - `tests/e2e/test_users.py`: role checks on rules and simulations, the team directory, account administration (create, role changes, deactivation, password resets), self-lockout protection, closed registration and the startup administrator.
 - `tests/e2e/test_detection_pipeline.py`: the event-to-alert pipeline against a fake engine (`httpx.MockTransport`), including an unreachable engine and the detection status.
+- `tests/e2e/test_tenancy.py`: two organisations: lists, search, counts, reads and changes of another organisation's users, events, alerts, assets, rules, simulations and API keys refused; names unique per organisation; API keys confined to their organisation; separate audit chains; rules and events sent to the engine per organisation; organisation registration; scoped collections failing closed.
 - `tests/e2e/test_api_keys_audit.py`: API keys shown once and stored as hashes; scopes allowing and refusing; keys never acting as administrators; revoked, expired and unknown keys refused; sign-ins and changes audited with who made them (people and keys) and refused attempts recorded; no secrets in the log; tampering found by the chain; concurrent entries forming one chain.
 - `tests/e2e/test_hardening.py`: sign-in throttling per account and address and per address, a correct password clearing the count, identical answers for unknown and wrong passwords, client addresses behind trusted proxies, and unique asset names under concurrent scans.
 - `tests/e2e/test_rule_sync.py`: rules reaching a fake engine on create, edit, disable and tag changes; rules the engine cannot run kept but not sent; malformed logic refused; the sync status, including failure.

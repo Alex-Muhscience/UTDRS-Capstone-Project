@@ -111,10 +111,17 @@ def entries(client, admin, **params):
 
 
 def test_sign_ins_are_audited(client, admin):
-    username = f"nobody_{uuid.uuid4().hex[:6]}"
+    # A wrong password for an account is in its organisation's log.
+    username = f"member_{uuid.uuid4().hex[:6]}"
+    client.post(f"{API}/auth/register", json={"username": username, "email": f"{username}@example.com", "password": secrets.token_urlsafe(16)})
     client.post(f"{API}/auth/login", data={"username": username, "password": "wrong"})
     failed = next(e for e in entries(client, admin, action="auth.login_failed") if e["actor"].get("name") == username)
     assert failed["outcome"] == "denied" and failed["actor"]["type"] == "anonymous"
+
+    # A name nobody has belongs to no organisation: its attempt is in the platform's log.
+    nobody = f"nobody_{uuid.uuid4().hex[:6]}"
+    client.post(f"{API}/auth/login", data={"username": nobody, "password": "wrong"})
+    assert not [e for e in entries(client, admin, action="auth.login_failed") if e["actor"].get("name") == nobody]
 
     succeeded = entries(client, admin, action="auth.login_succeeded")[0]
     assert succeeded["actor"]["type"] == "user" and succeeded["outcome"] == "success"
@@ -162,10 +169,13 @@ def test_the_chain_shows_tampering(client, admin):
     assert client.get(f"{API}/audit-log/verify", headers=admin).json()["ok"] is True
 
     async def tamper(change):
+        from core.services import tenants
+        from core.tenancy import scoped, set_tenant
         from core.database.connection import get_database
 
-        log = get_database()["audit_log"]
-        newest = await log.find_one(sort=[("seq", -1)])
+        set_tenant(await tenants.default_id())
+        log = scoped(get_database(), "audit_log")
+        newest = await log.find_one({}, sort=[("seq", -1)])
         await change(log, newest)
         return newest
 
@@ -178,11 +188,12 @@ def test_the_chain_shows_tampering(client, admin):
 
     async def remove_and_age(log, entry):
         from core.database.connection import get_database
+        from core.tenancy import scoped
 
         await log.delete_one({"_id": entry["_id"]})
         # Long enough ago that it cannot still be being written.
-        await get_database()["audit_log_head"].update_one(
-            {"_id": "audit_head"}, {"$set": {"at": datetime.now(timezone.utc) - timedelta(minutes=1)}}
+        await scoped(get_database(), "audit_log_head").update_one(
+            {"kind": "head"}, {"$set": {"at": datetime.now(timezone.utc) - timedelta(minutes=1)}}
         )
 
     client.portal.call(tamper, remove_and_age)
@@ -193,7 +204,10 @@ def test_entries_written_at_once_still_form_one_chain(client, admin):
     import asyncio
 
     async def burst():
-        from core.services import audit
+        from core.services import audit, tenants
+        from core.tenancy import set_tenant
+
+        set_tenant(await tenants.default_id())
 
         before = await audit.verify()
         await asyncio.gather(*(audit.record("test.concurrent", actor={"type": "system"}, details={"n": n}) for n in range(40)))
@@ -212,22 +226,20 @@ def test_entries_written_at_once_still_form_one_chain(client, admin):
 def test_a_gap_is_reported_only_once_its_entry_should_have_been_written(client, admin):
     async def scenario():
         from core.database.connection import get_database
-        from core.services import audit
+        from core.services import audit, tenants
+        from core.tenancy import scoped, set_tenant
 
+        # A fresh organisation, so its chain starts from nothing.
+        set_tenant(await tenants.create(f"Gap test {uuid.uuid4().hex[:6]}"))
         database = get_database()
-        await database["audit_log"].delete_many({})
-        await database["audit_log_head"].delete_many({})
+        head = scoped(database, "audit_log_head")
         for n in range(3):
             await audit.record("test.gap", actor={"type": "system"}, details={"n": n})
         # The next number is taken but its entry is not stored yet: it is being written.
-        await database["audit_log_head"].update_one(
-            {"_id": "audit_head"}, {"$inc": {"seq": 1}, "$set": {"at": datetime.now(timezone.utc)}}
-        )
+        await head.update_one({"kind": "head"}, {"$inc": {"seq": 1}, "$set": {"at": datetime.now(timezone.utc)}})
         writing = await audit.verify()
         # A minute later, it never arrived.
-        await database["audit_log_head"].update_one(
-            {"_id": "audit_head"}, {"$set": {"at": datetime.now(timezone.utc) - timedelta(minutes=1)}}
-        )
+        await head.update_one({"kind": "head"}, {"$set": {"at": datetime.now(timezone.utc) - timedelta(minutes=1)}})
         missing = await audit.verify()
         return writing, missing
 

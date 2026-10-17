@@ -17,6 +17,7 @@ from fastapi import Request
 from pymongo.errors import DuplicateKeyError
 
 from core.database.connection import get_database
+from core.tenancy import PLATFORM, current_tenant_or_none, scoped, tenant_context
 from utils.client_address import client_address
 from utils.logger import get_logger
 from utils.time import utcnow
@@ -24,7 +25,9 @@ from utils.time import utcnow
 logger = get_logger(__name__)
 
 COLLECTION = "audit_log"
-HEAD = {"_id": "audit_head"}
+# Each organisation has its own numbered chain, so its administrators can read and check
+# it without seeing anyone else's. The head holds the chain's last number and hash.
+HEAD = {"kind": "head"}
 GENESIS = "0" * 64
 MAX_ATTEMPTS = 50
 # An entry claims its number a moment before it is stored, so for a few seconds a number
@@ -46,7 +49,8 @@ def _canonical(entry: Dict[str, Any]) -> bytes:
             return value.strftime("%Y-%m-%dT%H:%M:%S.") + f"{value.microsecond // 1000:03d}Z"
         return str(value)
 
-    body = {k: v for k, v in entry.items() if k not in ("_id", "hash")}
+    # The tenant is not hashed: it is where the chain lives, not part of what happened.
+    body = {k: v for k, v in entry.items() if k not in ("_id", "hash", "tenant_id")}
     return json.dumps(body, sort_keys=True, separators=(",", ":"), default=default).encode("utf-8")
 
 
@@ -56,10 +60,32 @@ def _digest(entry: Dict[str, Any]) -> str:
 
 async def ensure_indexes() -> None:
     collection = get_database()[COLLECTION]
-    await collection.create_index("seq", unique=True)
-    await collection.create_index([("at", -1)])
-    await collection.create_index([("action", 1), ("at", -1)])
-    await collection.create_index([("target.type", 1), ("target.id", 1)])
+    # Numbers are unique within an organisation's chain (before tenancy, across the log).
+    if "seq_1" in await collection.index_information():
+        await _drop_index(collection, "seq_1")
+    await collection.create_index([("tenant_id", 1), ("seq", 1)], unique=True)
+    await collection.create_index([("tenant_id", 1), ("at", -1)])
+    await collection.create_index([("tenant_id", 1), ("action", 1), ("at", -1)])
+    await collection.create_index([("tenant_id", 1), ("target.type", 1), ("target.id", 1)])
+    await get_database()[COLLECTION + "_head"].create_index([("tenant_id", 1), ("kind", 1)], unique=True)
+
+
+async def _drop_index(collection, name: str) -> None:
+    from pymongo.errors import OperationFailure
+
+    try:
+        await collection.drop_index(name)
+    except OperationFailure as e:
+        if e.code != 27:  # IndexNotFound: already dropped
+            raise
+
+
+def _log():
+    return scoped(get_database(), COLLECTION)
+
+
+def _head():
+    return scoped(get_database(), COLLECTION + "_head")
 
 
 def actor_of(request: Optional[Request]) -> Dict[str, Any]:
@@ -76,11 +102,14 @@ async def record(
     outcome: str = "success",
     actor: Optional[Dict[str, Any]] = None,
     details: Optional[Dict[str, Any]] = None,
+    tenant_id: Optional[str] = None,
 ) -> None:
     """
-    Add an entry. Failures are logged rather than raised, so an audit problem never
-    blocks the action itself; a failed write shows as a gap in the numbering.
+    Add an entry to the current organisation's log (or `tenant_id`'s, or the platform's
+    when there is neither). Failures are logged rather than raised, so an audit problem
+    never blocks the action itself; a failed write shows as a gap in the numbering.
     """
+    chain = tenant_id or current_tenant_or_none() or PLATFORM
     entry: Dict[str, Any] = {
         "at": utcnow(),
         "action": action,
@@ -94,20 +123,20 @@ async def record(
     }
     try:
         async with _write_lock:
-            await _append(entry, action)
+            with tenant_context(chain):
+                await _append(entry, action)
     except Exception as e:
         logger.error(f"Could not write audit entry {action}: {e}")
 
 
 async def _append(entry: Dict[str, Any], action: str) -> None:
-    database = get_database()
     for attempt in range(MAX_ATTEMPTS):
-        head = await database[COLLECTION + "_head"].find_one(HEAD) or {"seq": 0, "hash": GENESIS}
+        head = await _head().find_one(HEAD) or {"seq": 0, "hash": GENESIS}
         entry.update(seq=head["seq"] + 1, prev_hash=head["hash"])
         entry["hash"] = _digest(entry)
         # Claim the next number by moving the head on, only if nobody else moved it first.
         try:
-            claimed = await database[COLLECTION + "_head"].update_one(
+            claimed = await _head().update_one(
                 {**HEAD, "seq": head["seq"], "hash": head["hash"]} if head["seq"] else {**HEAD, "seq": {"$exists": False}},
                 {"$set": {"seq": entry["seq"], "hash": entry["hash"], "at": entry["at"]}},
                 upsert=not head["seq"],
@@ -115,7 +144,7 @@ async def _append(entry: Dict[str, Any], action: str) -> None:
         except DuplicateKeyError:
             claimed = None  # another first entry was written at the same moment
         if claimed and (claimed.matched_count or claimed.upserted_id):
-            await database[COLLECTION].insert_one(dict(entry))
+            await _log().insert_one(dict(entry))
             return
         # Another process took this number: wait a moment and try the next.
         await asyncio.sleep(random.uniform(0, 0.005 * (attempt + 1)))
@@ -145,7 +174,7 @@ async def search(
         query["target.id"] = target_id
     if since or until:
         query["at"] = {**({"$gte": since} if since else {}), **({"$lte": until} if until else {})}
-    cursor = get_database()[COLLECTION].find(query, {"_id": 0}).sort("seq", -1).skip(skip).limit(limit)
+    cursor = _log().find(query, {"_id": 0, "tenant_id": 0}).sort("seq", -1).skip(skip).limit(limit)
     return await cursor.to_list(limit)
 
 
@@ -161,7 +190,7 @@ async def verify() -> Dict[str, Any]:
     """Walk the chain from the start. Reports the first entry that does not follow from the one before."""
     expected_prev, expected_seq, checked = GENESIS, 1, 0
     still_writing = {"ok": True, "problem": None, "note": "Entries are still being written; check again in a moment"}
-    async for entry in get_database()[COLLECTION].find({}, {"_id": 0}).sort("seq", 1):
+    async for entry in _log().find({}, {"_id": 0}).sort("seq", 1):
         if entry["seq"] != expected_seq:
             if _recent(entry.get("at")):
                 return {**still_writing, "checked": checked}
@@ -171,7 +200,7 @@ async def verify() -> Dict[str, Any]:
         if _digest(entry) != entry.get("hash"):
             return {"ok": False, "checked": checked, "problem": f"Entry {entry['seq']} has been altered"}
         expected_prev, expected_seq, checked = entry["hash"], expected_seq + 1, checked + 1
-    head = await get_database()[COLLECTION + "_head"].find_one(HEAD)
+    head = await _head().find_one(HEAD)
     if head and head.get("seq", 0) != checked:
         if _recent(head.get("at")):
             return {**still_writing, "checked": checked}

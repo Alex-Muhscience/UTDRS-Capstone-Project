@@ -13,11 +13,13 @@ from api.middleware.security import (
     SecurityMiddleware,
     rate_limit_handler,
 )
-from api.routes import alerts, api_keys, assets, audit, auth, detection, events, health, scans, simulation, users
+from api.routes import alerts, api_keys, assets, audit, auth, detection, events, health, scans, simulation, tenants as tenant_routes, users
 from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
 from core.database.indexes import ensure_indexes
+from core.services import tenants
 from core.services.bootstrap import ensure_admin
+from core.services.startup_lock import startup_lock
 from core.services.audit import audited
 from core.services.rule_sync import sync_periodically
 from utils.security import require_scope
@@ -26,8 +28,13 @@ from utils.security import require_scope
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await connect_to_mongo()
-    await ensure_indexes()
-    await ensure_admin()
+    # Every process runs these; they take turns (startup_lock), so they cannot race.
+    async with startup_lock():
+        # Data from before tenancy belongs to the default organisation; then the
+        # indexes, several of which are unique within an organisation.
+        await tenants.adopt_untenanted(await tenants.ensure_default())
+        await ensure_indexes()
+        await ensure_admin()
     rule_sync = asyncio.create_task(sync_periodically())
     yield
     rule_sync.cancel()
@@ -88,6 +95,7 @@ app.include_router(
 )
 app.include_router(api_keys.router, prefix=f"{settings.API_PREFIX}/api-keys", tags=["api keys"])
 app.include_router(audit.router, prefix=f"{settings.API_PREFIX}/audit-log", tags=["audit log"])
+app.include_router(tenant_routes.router, prefix=f"{settings.API_PREFIX}/tenants", tags=["organisations"])
 
 
 @app.get("/")
