@@ -1,0 +1,29 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#security/alerts_v2",
+  "value": [
+    {
+      "@odata.type": "#microsoft.graph.security.alert",
+      "id": "da637578995287051192_756343937",
+      "providerAlertId": "da637578995287051192_756343937",
+      "incidentId": "28282",
+      "status": "new",
+      "severity": "high",
+      "classification": null,
+      "determination": null,
+      "serviceSource": "microsoftDefenderForOffice365",
+      "detectionSource": "microsoftDefenderForOffice365",
+      "title": "Email messages containing malicious URL removed after delivery",
+      "description": "Emails with a malicious URL were delivered and later removed.",
+      "recommendedActions": "Reset the password of anyone who clicked the link.",
+      "category": "InitialAccess",
+      "alertWebUrl": "https://security.microsoft.com/alerts/da637578995287051192_756343937",
+      "createdDateTime": "2026-10-18T06:20:00Z",
+      "lastUpdateDateTime": "2026-10-18T06:21:00Z",
+      "mitreTechniques": ["T1566.002"],
+      "evidence": [
+        {"@odata.type": "#microsoft.graph.security.userEvidence", "roles": [], "userAccount": {"accountName": "ana", "domainName": "contoso.example", "userPrincipalName": "Ana@contoso.example", "displayName": "Ana Lopez"}},
+        {"@odata.type": "#microsoft.graph.security.ipEvidence", "ipAddress": "198.51.100.77"}
+      ]
+    }
+  ]
+}

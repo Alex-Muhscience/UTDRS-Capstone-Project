@@ -78,6 +78,13 @@ services:
       SMTP_SECURITY: ${SMTP_SECURITY:-starttls}
       MAIL_FROM: ${MAIL_FROM:-UTDRS <utdrs@localhost>}
       DASHBOARD_URL: ${DASHBOARD_URL:-http://localhost:${DASHBOARD_PORT:-8080}}
+      # Encrypts secrets stored in the database, such as a Microsoft 365 client secret.
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      ENCRYPTION_KEY_PREVIOUS: ${ENCRYPTION_KEY_PREVIOUS:-}
+      # UTDRS's own Microsoft app registration, for "Connect with Microsoft" (admin consent).
+      M365_CLIENT_ID: ${M365_CLIENT_ID:-}
+      M365_CLIENT_SECRET: ${M365_CLIENT_SECRET:-}
+      M365_POLL_INTERVAL_SECONDS: ${M365_POLL_INTERVAL_SECONDS:-300}
     depends_on:
       mongodb:
         condition: service_healthy

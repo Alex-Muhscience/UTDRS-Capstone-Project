@@ -85,5 +85,20 @@ class Settings(BaseSettings):
     # How often the gateway checks whether last month's reports are due (made on the 1st).
     REPORT_CHECK_INTERVAL_SECONDS: int = 3600
 
+    # Encrypting secrets stored in the database (utils/crypto.py): 32 random bytes,
+    # base64 (openssl rand -base64 32). When rotating, put the old key in _PREVIOUS.
+    ENCRYPTION_KEY: Optional[str] = None
+    ENCRYPTION_KEY_PREVIOUS: Optional[str] = None
+
+    # Microsoft 365 (core/services/m365.py). An organisation connects either by admin
+    # consent to UTDRS's own app registration (these two settings), or with an app
+    # registration of its own.
+    M365_CLIENT_ID: Optional[str] = None
+    M365_CLIENT_SECRET: Optional[str] = None
+    M365_LOGIN_URL: str = "https://login.microsoftonline.com"
+    M365_GRAPH_URL: str = "https://graph.microsoft.com/v1.0"
+    # How often sign-ins, audit logs and Defender alerts are fetched.
+    M365_POLL_INTERVAL_SECONDS: int = 300
+
 
 settings = Settings()

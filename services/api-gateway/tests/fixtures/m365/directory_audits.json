@@ -1,0 +1,42 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#auditLogs/directoryAudits",
+  "value": [
+    {
+      "id": "Directory_b8a2e5d4-1c3f-4a6b-9e0d-2f1c3b4a5d6e_ZA2GV_123456789",
+      "category": "RoleManagement",
+      "correlationId": "b8a2e5d4-1c3f-4a6b-9e0d-2f1c3b4a5d6e",
+      "result": "success",
+      "resultReason": "",
+      "activityDisplayName": "Add member to role",
+      "activityDateTime": "2026-10-18T06:10:00Z",
+      "loggedByService": "Core Directory",
+      "operationType": "Assign",
+      "initiatedBy": {"app": null, "user": {"id": "d7cc485d-2c1b-422c-98fd-5ce52859a4a3", "displayName": null, "userPrincipalName": "jsmith@contoso.example", "ipAddress": null}},
+      "targetResources": [
+        {
+          "id": "8a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d",
+          "displayName": null,
+          "type": "User",
+          "userPrincipalName": "backdoor@contoso.example",
+          "groupType": null,
+          "modifiedProperties": [
+            {"displayName": "Role.DisplayName", "oldValue": null, "newValue": "\"Global Administrator\""},
+            {"displayName": "Role.TemplateId", "oldValue": null, "newValue": "\"62e90394-69f5-4237-9190-012177145e10\""}
+          ]
+        }
+      ],
+      "additionalDetails": []
+    },
+    {
+      "id": "Directory_c1d2e3f4-5a6b-7c8d-9e0f-1a2b3c4d5e6f_ZA2GV_987654321",
+      "category": "ApplicationManagement",
+      "result": "success",
+      "activityDisplayName": "Consent to application",
+      "activityDateTime": "2026-10-18T06:12:30Z",
+      "loggedByService": "Core Directory",
+      "initiatedBy": {"user": {"userPrincipalName": "ana@contoso.example"}},
+      "targetResources": [{"id": "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b", "displayName": "Free PDF Converter", "type": "ServicePrincipal", "modifiedProperties": []}],
+      "additionalDetails": []
+    }
+  ]
+}

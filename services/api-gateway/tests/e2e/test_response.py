@@ -93,9 +93,13 @@ def graph():
     async def factory():
         return httpx.AsyncClient(base_url="https://graph.microsoft.com/v1.0", transport=httpx.MockTransport(fake.handler))
 
+    previous = connectors._factories.get("m365")
     connectors.register("m365", factory)
     yield fake
-    connectors.unregister("m365")
+    if previous:
+        connectors.register("m365", previous)
+    else:
+        connectors.unregister("m365")
 
 
 @pytest.fixture(scope="module")
