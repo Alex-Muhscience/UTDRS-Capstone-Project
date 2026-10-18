@@ -6,10 +6,11 @@ Python 3.12 · FastAPI · PyMongo (async) · scikit-learn · NumPy/SciPy · yara
 
 ## Detection
 
-Every event goes to six detectors concurrently (`core/detection/engine.py`). The first verdict in this order wins, from the most specific evidence to the least, and becomes one alert:
+Every event goes to seven detectors concurrently (`core/detection/engine.py`). The first verdict in this order wins, from the most specific evidence to the least, and becomes one alert. An identity correlation comes first: it spans many sign-ins and fires rarely.
 
 | Detector | What it looks for | State |
 |---|---|---|
+| **Identity** | Attacks on accounts across several sign-ins (`core/detection/identity_detector.py`): impossible travel (a sign-in more than 500 km from the previous one, faster than a plane), password spraying (10 accounts failing from one address in 15 minutes), password guessing against one account (10 failures in 10 minutes), success after repeated failures (5 in 30 minutes), and MFA fatigue (5 denied or failed MFA prompts in 10 minutes). Each fires once per account or address an hour. | Working, for sign-ins from any source that names the user, address, outcome and, for travel, coordinates (Microsoft 365 sign-ins do) |
 | **Signature** | Rules matching event fields: exact values, lists, `regex:` patterns and numeric conditions, combined with AND or OR. 13 rules ship with the engine: failed and admin logins, connections to known C2 addresses, DNS lookups of listed domains, suspicious processes and encoded PowerShell, access to sensitive files, security services disabled, new accounts, large outbound uploads, external email attachments, ransomware file operations and known malware hashes, each mapped to MITRE ATT&CK. | Working. The rules are added to the engine's database at startup if missing, and managed through `/rules`. |
 | **YARA** | Files or content referenced by the event, against the YARA rules in `core/rules/yara/` | Working when rules are present (`ENABLE_YARA`) |
 | **Correlation** | Sequences of related events within `CORRELATION_WINDOW` minutes, e.g. failed logins followed by a success | Working |
@@ -17,7 +18,7 @@ Every event goes to six detectors concurrently (`core/detection/engine.py`). The
 | **ML** | Malware and ransomware behaviour (e.g. deleting shadow copies, T1490), phishing, network and user-behaviour patterns | **Two trained models.** Emails: the capstone's phishing classifier, 98.3% accurate on its held-out test set at the threshold used ([model card](core/models/ml/phishing_email/MODEL_CARD.md)). Network flows with the 21 measurements it reads: a CNN-LSTM trained on UNSW-NB15, which flags 0.65% of normal test flows and catches 80% of attacks ([model card](core/models/ml/network_threat/MODEL_CARD.md)). **Everything else, and events without what a model needs: hand-written indicator scoring**; the model files in `ml_models/` are placeholders. |
 | **Anomaly** | Deviations from baselines built from the engine's own event history (`ANOMALY_BASELINE_DAYS`): unusual sign-in times and places, beaconing, port scans, traffic volume, unusual processes and file activity | Working; needs history to be useful |
 
-The engine stores every event it sees and every alert it raises in **its own database**, which the correlation and anomaly detectors read. Alerts include a risk score, the matched techniques and tactics, and the detection details. The gateway turns the engine's alert into an alert of its own, linked to the original event.
+The engine stores every event it sees and every alert it raises in **its own database**, which the correlation and anomaly detectors read. Alerts include a risk score, the matched techniques and tactics, the rule's tags, and the detection details. The gateway turns the engine's alert into an alert of its own, linked to the original event.
 
 ## API
 
@@ -86,9 +87,10 @@ Then point the gateway at it with `CORE_ENGINE_URL=http://localhost:8001`, and g
 MONGODB_URI=mongodb://localhost:27017 python -m pytest
 ```
 
-26 tests:
+64 tests:
 
 - `tests/unit/test_detection.py`: each detector, MITRE mapping and risk scoring, and every predefined rule against routine and malicious events.
+- `tests/unit/test_identity.py` and `tests/integration/test_identity.py`: sign-ins normalised from different field names, distances, and through the API: password spraying (once per address), guessing one account's password, success after failures, MFA fatigue, impossible travel and a plausible journey that is not, and organisations correlated apart.
 - `tests/integration/test_api.py`: the API against MongoDB. A ransomware precursor becomes a stored critical alert; a failed login matches its signature rule; benign events produce nothing; the predefined rules are loaded once; managed rules are replaced as a set, detect, stop when disabled, and leave built-in rules alone, and an invalid set changes nothing; the internal token is enforced, and required.
 
 ## Docker

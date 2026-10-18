@@ -146,6 +146,7 @@ Next:
 - [x] Response actions and playbooks: approval, automatic and notify modes, undo, safety limits and built-in playbooks (Microsoft 365 actions run once its connector is connected)
 - [x] Email notifications: new cases, approvals needed and actions taken, per-person preferences, retried delivery and a delivery log
 - [x] Microsoft 365 connector: admin consent or an own app registration, encrypted secrets, Entra ID sign-ins and audit logs and Defender alerts, built-in identity detections, and response actions through it (built against Graph's documented formats; not yet run against a live tenant)
+- [x] Identity correlations in the engine: impossible travel, password spraying, password guessing, success after repeated failures and MFA fatigue
 - [x] Detection tuning: analysts' verdicts, suppressions and allow-lists with safety limits, noisy-detector reporting, and labels exported for retraining
 - [x] Monthly executive report: figures against the month before, threats, actions, what is still open and what to do next; on the web and as a PDF, made and emailed on the 1st
 - [ ] Trained models for the remaining indicator-based ML detectors (malware, user behaviour)
