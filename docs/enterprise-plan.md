@@ -260,7 +260,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 | FR-DET-01 | Stream detection: every event evaluated within seconds, horizontally scalable workers | P0 | 1 |
 | FR-DET-02 | Rule service: one store of rules per tenant plus a global library, versioned, with test cases, enable/disable, and changes taking effect within a minute | P0 | 1 |
 | FR-DET-03 | Sigma rule support (import, convert to the engine's form, test) | P1 | 2 |
-| FR-DET-04 | Detection library for email and identity: phishing, business email compromise, malicious inbox rules, mass forwarding, impossible travel, MFA fatigue, password spraying, OAuth consent phishing, risky sign-ins | P0 | 1 |
+| FR-DET-04 | Detection library for email and identity: phishing, business email compromise, malicious inbox rules, mass forwarding, impossible travel, MFA fatigue, password spraying, OAuth consent phishing, risky sign-ins **Identity done (#25, #26); email and mailbox detections remain.** | P0 | 1 |
 | FR-DET-05 | Phishing model v2: trained on current, multilingual phishing; uses headers, sender reputation, URLs and attachments, not only text; evaluated per language | P0 | 1 |
 | FR-DET-06 | User and entity behaviour analytics (UEBA): per-user baselines for sign-in times, locations, devices, data volumes | P1 | 2 |
 | FR-DET-07 | Network detection: network model retrained on modern and customer-like traffic; Suricata signatures; DNS and TLS anomalies | P2 | 3 |
@@ -512,7 +512,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 | GAP-ENG-05 | Threat intelligence is per-lookup API calls (VirusTotal, AbuseIPDB, OTX) with a file cache; no feeds, no STIX/TAXII, no indicator store | FR-DET-09 | P1 |
 | GAP-ENG-06 | No suppressions, allow-lists or analyst feedback loop **Done (#24).** | FR-DET-10 | P0 |
 | GAP-ENG-07 | No model registry, versioning, shadow mode or drift monitoring; models are files in the image | FR-DET-12 | P1 |
-| GAP-ENG-08 | No identity or email detections (impossible travel, inbox rules, MFA fatigue, OAuth consent) because no such data arrives **Partly (#25): risky sign-ins, smart lockout, legacy authentication, admin roles granted, OAuth consent and MFA methods removed; those needing counts over time (impossible travel, MFA fatigue, password spraying) and mailbox data (inbox rules) remain.** | FR-DET-04 | P0 |
+| GAP-ENG-08 | No identity or email detections (impossible travel, inbox rules, MFA fatigue, OAuth consent) because no such data arrives **Partly: risky sign-ins, smart lockout, legacy authentication, admin roles granted, OAuth consent and MFA methods removed (#25); impossible travel, password spraying, password guessing, success after failures and MFA fatigue (#26). Mailbox data (inbox rules, mass forwarding) and email (phishing, business email compromise) remain.** | FR-DET-04 | P0 |
 | GAP-ENG-09 | Uses `ModelRegistry` that writes placeholder models into the working directory at start-up; read-only containers would fail | NFR-08 | P2 |
 
 ### 8.5 Machine learning

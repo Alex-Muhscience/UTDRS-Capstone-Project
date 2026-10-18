@@ -9,6 +9,7 @@ from core.detection.anomaly_detector import AnomalyDetector
 from core.detection.ml_detector import MLDetector
 from core.detection.yara_detector import YaraDetector
 from core.detection.correlation_detector import CorrelationDetector
+from core.detection.identity_detector import IdentityDetector, identity_of
 from core.threat_intel.threat_intelligence import ThreatIntelligenceDetector
 from core.models.schema.alert import Alert, AlertCreate
 from config import settings
@@ -31,6 +32,7 @@ class DetectionEngine:
         self.ml_detector = MLDetector()
         self.yara_detector = YaraDetector()
         self.correlation_detector = CorrelationDetector()
+        self.identity_detector = IdentityDetector()
         self.ti_detector = ThreatIntelligenceDetector()
         # Threat-intel lookups call external services; ENABLE_THREAT_INTEL turns them off.
         self.enable_threat_intel = settings.ENABLE_THREAT_INTEL
@@ -58,7 +60,13 @@ class DetectionEngine:
         if 'timestamp' not in event:
             event['timestamp'] = utcnow().isoformat()
         
+        # A sign-in's normalised fields, stored with the event for identity correlations.
+        identity = identity_of(event)
+        if identity:
+            event['identity'] = identity
+
         # Run detection methods concurrently for better performance
+        identity_task = asyncio.create_task(self._run_identity_detection(event))
         signature_task = asyncio.create_task(self._run_signature_detection(event))
         yara_task = asyncio.create_task(self._run_yara_detection(event))
         ml_task = asyncio.create_task(self._run_ml_detection(event))
@@ -73,22 +81,25 @@ class DetectionEngine:
             
         # Wait for all detections to complete
         results = await asyncio.gather(
-            signature_task, yara_task, ml_task, anomaly_task, correlation_task, ti_task,
+            identity_task, signature_task, yara_task, ml_task, anomaly_task, correlation_task, ti_task,
             return_exceptions=True
         )
         
         # Process any exceptions
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                detection_method = ["signature", "yara", "ml", "anomaly", "correlation", "threat_intel"][i]
+                detection_method = ["identity", "signature", "yara", "ml", "anomaly", "correlation", "threat_intel"][i]
                 logger.error(f"Error in {detection_method} detection: {str(result)}")
                 results[i] = None
                 
         # Extract results
-        signature_result, yara_result, ml_result, anomaly_result, correlation_result, ti_result = results
+        identity_result, signature_result, yara_result, ml_result, anomaly_result, correlation_result, ti_result = results
         
         # Process results in order of reliability/specificity
+        # An identity correlation spans many sign-ins and fires once per account or
+        # address, so it outranks a match on this one event.
         priority_results = [
+            (identity_result, "identity"),
             (signature_result, "signature"),
             (yara_result, "yara"),
             (correlation_result, "correlation"),
@@ -106,6 +117,14 @@ class DetectionEngine:
         logger.info("No threats detected in event")
         return None
     
+    async def _run_identity_detection(self, event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Run identity correlations (impossible travel, password spraying, MFA fatigue...) on a sign-in."""
+        try:
+            return await self.identity_detector.detect(event)
+        except Exception as e:
+            logger.error(f"Error in identity detection: {str(e)}")
+            return None
+
     async def _run_signature_detection(self, event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Run signature-based detection on the event."""
         try:
@@ -194,6 +213,8 @@ class DetectionEngine:
                 'detection': detection_result,
                 'mitre_tactics': mitre_tactics,
                 'mitre_techniques': mitre_techniques,
+                # The rule's tags (ransomware, brute-force...), which the gateway puts on its alert.
+                'tags': detection_result.get('tags', []),
                 'risk_score': risk_score
             }
         )

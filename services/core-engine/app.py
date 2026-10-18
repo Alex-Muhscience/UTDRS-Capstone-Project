@@ -25,6 +25,9 @@ async def lifespan(app: FastAPI):
         logger.info(f"Removed {removed} managed rules from before tenancy; the gateway sends them again")
     added = await RuleManager().load_predefined_rules()
     logger.info(f"Detection rules ready ({added} predefined rules added)")
+    from core.detection.identity_detector import IdentityDetector
+
+    await IdentityDetector().ensure_indexes()
     yield
     await close_mongo_connection()
 
