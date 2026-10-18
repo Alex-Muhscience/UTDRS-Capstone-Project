@@ -15,13 +15,15 @@ from api.middleware.security import (
 )
 from api.routes import (
     alerts, api_keys, assets, audit, auth, cases, connectors as connector_routes, detection, events, health, notifications,
-    onboarding, playbooks, reports, response, scans, simulation, tenants as tenant_routes, tuning, users,
+    onboarding, playbooks, reports, response, retention as retention_routes, scans, simulation, tenants as tenant_routes,
+    tuning, users,
 )
 from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
 from core.database.indexes import ensure_indexes
 from core.services import (
-    case_service, m365_ingest, notifications as notification_service, playbooks as playbook_service, reports as report_service, tenants,
+    case_service, m365_ingest, notifications as notification_service, playbooks as playbook_service,
+    reports as report_service, retention, tenants,
 )
 from core.services.bootstrap import ensure_admin
 from core.services.startup_lock import startup_lock
@@ -56,6 +58,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(notification_service.deliver_periodically()),
         asyncio.create_task(report_service.generate_periodically()),
         asyncio.create_task(m365_ingest.poll_periodically()),
+        asyncio.create_task(retention.run_periodically()),
     ]
     yield
     for loop in loops:
@@ -120,6 +123,9 @@ app.include_router(scans.router, prefix=f"{settings.API_PREFIX}/scans", tags=["s
 app.include_router(detection.router, prefix=f"{settings.API_PREFIX}/detection", tags=["detection"], dependencies=scoped("rules"))
 app.include_router(
     simulation.router, prefix=f"{settings.API_PREFIX}/simulation", tags=["simulation"], dependencies=scoped("simulations")
+)
+app.include_router(
+    retention_routes.router, prefix=f"{settings.API_PREFIX}/retention", tags=["retention"], dependencies=[Depends(audited("retention"))]
 )
 app.include_router(onboarding.router, prefix=f"{settings.API_PREFIX}/onboarding", tags=["onboarding"], dependencies=[Depends(audited("onboarding"))])
 app.include_router(

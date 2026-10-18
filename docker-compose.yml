@@ -36,6 +36,8 @@ services:
       DB_NAME: utdrs_engine
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?Set INTERNAL_API_TOKEN in .env (see .env.example)}
       ENABLE_THREAT_INTEL: ${ENABLE_THREAT_INTEL:-false}
+      # How long the engine keeps its own copy of events, for correlation and baselines.
+      EVENT_RETENTION_DAYS: ${EVENT_RETENTION_DAYS:-30}
       VIRUSTOTAL_API_KEY: ${VIRUSTOTAL_API_KEY:-}
       ABUSEIPDB_API_KEY: ${ABUSEIPDB_API_KEY:-}
       OTX_API_KEY: ${OTX_API_KEY:-}
@@ -85,6 +87,10 @@ services:
       M365_CLIENT_ID: ${M365_CLIENT_ID:-}
       M365_CLIENT_SECRET: ${M365_CLIENT_SECRET:-}
       M365_POLL_INTERVAL_SECONDS: ${M365_POLL_INTERVAL_SECONDS:-300}
+      # Data retention defaults, and the longest an organisation may choose (days).
+      RETENTION_EVENTS_DAYS: ${RETENTION_EVENTS_DAYS:-90}
+      RETENTION_ALERTS_DAYS: ${RETENTION_ALERTS_DAYS:-365}
+      RETENTION_MAX_DAYS: ${RETENTION_MAX_DAYS:-730}
     depends_on:
       mongodb:
         condition: service_healthy

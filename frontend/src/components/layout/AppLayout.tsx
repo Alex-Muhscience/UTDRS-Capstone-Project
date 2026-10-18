@@ -1,5 +1,6 @@
 import {
   Activity,
+  Archive,
   BookOpen,
   Briefcase,
   FileText,
@@ -52,6 +53,7 @@ const ADMIN_NAVIGATION = [
   { to: "/api-keys", label: "API keys", icon: KeyRound },
   { to: "/audit-log", label: "Audit log", icon: ScrollText },
   { to: "/email-log", label: "Email log", icon: Mail },
+  { to: "/retention", label: "Data retention", icon: Archive },
 ] as const
 
 function OpenAlertCount() {

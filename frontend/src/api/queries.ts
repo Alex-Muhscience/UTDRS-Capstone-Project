@@ -456,6 +456,29 @@ export function useDismissOnboarding() {
   })
 }
 
+// ---------------------------------------------------------------------------- Retention
+
+export function useRetention() {
+  return useQuery({ queryKey: ["retention"], queryFn: () => unwrap(api.GET("/api/v1/retention/")) })
+}
+
+export function useUpdateRetention() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: Partial<Record<"events" | "alerts" | "cases" | "actions" | "notifications" | "labels", number>>) =>
+      unwrap(api.PATCH("/api/v1/retention/", { body })),
+    onSuccess: (updated) => queryClient.setQueryData(["retention"], updated),
+  })
+}
+
+export function useRunRetention() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => unwrap(api.POST("/api/v1/retention/run")),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["retention"] }),
+  })
+}
+
 // ---------------------------------------------------------------------------- API keys
 
 export function useApiKeys() {

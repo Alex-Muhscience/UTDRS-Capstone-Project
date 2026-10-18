@@ -28,8 +28,7 @@ describe("onboarding", () => {
   it("shows administrators how far setup has got, on the overview", async () => {
     mockGateway({ ...shellRoutes(admin), "GET /api/v1/onboarding/": checklist() })
     renderApp("/")
-    // The overview makes many requests; the banner needs both the user and the checklist.
-    const banner = await screen.findByRole("link", { name: /Finish setting up UTDRS/ }, { timeout: 5000 })
+    const banner = await screen.findByRole("link", { name: /Finish setting up UTDRS/ })
     expect(banner).toHaveAttribute("href", "/get-started")
     expect(within(banner).getByText("1 of 6 done. Next: connect microsoft 365")).toBeInTheDocument()
   })
