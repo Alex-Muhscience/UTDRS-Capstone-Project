@@ -18,7 +18,7 @@ Every event goes to seven detectors concurrently (`core/detection/engine.py`). T
 | **ML** | Malware and ransomware behaviour (e.g. deleting shadow copies, T1490), phishing, network and user-behaviour patterns | **Two trained models.** Emails: the capstone's phishing classifier, 98.3% accurate on its held-out test set at the threshold used ([model card](core/models/ml/phishing_email/MODEL_CARD.md)). Network flows with the 21 measurements it reads: a CNN-LSTM trained on UNSW-NB15, which flags 0.65% of normal test flows and catches 80% of attacks ([model card](core/models/ml/network_threat/MODEL_CARD.md)). **Everything else, and events without what a model needs: hand-written indicator scoring**; the model files in `ml_models/` are placeholders. |
 | **Anomaly** | Deviations from baselines built from the engine's own event history (`ANOMALY_BASELINE_DAYS`): unusual sign-in times and places, beaconing, port scans, traffic volume, unusual processes and file activity | Working; needs history to be useful |
 
-The engine stores every event it sees and every alert it raises in **its own database**, which the correlation and anomaly detectors read. Alerts include a risk score, the matched techniques and tactics, the rule's tags, and the detection details. The gateway turns the engine's alert into an alert of its own, linked to the original event.
+The engine stores every event it sees (for `EVENT_RETENTION_DAYS`, 30 by default) and every alert it raises in **its own database**, which the correlation and anomaly detectors read. Alerts include a risk score, the matched techniques and tactics, the rule's tags, and the detection details. The gateway turns the engine's alert into an alert of its own, linked to the original event.
 
 ## API
 
@@ -87,10 +87,11 @@ Then point the gateway at it with `CORE_ENGINE_URL=http://localhost:8001`, and g
 MONGODB_URI=mongodb://localhost:27017 python -m pytest
 ```
 
-64 tests:
+66 tests:
 
 - `tests/unit/test_detection.py`: each detector, MITRE mapping and risk scoring, and every predefined rule against routine and malicious events.
 - `tests/unit/test_identity.py` and `tests/integration/test_identity.py`: sign-ins normalised from different field names, distances, and through the API: password spraying (once per address), guessing one account's password, success after failures, MFA fatigue, impossible travel and a plausible journey that is not, and organisations correlated apart.
+- `tests/integration/test_retention.py`: the engine's copy of events expiring after `EVENT_RETENTION_DAYS` (a TTL index, replaced when the period changes; older events by their timestamp), and stored events marked with when they were stored.
 - `tests/integration/test_api.py`: the API against MongoDB. A ransomware precursor becomes a stored critical alert; a failed login matches its signature rule; benign events produce nothing; the predefined rules are loaded once; managed rules are replaced as a set, detect, stop when disabled, and leave built-in rules alone, and an invalid set changes nothing; the internal token is enforced, and required.
 
 ## Docker

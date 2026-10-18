@@ -85,6 +85,15 @@ class Settings(BaseSettings):
     # How often the gateway checks whether last month's reports are due (made on the 1st).
     REPORT_CHECK_INTERVAL_SECONDS: int = 3600
 
+    # Data retention (core/services/retention.py): how many days each kind of data is
+    # kept by default, the longest an organisation may choose, and how often to check.
+    RETENTION_EVENTS_DAYS: int = 90
+    RETENTION_ALERTS_DAYS: int = 365  # closed alerts and cases, and response actions
+    RETENTION_NOTIFICATIONS_DAYS: int = 90
+    RETENTION_LABELS_DAYS: int = 730
+    RETENTION_MAX_DAYS: int = 730
+    RETENTION_INTERVAL_SECONDS: int = 3600
+
     # Encrypting secrets stored in the database (utils/crypto.py): 32 random bytes,
     # base64 (openssl rand -base64 32). When rotating, put the old key in _PREVIOUS.
     ENCRYPTION_KEY: Optional[str] = None

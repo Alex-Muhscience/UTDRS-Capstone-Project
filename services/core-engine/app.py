@@ -1,5 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
+from datetime import timedelta
 
 from fastapi import Depends, FastAPI
 
@@ -17,6 +18,33 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+async def expire_old_events() -> None:
+    """
+    The engine's copy of events expires after EVENT_RETENTION_DAYS, by a TTL index on when
+    it was stored. Events stored before the index (no stored_at) are deleted by their own
+    timestamp once they are that old.
+    """
+    from pymongo.errors import OperationFailure
+
+    from core.database.connection import get_database
+    from utils.time import utcnow
+
+    events = get_database()["events"]
+    seconds = settings.EVENT_RETENTION_DAYS * 86400
+    existing = (await events.index_information()).get("stored_at_ttl")
+    if existing and existing.get("expireAfterSeconds") != seconds:
+        try:
+            await events.drop_index("stored_at_ttl")
+        except OperationFailure as e:
+            if e.code != 27:  # already gone
+                raise
+    await events.create_index("stored_at", expireAfterSeconds=seconds, name="stored_at_ttl")
+    cutoff = (utcnow() - timedelta(days=settings.EVENT_RETENTION_DAYS)).isoformat()
+    result = await events.delete_many({"stored_at": {"$exists": False}, "timestamp": {"$lt": cutoff}})
+    if result.deleted_count:
+        logger.info(f"Deleted {result.deleted_count} events older than {settings.EVENT_RETENTION_DAYS} days")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await connect_to_mongo()
@@ -28,6 +56,7 @@ async def lifespan(app: FastAPI):
     from core.detection.identity_detector import IdentityDetector
 
     await IdentityDetector().ensure_indexes()
+    await expire_old_events()
     yield
     await close_mongo_connection()
 

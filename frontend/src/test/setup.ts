@@ -1,7 +1,11 @@
 import "@testing-library/jest-dom/vitest"
 
-import { cleanup } from "@testing-library/react"
+import { cleanup, configure } from "@testing-library/react"
 import { afterEach, vi } from "vitest"
+
+// Pages make several requests before they settle; with the whole suite running in
+// parallel, the default 1 second for findBy* and waitFor is too tight.
+configure({ asyncUtilTimeout: 5000 })
 
 afterEach(() => {
   cleanup()
