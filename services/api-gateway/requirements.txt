@@ -27,4 +27,4 @@ httpx==0.28.1
 reportlab==4.5.1
 
 # Encrypting stored secrets, such as connector credentials (AES-GCM)
-cryptography==50.0.0
+cryptography==50.0.2
