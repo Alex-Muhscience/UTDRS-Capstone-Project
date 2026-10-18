@@ -255,7 +255,7 @@ export function CaseDetailPage() {
                     <span className="flex flex-wrap gap-1">
                       {data.entities.map((entity) => (
                         <Badge key={`${entity.type}:${entity.value}`}>
-                          {humanize(entity.type)}: {entity.value}
+                          {humanize(entity.type)}: {entity.name ?? entity.value}
                         </Badge>
                       ))}
                     </span>

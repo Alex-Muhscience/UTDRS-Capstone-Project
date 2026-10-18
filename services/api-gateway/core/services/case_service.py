@@ -186,7 +186,8 @@ async def group_existing_alerts(limit: int = 5000) -> int:
 
 def explain(case: Dict[str, Any], alerts: List[Dict[str, Any]]) -> Dict[str, Any]:
     titles = sorted({a.get("title", "") for a in alerts if a.get("title")})
-    who = [e["value"] for e in case.get("entities", []) if e["type"] in ("user", "host", "sender", "asset")][:3]
+    who = [e.get("name") or e["value"] for e in case.get("entities", []) if e["type"] in ("user", "host", "sender", "asset")]
+    who = list(dict.fromkeys(who))[:3]
     techniques = [TECHNIQUES.get(t) or TECHNIQUES.get(t.split(".")[0]) for t in case.get("techniques", [])]
     techniques = [t for t in dict.fromkeys(techniques) if t]
     count = len(alerts)
@@ -219,9 +220,22 @@ def present(case: Dict[str, Any], alerts: Optional[List[Dict[str, Any]]] = None)
     return out
 
 
+async def _name_assets(cases: List[Dict[str, Any]]) -> None:
+    """Add each asset entity's name, so people see "fin-ws-07" rather than an id."""
+    ids = {e["value"] for c in cases for e in c.get("entities", []) if e["type"] == "asset" and ObjectId.is_valid(e["value"])}
+    if not ids:
+        return
+    assets = scoped(get_database(), "assets")
+    names = {str(a["_id"]): a.get("name") async for a in assets.find({"_id": {"$in": [ObjectId(i) for i in ids]}}, {"name": 1})}
+    for case in cases:
+        case["entities"] = [{**e, "name": names.get(e["value"])} if e["type"] == "asset" else e for e in case.get("entities", [])]
+
+
 async def list_cases(query: Dict[str, Any], limit: int, skip: int) -> List[Dict[str, Any]]:
     cursor = _cases().find(query, {"timeline": 0}).sort("last_seen", -1).skip(skip).limit(limit)
-    return [present({**c, "timeline": []}) for c in await cursor.to_list(limit)]
+    cases = [{**c, "timeline": []} for c in await cursor.to_list(limit)]
+    await _name_assets(cases)
+    return [present(c) for c in cases]
 
 
 async def get_case(case_id: str) -> Optional[Dict[str, Any]]:
@@ -231,6 +245,7 @@ async def get_case(case_id: str) -> Optional[Dict[str, Any]]:
     if not case:
         return None
     alerts = await _alerts().find({"_id": {"$in": [ObjectId(a) for a in case["alert_ids"] if ObjectId.is_valid(a)]}}).to_list(500)
+    await _name_assets([case])
     return present(case, alerts)
 
 
