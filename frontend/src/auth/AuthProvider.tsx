@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 
-import { api, ApiError, setAuthToken, unwrap } from "@/api/client"
+import { api, ApiError, setAuthToken, unwrap, type User } from "@/api/client"
 
 import { AuthContext, type AuthStatus, type AuthValue, type Registration } from "./context"
 import { clearSession, readSession, saveSession, UNAUTHORIZED_EVENT, type Session } from "./session"
@@ -39,6 +39,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [queryClient],
   )
 
+  const begin = useCallback(
+    (token: { access_token?: string | null; user?: User | null }) => {
+      if (!token.access_token) throw new ApiError(401, "Sign-in did not complete.")
+      const next = saveSession(token.access_token)
+      setAuthToken(next.token)
+      queryClient.setQueryData(["me"], token.user)
+      setNotice(null)
+      setSession(next)
+    },
+    [queryClient],
+  )
+
   const start = useCallback(
     async (username: string, password: string) => {
       const token = await unwrap(
@@ -48,13 +60,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
         }),
       )
-      const next = saveSession(token.access_token)
-      setAuthToken(next.token)
-      queryClient.setQueryData(["me"], token.user)
-      setNotice(null)
-      setSession(next)
+      if (token.mfa_required && token.mfa_token) return { mfaToken: token.mfa_token }
+      begin(token)
+      return null
     },
-    [queryClient],
+    [begin],
+  )
+
+  const loginWithCode = useCallback(
+    async (mfaToken: string, code: string) => {
+      begin(await unwrap(api.POST("/api/v1/auth/login/mfa", { body: { mfa_token: mfaToken, code } })))
+    },
+    [begin],
   )
 
   const register = useCallback(
@@ -105,11 +122,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: status === "signed-in" ? (me.data ?? null) : null,
       notice,
       login: start,
+      loginWithCode,
       register,
       logout,
       retry: () => void me.refetch(),
     }),
-    [status, me, notice, start, register, logout],
+    [status, me, notice, start, loginWithCode, register, logout],
   )
 
   return <AuthContext value={value}>{children}</AuthContext>

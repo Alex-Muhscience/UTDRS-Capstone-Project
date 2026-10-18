@@ -19,7 +19,10 @@ export type AuthValue = {
   user: User | null
   /** Why the user was signed out, shown on the sign-in page. */
   notice: string | null
-  login: (username: string, password: string) => Promise<void>
+  /** Sign in with a password. With MFA on, resolves to the token for the second step instead. */
+  login: (username: string, password: string) => Promise<{ mfaToken: string } | null>
+  /** Finish signing in with a code from the authenticator app, or a recovery code. */
+  loginWithCode: (mfaToken: string, code: string) => Promise<void>
   register: (registration: Registration) => Promise<void>
   logout: (notice?: string) => void
   retry: () => void

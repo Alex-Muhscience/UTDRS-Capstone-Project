@@ -30,6 +30,8 @@ TENANT_SCOPED = {
     "suppressions",
     "labels",
     "connections",
+    "webhooks",
+    "webhook_deliveries",
     "assets",
     "detection_rules",
     "simulations",

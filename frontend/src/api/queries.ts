@@ -91,6 +91,60 @@ export function useRenameTenant() {
   })
 }
 
+// ---------------------------------------------------------------------------- Multi-factor authentication
+
+export function useMfaStatus() {
+  return useQuery({ queryKey: ["mfa"], queryFn: () => unwrap(api.GET("/api/v1/auth/mfa")) })
+}
+
+function useMfaMutation<TVariables, TResult>(mutationFn: (variables: TVariables) => Promise<TResult>) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn,
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["mfa"] })
+      void queryClient.invalidateQueries({ queryKey: ["me"] })
+    },
+  })
+}
+
+export function useStartMfa() {
+  return useMfaMutation(() => unwrap(api.POST("/api/v1/auth/mfa/setup")))
+}
+
+/**
+ * Turning MFA on refreshes nothing by itself: the recovery codes it returns are shown
+ * once, so the page must not move on (the profile's "on" view, or past the setup gate)
+ * until they are saved. The caller refreshes when the person has saved them.
+ */
+export function useConfirmMfa() {
+  return useMutation({ mutationFn: (code: string) => unwrap(api.POST("/api/v1/auth/mfa/confirm", { body: { code } })) })
+}
+
+export function useNewRecoveryCodes() {
+  return useMfaMutation((code: string) => unwrap(api.POST("/api/v1/auth/mfa/recovery-codes", { body: { code } })))
+}
+
+export function useDisableMfa() {
+  return useMfaMutation((code: string) => unwrap(api.POST("/api/v1/auth/mfa/disable", { body: { code } })))
+}
+
+export function useRequireMfa() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (requireMfa: boolean) => unwrap(api.PATCH("/api/v1/tenants/current/security", { body: { require_mfa: requireMfa } })),
+    onSuccess: (tenant) => queryClient.setQueryData(["tenant"], tenant),
+  })
+}
+
+export function useResetMfa() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (userId: string) => unwrap(api.POST("/api/v1/users/{user_id}/reset-mfa", { params: { path: { user_id: userId } } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
+  })
+}
+
 // ---------------------------------------------------------------------------- Users
 
 /** Everyone with an account: for names, assignment and administration. */
@@ -491,6 +545,60 @@ export function useRunRetention() {
     mutationFn: () => unwrap(api.POST("/api/v1/retention/run")),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["retention"] }),
   })
+}
+
+// ---------------------------------------------------------------------------- Webhooks
+
+export function useWebhooks() {
+  return useQuery({ queryKey: ["webhooks", "list"], queryFn: () => unwrap(api.GET("/api/v1/webhooks/")), refetchInterval: POLL_INTERVAL_MS })
+}
+
+export function useWebhookEvents() {
+  return useQuery({ queryKey: ["webhooks", "events"], queryFn: () => unwrap(api.GET("/api/v1/webhooks/events")), staleTime: Infinity })
+}
+
+export function useDeliveries(webhookId: string | null) {
+  return useQuery({
+    queryKey: ["webhooks", "deliveries", webhookId],
+    queryFn: () => unwrap(api.GET("/api/v1/webhooks/{webhook_id}/deliveries", { params: { path: { webhook_id: webhookId ?? "" } } })),
+    enabled: webhookId !== null,
+    refetchInterval: 5_000,
+  })
+}
+
+function useWebhookMutation<TVariables, TResult>(mutationFn: (variables: TVariables) => Promise<TResult>) {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn, onSettled: () => queryClient.invalidateQueries({ queryKey: ["webhooks"] }) })
+}
+
+export function useCreateWebhook() {
+  return useWebhookMutation((body: { name: string; url: string; events: string[] }) => unwrap(api.POST("/api/v1/webhooks/", { body })))
+}
+
+export function useUpdateWebhook() {
+  return useWebhookMutation(({ webhookId, ...body }: { webhookId: string; enabled?: boolean }) =>
+    unwrap(api.PATCH("/api/v1/webhooks/{webhook_id}", { params: { path: { webhook_id: webhookId } }, body })),
+  )
+}
+
+export function useTestWebhook() {
+  return useWebhookMutation((webhookId: string) => unwrap(api.POST("/api/v1/webhooks/{webhook_id}/test", { params: { path: { webhook_id: webhookId } } })))
+}
+
+export function useRotateWebhookSecret() {
+  return useWebhookMutation((webhookId: string) =>
+    unwrap(api.POST("/api/v1/webhooks/{webhook_id}/rotate-secret", { params: { path: { webhook_id: webhookId } } })),
+  )
+}
+
+export function useDeleteWebhook() {
+  return useWebhookMutation((webhookId: string) => unwrap(api.DELETE("/api/v1/webhooks/{webhook_id}", { params: { path: { webhook_id: webhookId } } })))
+}
+
+export function useRedeliver() {
+  return useWebhookMutation((deliveryId: string) =>
+    unwrap(api.POST("/api/v1/webhooks/deliveries/{delivery_id}/redeliver", { params: { path: { delivery_id: deliveryId } } })),
+  )
 }
 
 // ---------------------------------------------------------------------------- API keys
