@@ -287,6 +287,48 @@ export function useNotificationLog({ status, page }: { status?: DeliveryStatus; 
   })
 }
 
+// ---------------------------------------------------------------------------- Reports
+
+export function useReports() {
+  return useQuery({ queryKey: ["reports", "list"], queryFn: () => unwrap(api.GET("/api/v1/reports/")) })
+}
+
+export function useReport(reportId: string) {
+  return useQuery({
+    queryKey: ["reports", "detail", reportId],
+    queryFn: () => unwrap(api.GET("/api/v1/reports/{report_id}", { params: { path: { report_id: reportId } } })),
+  })
+}
+
+/** Make (or make again) the report for a month, YYYY-MM; by default the last full month. */
+export function useMakeReport() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (period?: string) => unwrap(api.POST("/api/v1/reports/", { body: { period: period ?? null } })),
+    onSuccess: (report) => {
+      queryClient.setQueryData(["reports", "detail", report.id], report)
+      void queryClient.invalidateQueries({ queryKey: ["reports", "list"] })
+    },
+  })
+}
+
+/** Download a report as a PDF: fetched with the session, then saved by the browser. */
+export function useDownloadReport() {
+  return useMutation({
+    mutationFn: async ({ reportId, period }: { reportId: string; period: string }) => {
+      const blob = await unwrap(
+        api.GET("/api/v1/reports/{report_id}/pdf", { params: { path: { report_id: reportId } }, parseAs: "blob" }),
+      )
+      const url = URL.createObjectURL(blob as Blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `utdrs-report-${period}.pdf`
+      link.click()
+      URL.revokeObjectURL(url)
+    },
+  })
+}
+
 // ---------------------------------------------------------------------------- API keys
 
 export function useApiKeys() {

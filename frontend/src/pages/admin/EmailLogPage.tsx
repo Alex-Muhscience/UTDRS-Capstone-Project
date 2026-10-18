@@ -12,7 +12,7 @@ import { useUrlFilters } from "@/lib/useUrlFilters"
 
 const STATUSES = ["queued", "sending", "sent", "failed", "skipped"] as const
 const TONES: Record<string, Tone> = { queued: "neutral", sending: "accent", sent: "success", failed: "danger", skipped: "warning" }
-const KINDS: Record<string, string> = { case_opened: "New case", approval_needed: "Approval needed", action_finished: "Action taken" }
+const KINDS: Record<string, string> = { case_opened: "New case", approval_needed: "Approval needed", action_finished: "Action taken", report_ready: "Monthly report" }
 
 export function EmailLogPage() {
   const { filters, page, setFilter, setPage } = useUrlFilters(["status"] as const)
