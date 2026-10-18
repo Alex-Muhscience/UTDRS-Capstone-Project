@@ -7,7 +7,7 @@
  */
 export const DEPLOYMENTS: ReadonlyArray<{ host: RegExp; api: string }> = [
   // The dashboard on Vercel, and its preview deployments; the backend on Render (render.yaml).
-  { host: /^utdrs-capstone-project(-[a-z0-9-]+)?\.vercel\.app$/, api: "https://utdrs-api-gateway.onrender.com" },
+  { host: /^utdrs-capstone-project(-[a-z0-9-]+)?\.vercel\.app$/, api: "https://utdrs-api-gateway-1pjf.onrender.com" },
 ]
 
 export function deployedApiUrl(hostname: string): string {
