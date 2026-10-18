@@ -32,9 +32,13 @@ DETECTOR_FIELDS = {
 }
 
 
-def to_engine_event(event_id: str, event: EventCreate) -> Dict[str, Any]:
-    """The gateway's event in the shape the core engine's /detections/process expects."""
-    data: Dict[str, Any] = dict(event.raw_data or {})
+def to_engine_event(event_id: str, event: EventCreate, transient: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    The gateway's event in the shape the core engine's /detections/process expects.
+    `transient` is data the engine needs to judge the event but the gateway does not keep,
+    such as an email's body.
+    """
+    data: Dict[str, Any] = {**(event.raw_data or {}), **(transient or {})}
     for field, names in DETECTOR_FIELDS.items():
         value = getattr(event, field)
         if value is not None:
@@ -66,8 +70,8 @@ def to_gateway_alert(engine_alert: Dict[str, Any], event_id: str, event: EventCr
     )
 
 
-async def analyse_event(event_id: str, event: EventCreate) -> Optional[str]:
-    """Run detection for a stored event. Returns the new alert's id, if any."""
+async def analyse_event(event_id: str, event: EventCreate, transient: Optional[Dict[str, Any]] = None) -> Optional[str]:
+    """Run detection for a stored event (with `transient` data it was not stored with). Returns the new alert's id, if any."""
     client = core_engine_client.get_core_engine_client()
     if client is None:
         return None
@@ -76,7 +80,7 @@ async def analyse_event(event_id: str, event: EventCreate) -> Optional[str]:
     analysis: Dict[str, Any] = {"analysed_at": utcnow()}
     alert_id: Optional[str] = None
     try:
-        engine_alert = await client.analyse_event(to_engine_event(event_id, event))
+        engine_alert = await client.analyse_event(to_engine_event(event_id, event, transient))
         if engine_alert:
             alert_id = await AlertService().create_alert(
                 to_gateway_alert(engine_alert, event_id, event),

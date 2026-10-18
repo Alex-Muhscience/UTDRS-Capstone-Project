@@ -442,6 +442,20 @@ export function useDisconnectMicrosoft365() {
   return useConnectorMutation(() => unwrap(api.DELETE("/api/v1/connectors/microsoft-365")))
 }
 
+// ---------------------------------------------------------------------------- Email
+
+/** Check a delivered email for phishing, by its recipient and Internet message id. */
+export function useCheckEmail() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { recipient: string; internet_message_id: string }) => unwrap(api.POST("/api/v1/email/check", { body })),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["events"] })
+      void queryClient.invalidateQueries({ queryKey: ["alerts"] })
+    },
+  })
+}
+
 // ---------------------------------------------------------------------------- Onboarding
 
 export function useOnboarding() {

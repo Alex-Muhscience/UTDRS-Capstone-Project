@@ -43,6 +43,7 @@ class FakeMicrosoft:
         self.content_served = False
         self.management_forbidden = False
         self.rules = {}  # (mailbox, rule id) -> rule
+        self.messages_read = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         url = request.url
@@ -88,6 +89,14 @@ class FakeMicrosoft:
                 del self.rules[(mailbox, rule_id)]
                 return httpx.Response(204)
             return httpx.Response(200, json=self.rules[(mailbox, rule_id)])
+        if path.endswith("/attachments"):
+            return httpx.Response(200, json=sample("message_attachments.json"))
+        if path.endswith("/messages") and "$filter" in url.params:
+            self.messages_read.append(path.split("/")[2])
+            wanted = url.params["$filter"].split("'", 1)[1].rsplit("'", 1)[0].replace("''", "'")
+            message = sample("message.json")
+            mine = path.split("/")[2] == "ana@contoso.example" and wanted == message["value"][0]["internetMessageId"]
+            return httpx.Response(200, json=message if mine else {"value": []})
         if path.endswith("/revokeSignInSessions"):
             self.revoked.append(path.split("/")[2])
             return httpx.Response(200, json={"value": True})
@@ -182,9 +191,11 @@ def test_connecting_with_an_app_registration(client, org, microsoft):
 
     # Its detection rules are in the catalogue, and the engine can run every one.
     rules = [r for r in client.get(f"{API}/detection/rules", params={"limit": 500}, headers=org).json() if r["name"].startswith("Microsoft 365:")]
-    assert len(rules) == 9 and all(r["engine"]["runs"] for r in rules), [r["engine"] for r in rules]
+    from core.services.m365_ingest import RULES
+
+    assert len(rules) == len(RULES) and all(r["engine"]["runs"] for r in rules), [r["engine"] for r in rules]
     connect(client, org)  # connecting again adds them once
-    assert len([r for r in client.get(f"{API}/detection/rules", params={"limit": 500}, headers=org).json() if r["name"].startswith("Microsoft 365:")]) == 9
+    assert len([r for r in client.get(f"{API}/detection/rules", params={"limit": 500}, headers=org).json() if r["name"].startswith("Microsoft 365:")]) == len(RULES)
 
 
 def test_no_secret_is_stored_without_an_encryption_key(client, org, microsoft, monkeypatch):
