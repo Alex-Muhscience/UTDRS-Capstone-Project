@@ -73,7 +73,9 @@ const auth: Middleware = {
 }
 
 export const api = createClient<paths>({
-  baseUrl: import.meta.env.VITE_API_URL ?? "",
+  // VITE_API_URL when set (development, tests); on Vercel, the deployed gateway; otherwise
+  // this origin, whose /api the Docker image's nginx forwards to the gateway.
+  baseUrl: import.meta.env.VITE_API_URL || __DEPLOYED_API_URL__ || "",
   // Resolved on each call so tests can stub fetch.
   fetch: (request) => globalThis.fetch(request),
 })
