@@ -14,13 +14,15 @@ from api.middleware.security import (
     rate_limit_handler,
 )
 from api.routes import (
-    alerts, api_keys, assets, audit, auth, cases, detection, events, health, notifications, playbooks, reports, response, scans, simulation, tuning,
-    tenants as tenant_routes, users,
+    alerts, api_keys, assets, audit, auth, cases, connectors as connector_routes, detection, events, health, notifications,
+    playbooks, reports, response, scans, simulation, tenants as tenant_routes, tuning, users,
 )
 from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
 from core.database.indexes import ensure_indexes
-from core.services import case_service, notifications as notification_service, playbooks as playbook_service, reports as report_service, tenants
+from core.services import (
+    case_service, m365_ingest, notifications as notification_service, playbooks as playbook_service, reports as report_service, tenants,
+)
 from core.services.bootstrap import ensure_admin
 from core.services.startup_lock import startup_lock
 from core.tenancy import tenant_context
@@ -53,6 +55,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(sync_periodically()),
         asyncio.create_task(notification_service.deliver_periodically()),
         asyncio.create_task(report_service.generate_periodically()),
+        asyncio.create_task(m365_ingest.poll_periodically()),
     ]
     yield
     for loop in loops:
@@ -116,6 +119,9 @@ app.include_router(scans.router, prefix=f"{settings.API_PREFIX}/scans", tags=["s
 app.include_router(detection.router, prefix=f"{settings.API_PREFIX}/detection", tags=["detection"], dependencies=scoped("rules"))
 app.include_router(
     simulation.router, prefix=f"{settings.API_PREFIX}/simulation", tags=["simulation"], dependencies=scoped("simulations")
+)
+app.include_router(
+    connector_routes.router, prefix=f"{settings.API_PREFIX}/connectors", tags=["connectors"], dependencies=[Depends(audited("connectors"))]
 )
 app.include_router(tuning.router, prefix=f"{settings.API_PREFIX}/tuning", tags=["tuning"], dependencies=scoped("tuning"))
 app.include_router(reports.router, prefix=f"{settings.API_PREFIX}/reports", tags=["reports"], dependencies=scoped("reports"))

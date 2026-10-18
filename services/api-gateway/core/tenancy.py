@@ -29,6 +29,7 @@ TENANT_SCOPED = {
     "reports",
     "suppressions",
     "labels",
+    "connections",
     "assets",
     "detection_rules",
     "simulations",

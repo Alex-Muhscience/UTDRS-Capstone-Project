@@ -10,6 +10,7 @@ import {
   LogOut,
   Mail,
   Menu,
+  Plug,
   ScrollText,
   Server,
   ShieldAlert,
@@ -46,6 +47,7 @@ const NAVIGATION = [
 ] as const
 
 const ADMIN_NAVIGATION = [
+  { to: "/connectors", label: "Connectors", icon: Plug },
   { to: "/users", label: "Users", icon: Users },
   { to: "/api-keys", label: "API keys", icon: KeyRound },
   { to: "/audit-log", label: "Audit log", icon: ScrollText },
