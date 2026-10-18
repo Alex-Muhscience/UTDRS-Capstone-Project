@@ -27,6 +27,7 @@ import {
   type NotificationPreferences,
   type Playbook,
   type ResponseSettings,
+  type SuppressionCreate,
   type Simulation,
   type SimulationCreate,
   type User,
@@ -326,6 +327,58 @@ export function useDownloadReport() {
       link.click()
       URL.revokeObjectURL(url)
     },
+  })
+}
+
+// ---------------------------------------------------------------------------- Tuning
+
+export function useGiveFeedback(alertId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { verdict: "true_positive" | "false_positive" | "benign"; note?: string | null }) =>
+      unwrap(api.POST("/api/v1/alerts/{alert_id}/feedback", { params: { path: { alert_id: alertId } }, body })),
+    onSuccess: (result) => {
+      queryClient.setQueryData(["alerts", "detail", alertId], result.alert)
+      void queryClient.invalidateQueries({ queryKey: ["alerts"] })
+      void queryClient.invalidateQueries({ queryKey: ["tuning", "quality"] })
+    },
+  })
+}
+
+export function useSuppressions() {
+  return useQuery({ queryKey: ["tuning", "suppressions"], queryFn: () => unwrap(api.GET("/api/v1/tuning/suppressions")) })
+}
+
+export function useCreateSuppression() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: SuppressionCreate) => unwrap(api.POST("/api/v1/tuning/suppressions", { body })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tuning", "suppressions"] }),
+  })
+}
+
+export function useUpdateSuppression() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ suppressionId, ...body }: { suppressionId: string; enabled?: boolean }) =>
+      unwrap(api.PATCH("/api/v1/tuning/suppressions/{suppression_id}", { params: { path: { suppression_id: suppressionId } }, body })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tuning", "suppressions"] }),
+  })
+}
+
+export function useDeleteSuppression() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (suppressionId: string) =>
+      unwrap(api.DELETE("/api/v1/tuning/suppressions/{suppression_id}", { params: { path: { suppression_id: suppressionId } } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tuning", "suppressions"] }),
+  })
+}
+
+export function useDetectorQuality(days = 30) {
+  return useQuery({
+    queryKey: ["tuning", "quality", days],
+    queryFn: () => unwrap(api.GET("/api/v1/tuning/quality", { params: { query: { days } } })),
   })
 }
 

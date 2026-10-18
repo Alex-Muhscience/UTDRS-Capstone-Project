@@ -71,10 +71,23 @@ class AlertInDB(AlertBase):
     )
 
 
+class Feedback(BaseModel):
+    """An analyst's verdict on an alert."""
+
+    # true_positive (a real threat), false_positive (a mistake) or benign (real, but expected)
+    verdict: str
+    note: Optional[str] = None
+    by: Dict[str, Any]
+    at: datetime
+
+
 class Alert(AlertBase):
     id: IdString = Field(validation_alias=AliasChoices("_id", "id"))
     # The case the alert belongs to.
     case_id: Optional[str] = None
+    feedback: Optional[Feedback] = None
+    # For a suppressed alert, the suppression that matched it.
+    suppressed_by: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     created_by: Optional[str] = None

@@ -7,7 +7,7 @@ from core.database.repositories.alert_repository import AlertRepository
 from core.database.repositories.asset_repository import AssetRepository
 from core.database.repositories.event_repository import EventRepository
 from core.models.alert import Alert, AlertCreate, AlertUpdate
-from core.services import case_service, playbooks
+from core.services import case_service, playbooks, tuning
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -56,6 +56,13 @@ class AlertService:
         try:
             alert_id = await self.alert_repo.create_alert(alert_data, user_id, metadata)
             logger.info(f"Created alert with ID: {alert_id}")
+            # A suppressed alert is kept but reaches nobody: no case, playbook or email.
+            try:
+                if await tuning.suppress_if_matched(alert_id):
+                    logger.info(f"Alert {alert_id} suppressed")
+                    return alert_id
+            except Exception as e:
+                logger.error(f"Could not check alert {alert_id} against suppressions: {e}")
             # Every alert is part of a case, new or existing; a failure here must not
             # lose the alert itself.
             try:

@@ -1,7 +1,7 @@
 export const SEVERITIES = ["critical", "high", "medium", "low", "info"] as const
 export type Severity = (typeof SEVERITIES)[number]
 
-export const ALERT_STATUSES = ["open", "in_progress", "resolved", "closed", "false_positive"] as const
+export const ALERT_STATUSES = ["open", "in_progress", "resolved", "closed", "false_positive", "suppressed"] as const
 export type AlertStatus = (typeof ALERT_STATUSES)[number]
 
 /** Alerts that still need someone's attention. */

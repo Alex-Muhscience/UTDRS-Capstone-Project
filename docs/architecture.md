@@ -67,7 +67,9 @@ sequenceDiagram
 
 The gateway's catalogue is the source of truth. After every change to a rule, and every minute as a safety net, the gateway compiles the enabled rules whose logic the engine can run and sends the whole set to `PUT /rules/managed/gateway`; the engine replaces its copies of the gateway's rules with it, leaving its built-in rules alone. Rules the engine cannot run yet stay in the catalogue, marked with the reason. An alert from one of these rules carries the gateway's rule id, and the dashboard links to the rule.
 
-Every alert is put in a case: an open one from the last day about the same user, device, source address, sender or file, or a new one. Analysts work cases (owner, deadline from priority, timeline, notes), and closing a case closes its open alerts.
+A new alert is first checked against the organisation's suppressions; a suppressed alert is kept but reaches nobody. Analysts' verdicts on alerts show which detectors are noisy and are kept as labels for retraining the models.
+
+Every other alert is put in a case: an open one from the last day about the same user, device, source address, sender or file, or a new one. Analysts work cases (owner, deadline from priority, timeline, notes), and closing a case closes its open alerts.
 
 When an alert is put in a case, the gateway runs the playbooks it matches, once per case, in the background. Their actions act through connectors (Microsoft 365 through Microsoft Graph) or on UTDRS itself; each runs at once or waits for a person's approval, as the playbook's mode, the organisation's mode and the safety limits say, and each is recorded in the audit log and on the case's timeline, with an undo where one exists.
 

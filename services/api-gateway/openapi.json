@@ -1285,6 +1285,64 @@
         }
       }
     },
+    "/api/v1/alerts/{alert_id}/feedback": {
+      "post": {
+        "tags": [
+          "alerts"
+        ],
+        "summary": "Give Feedback",
+        "description": "Say whether the alert was a real threat (`true_positive`), a mistake\n(`false_positive`) or real but expected activity (`benign`). A false positive is\nmarked so, and a benign alert closed. The verdict tunes detection: it counts towards\nthe detector's quality and is kept as a label for retraining. For anything but a real\nthreat, the answer suggests a suppression for alerts like it, applied only if created.",
+        "operationId": "give_feedback_api_v1_alerts__alert_id__feedback_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "alert_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Alert Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerdictRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerdictResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/cases/": {
       "get": {
         "tags": [
@@ -5245,6 +5303,286 @@
         }
       }
     },
+    "/api/v1/tuning/suppressions": {
+      "get": {
+        "tags": [
+          "tuning"
+        ],
+        "summary": "List Suppressions",
+        "description": "Every suppression, newest first, with how many alerts each has suppressed.",
+        "operationId": "list_suppressions_api_v1_tuning_suppressions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Suppression"
+                  },
+                  "type": "array",
+                  "title": "Response List Suppressions Api V1 Tuning Suppressions Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "tuning"
+        ],
+        "summary": "Create Suppression",
+        "description": "Suppress alerts like these from now on. Critical alerts get through unless\n`max_severity` is critical, and it expires after `expires_in_days` (90 by default);\nonly administrators can lift either limit.",
+        "operationId": "create_suppression_api_v1_tuning_suppressions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuppressionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Suppression"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tuning/suppressions/{suppression_id}": {
+      "patch": {
+        "tags": [
+          "tuning"
+        ],
+        "summary": "Update Suppression",
+        "description": "Change a suppression, or turn it off (`enabled`). `expires_in_days` 0 makes it permanent.",
+        "operationId": "update_suppression_api_v1_tuning_suppressions__suppression_id__patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "suppression_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Suppression Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuppressionUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Suppression"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "tuning"
+        ],
+        "summary": "Delete Suppression",
+        "description": "Delete a suppression. Alerts it suppressed stay as they are.",
+        "operationId": "delete_suppression_api_v1_tuning_suppressions__suppression_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "suppression_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Suppression Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tuning/quality": {
+      "get": {
+        "tags": [
+          "tuning"
+        ],
+        "summary": "Detector Quality",
+        "description": "How good each detector has been: noisy ones first, then by number of alerts.",
+        "operationId": "detector_quality_api_v1_tuning_quality_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 365,
+              "minimum": 1,
+              "default": 30,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DetectorQuality"
+                  },
+                  "title": "Response Detector Quality Api V1 Tuning Quality Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tuning/labels": {
+      "get": {
+        "tags": [
+          "tuning"
+        ],
+        "summary": "Export Labels",
+        "description": "Every verdict, as JSON Lines, oldest first: the alert, its detector, the engine's\nfindings and the events behind it. For retraining the detection models.",
+        "operationId": "export_labels_api_v1_tuning_labels_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/x-ndjson": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reports/": {
       "get": {
         "tags": [
@@ -6539,6 +6877,27 @@
               }
             ],
             "title": "Case Id"
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Feedback"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "suppressed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suppressed By"
           },
           "created_at": {
             "type": "string",
@@ -8254,6 +8613,65 @@
         ],
         "title": "DetectionStatus"
       },
+      "DetectorQuality": {
+        "properties": {
+          "detector": {
+            "type": "string",
+            "title": "Detector"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "alerts": {
+            "type": "integer",
+            "title": "Alerts"
+          },
+          "suppressed": {
+            "type": "integer",
+            "title": "Suppressed"
+          },
+          "true_positive": {
+            "type": "integer",
+            "title": "True Positive"
+          },
+          "false_positive": {
+            "type": "integer",
+            "title": "False Positive"
+          },
+          "benign": {
+            "type": "integer",
+            "title": "Benign"
+          },
+          "precision": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Precision"
+          },
+          "noisy": {
+            "type": "boolean",
+            "title": "Noisy"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detector",
+          "name",
+          "alerts",
+          "suppressed",
+          "true_positive",
+          "false_positive",
+          "benign",
+          "noisy"
+        ],
+        "title": "DetectorQuality"
+      },
       "Entity": {
         "properties": {
           "type": {
@@ -8635,6 +9053,43 @@
         ],
         "title": "Explanation",
         "description": "The case in plain language, for whoever has to act on it."
+      },
+      "Feedback": {
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "title": "Verdict"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "by": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "By"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "verdict",
+          "by",
+          "at"
+        ],
+        "title": "Feedback",
+        "description": "An analyst's verdict on an alert."
       },
       "Figure": {
         "properties": {
@@ -10329,6 +10784,346 @@
         "type": "object",
         "title": "SimulationUpdate"
       },
+      "Suppression": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "title_contains": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title Contains"
+          },
+          "detector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detector"
+          },
+          "entity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SuppressionEntity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "max_severity": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low",
+              "info"
+            ],
+            "title": "Max Severity"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "hits": {
+            "type": "integer",
+            "title": "Hits"
+          },
+          "last_hit_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Hit At"
+          },
+          "created_by": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "reason",
+          "max_severity",
+          "enabled",
+          "hits",
+          "created_by",
+          "created_at"
+        ],
+        "title": "Suppression"
+      },
+      "SuppressionCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason"
+          },
+          "title_contains": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title Contains"
+          },
+          "detector": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detector"
+          },
+          "entity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SuppressionEntity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "max_severity": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low",
+              "info"
+            ],
+            "title": "Max Severity",
+            "default": "high"
+          },
+          "expires_in_days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 365.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In Days",
+            "default": 90
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "reason"
+        ],
+        "title": "SuppressionCreate",
+        "description": "Alerts matching every condition given (at least one) and no more severe than\n`max_severity` are suppressed. With only an entity, it is an allow-list entry."
+      },
+      "SuppressionEntity": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "user",
+              "host",
+              "asset",
+              "ip",
+              "sender",
+              "file_hash",
+              "message"
+            ],
+            "title": "Type"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "value"
+        ],
+        "title": "SuppressionEntity"
+      },
+      "SuppressionSuggestion": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "detector": {
+            "type": "string",
+            "title": "Detector"
+          },
+          "entity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SuppressionEntity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "max_severity": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low",
+              "info"
+            ],
+            "title": "Max Severity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "detector",
+          "max_severity"
+        ],
+        "title": "SuppressionSuggestion"
+      },
+      "SuppressionUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "max_severity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "critical",
+                  "high",
+                  "medium",
+                  "low",
+                  "info"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Severity"
+          },
+          "expires_in_days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 365.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In Days",
+            "description": "0 for never"
+          }
+        },
+        "type": "object",
+        "title": "SuppressionUpdate"
+      },
       "Target-Input": {
         "properties": {
           "type": {
@@ -10775,6 +11570,58 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VerdictRequest": {
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "true_positive",
+              "false_positive",
+              "benign"
+            ],
+            "title": "Verdict"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "verdict"
+        ],
+        "title": "VerdictRequest"
+      },
+      "VerdictResult": {
+        "properties": {
+          "alert": {
+            "$ref": "#/components/schemas/Alert"
+          },
+          "suggestion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SuppressionSuggestion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "alert"
+        ],
+        "title": "VerdictResult"
       },
       "Week": {
         "properties": {

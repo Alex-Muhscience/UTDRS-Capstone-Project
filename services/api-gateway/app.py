@@ -14,7 +14,7 @@ from api.middleware.security import (
     rate_limit_handler,
 )
 from api.routes import (
-    alerts, api_keys, assets, audit, auth, cases, detection, events, health, notifications, playbooks, reports, response, scans, simulation,
+    alerts, api_keys, assets, audit, auth, cases, detection, events, health, notifications, playbooks, reports, response, scans, simulation, tuning,
     tenants as tenant_routes, users,
 )
 from config import settings
@@ -117,6 +117,7 @@ app.include_router(detection.router, prefix=f"{settings.API_PREFIX}/detection", 
 app.include_router(
     simulation.router, prefix=f"{settings.API_PREFIX}/simulation", tags=["simulation"], dependencies=scoped("simulations")
 )
+app.include_router(tuning.router, prefix=f"{settings.API_PREFIX}/tuning", tags=["tuning"], dependencies=scoped("tuning"))
 app.include_router(reports.router, prefix=f"{settings.API_PREFIX}/reports", tags=["reports"], dependencies=scoped("reports"))
 app.include_router(
     notifications.router, prefix=f"{settings.API_PREFIX}/notifications", tags=["notifications"], dependencies=[Depends(audited("notifications"))]
