@@ -5,8 +5,8 @@ The dashboard is on Vercel (built from this repository). This puts the backend o
 | Piece | Where | Address |
 |---|---|---|
 | Dashboard | Vercel | https://utdrs-capstone-project.vercel.app |
-| API gateway | Render web service `utdrs-api-gateway` | https://utdrs-api-gateway.onrender.com |
-| Core engine | Render web service `utdrs-core-engine` | https://utdrs-core-engine.onrender.com (answers only the gateway: it needs the shared internal token) |
+| API gateway | Render web service `utdrs-api-gateway` (Render named it `utdrs-api-gateway-1pjf`) | https://utdrs-api-gateway-1pjf.onrender.com |
+| Core engine | Render web service `utdrs-core-engine` (Render named it `utdrs-core-engine-vtv2`) | https://utdrs-core-engine-vtv2.onrender.com (answers only the gateway: it needs the shared internal token) |
 | Database | MongoDB Atlas | databases `utdrs` (gateway) and `utdrs_engine` (engine) in one cluster |
 
 The browser calls the gateway directly: the dashboard picks the gateway's address from the domain it is served on (`frontend/src/api/deployment.ts`), so neither Vercel's build settings nor its environment variables can get it wrong, and the gateway allows the dashboard's origins (CORS), so the gateway sees each person's real address for sign-in throttling. `frontend/vercel.json` also serves the app for every route and sends the same security headers as the Docker image.
@@ -26,11 +26,11 @@ The browser calls the gateway directly: the dashboard picks the gateway's addres
    - `MONGODB_URI`, for both services: the Atlas connection string (the same one).
    - `ADMIN_EMAIL` and `ADMIN_PASSWORD`: the first administrator (user name `admin`). Use a password manager; at least 8 characters.
 4. **Apply**. The engine builds first (a few minutes: it installs its machine-learning libraries), then the gateway. Render generates `JWT_SECRET`, `ENCRYPTION_KEY` and the shared `INTERNAL_API_TOKEN`.
-5. Check both service addresses in Render. If either name was taken, Render adds a suffix: then change the addresses in `render.yaml` (`CORE_ENGINE_URL`), `frontend/src/api/deployment.ts` and `frontend/vercel.json` (`connect-src`), and push.
+5. Check both service addresses in Render. If either name was taken, Render adds a suffix (as it did here: `-1pjf` and `-vtv2`, because other people's services already had the plain names). **This matters**: a dashboard pointing at the plain name would send people's passwords to someone else's service. So then change the addresses in `render.yaml` (`CORE_ENGINE_URL`), `frontend/src/api/deployment.ts` and `frontend/vercel.json` (`connect-src`), and push.
 
 ## 3. Check it
 
-- https://utdrs-api-gateway.onrender.com/api/v1/health answers `{"status":"ok"}`, and `/api/v1/detection/` shows the engine reachable (sign in first; or look for "Sent N rules to the core engine" in the gateway's Render logs).
+- https://utdrs-api-gateway-1pjf.onrender.com/api/v1/health answers `{"status":"ok"}`, and `/api/v1/detection/` shows the engine reachable (sign in first; or look for "Sent N rules to the core engine" in the gateway's Render logs).
 - Open the dashboard, sign in as `admin`, and send a test event (Events > Send test event): "Shadow copies deleted" becomes an alert.
 - Audit log: your sign-in shows your own public address. If it shows a `10.x` or Render address instead, Render's proxies are not in `TRUSTED_PROXIES`; tell us what it shows.
 - Then: Profile > set up multi-factor authentication, and require it for everyone.
