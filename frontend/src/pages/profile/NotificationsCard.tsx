@@ -2,6 +2,7 @@ import { toast } from "sonner"
 
 import type { NotificationPreferences } from "@/api/client"
 import { useNotificationPreferences, useSendTestEmail, useUpdateNotificationPreferences } from "@/api/queries"
+import { useIsAdmin } from "@/auth/context"
 import { Button } from "@/components/ui/Button"
 import { Card } from "@/components/ui/Card"
 import { Field, Select } from "@/components/ui/Field"
@@ -28,6 +29,7 @@ type Changes = Partial<Omit<NotificationPreferences, "email_configured" | "addre
 
 /** What you are emailed about. Each change is saved as it is made. */
 export function NotificationsCard() {
+  const isAdmin = useIsAdmin()
   const preferences = useNotificationPreferences()
   const update = useUpdateNotificationPreferences()
   const test = useSendTestEmail()
@@ -63,6 +65,11 @@ export function NotificationsCard() {
             <Select id={id} value={data.actions} options={ACTIONS} disabled={off || update.isPending} onChange={(event) => save({ actions: event.target.value as Changes["actions"] })} />
           )}
         </Field>
+        {isAdmin && (
+          <Field label="The monthly report">
+            {(id) => <Select id={id} value={data.reports ? "on" : "off"} options={ON_OFF} disabled={off || update.isPending} onChange={(event) => save({ reports: event.target.value === "on" })} />}
+          </Field>
+        )}
         <Button
           size="sm"
           loading={test.isPending}

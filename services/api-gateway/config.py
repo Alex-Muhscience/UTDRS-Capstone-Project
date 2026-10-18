@@ -82,6 +82,8 @@ class Settings(BaseSettings):
     # is sent in an hour (beyond it, notifications are logged as skipped).
     NOTIFY_INTERVAL_SECONDS: int = 10
     NOTIFY_MAX_PER_USER_PER_HOUR: int = 30
+    # How often the gateway checks whether last month's reports are due (made on the 1st).
+    REPORT_CHECK_INTERVAL_SECONDS: int = 3600
 
 
 settings = Settings()
