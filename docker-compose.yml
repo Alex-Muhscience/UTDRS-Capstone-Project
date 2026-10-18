@@ -91,6 +91,8 @@ services:
       RETENTION_EVENTS_DAYS: ${RETENTION_EVENTS_DAYS:-90}
       RETENTION_ALERTS_DAYS: ${RETENTION_ALERTS_DAYS:-365}
       RETENTION_MAX_DAYS: ${RETENTION_MAX_DAYS:-730}
+      # Webhooks only go to public addresses unless this is true (receivers on your own network).
+      WEBHOOK_ALLOW_PRIVATE_ADDRESSES: ${WEBHOOK_ALLOW_PRIVATE_ADDRESSES:-false}
     depends_on:
       mongodb:
         condition: service_healthy

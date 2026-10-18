@@ -174,9 +174,10 @@ async def attach_alert(alert_id: str, notify: bool = True) -> Optional[str]:
         case["_id"] = (await _cases().insert_one(case)).inserted_id
         case_id = str(case["_id"])
         if notify:
-            from core.services import notifications  # it uses this module
+            from core.services import notifications, webhooks  # they use this module
 
             await notifications.case_opened(case, [alert])
+            await webhooks.emit("case.created", webhooks.case_data(case))
     await _alerts().update_one({"_id": alert["_id"]}, {"$set": {"case_id": case_id}})
     return case_id
 
@@ -275,6 +276,9 @@ async def update_case(case_id: str, changes: Dict[str, Any], actor: Dict[str, An
         return await get_case(case_id)
     if "priority" in fields:
         fields["due_at"] = case["created_at"] + SLA[fields["priority"]]
+    from core.services import webhooks
+
+    await webhooks.emit("case.updated", webhooks.case_data({**case, **fields}, {k: {"before": case.get(k), "after": v} for k, v in fields.items() if k != "due_at"}))
     await _cases().update_one({"_id": case["_id"]}, {"$set": {**fields, "updated_at": now}, "$push": {"timeline": {"$each": entries}}})
 
     alert_status = ALERT_STATUS_FOR.get(fields.get("status"))
