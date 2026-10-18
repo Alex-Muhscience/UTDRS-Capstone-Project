@@ -59,6 +59,15 @@ def create_access_token(
 
 INTEGRATION = "integration"  # the role an API key acts with; never an administrator
 
+# What a session may reach before setting up MFA its organisation requires: its own
+# account and MFA, and reading (never changing) its organisation.
+MFA_SETUP_PATHS = ("/auth/me", "/auth/mfa", "/auth/config")
+
+
+def _allowed_before_mfa(request: Request) -> bool:
+    path = request.url.path.removeprefix(settings.API_PREFIX)
+    return any(path.startswith(allowed) for allowed in MFA_SETUP_PATHS) or (path == "/tenants/current" and request.method == "GET")
+
 
 async def _api_key_user(request: Request, key: str) -> User:
     from core.services import api_keys
@@ -109,7 +118,9 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
             token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
         )
         user_id: str = payload.get("sub")
-        if user_id is None:
+        # Only session tokens: not the short-lived token between password and MFA code,
+        # or any other token signed with the same secret for another purpose.
+        if user_id is None or payload.get("purpose"):
             raise credentials_exception
     except (jwt.PyJWTError, ValidationError):
         raise credentials_exception
@@ -135,6 +146,18 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
     current = User(**user)
     set_tenant(user["tenant_id"])
     request.state.principal = {"type": "user", "id": current.id, "name": current.username, "role": current.role}
+
+    # The organisation requires MFA and this account has none: set it up, and nothing else.
+    from core.services import mfa
+
+    if not current.mfa_enabled and await mfa.required():
+        current.mfa_setup_required = True
+        if not _allowed_before_mfa(request):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your organisation requires multi-factor authentication: set it up to continue",
+                headers={"X-MFA-Setup-Required": "true"},
+            )
     return current
 
 

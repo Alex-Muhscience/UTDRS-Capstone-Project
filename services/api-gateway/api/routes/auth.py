@@ -1,5 +1,5 @@
-from datetime import timedelta
-from typing import Any, Optional
+from datetime import datetime, timedelta
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -7,8 +7,8 @@ from pydantic import BaseModel, Field, field_validator
 
 from config import settings
 from core.database.repositories.user_repository import UserRepository
-from core.services import audit, login_throttle, tenants
-from core.tenancy import PLATFORM, set_tenant
+from core.services import audit, login_throttle, mfa, tenants
+from core.tenancy import PLATFORM, set_tenant, tenant_context
 from core.models.user import (
     User,
     UserCreate,
@@ -32,9 +32,48 @@ _UNKNOWN_USER_HASH = get_password_hash("not-a-real-password")
 
 
 class Token(BaseModel):
-    access_token: str
-    token_type: str
-    user: User
+    """A session, or, when the account has MFA, what is needed to finish signing in."""
+
+    access_token: Optional[str] = None
+    token_type: Optional[str] = None
+    user: Optional[User] = None
+    # The password was right; send a code with mfa_token to /auth/login/mfa within five minutes.
+    mfa_required: bool = False
+    mfa_token: Optional[str] = None
+
+
+class MfaLogin(BaseModel):
+    mfa_token: str = Field(max_length=2000)
+    # Six digits from the authenticator app, or a recovery code.
+    code: str = Field(min_length=6, max_length=20)
+
+
+class MfaCode(BaseModel):
+    code: str = Field(min_length=6, max_length=20)
+
+
+class MfaStatus(BaseModel):
+    enabled: bool
+    enabled_at: Optional[datetime] = None
+    recovery_codes_left: int
+    required_by_organisation: bool
+    # Whether MFA can be set up here at all (it needs ENCRYPTION_KEY).
+    encryption_available: bool
+
+
+class MfaSetup(BaseModel):
+    # For the authenticator app: scan otpauth_uri as a QR code, or type the secret.
+    secret: str
+    otpauth_uri: str
+
+
+class RecoveryCodes(BaseModel):
+    """Single-use codes for when the phone is not at hand. Shown once: keep them safe."""
+
+    recovery_codes: List[str]
+
+
+MFA_TOKEN_MINUTES = 5
 
 
 class PasswordChange(BaseModel):
@@ -98,7 +137,6 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    await login_throttle.record_success(form_data.username, address)
 
     if not user.get("active", True):
         await audit.record(
@@ -111,20 +149,68 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
 
     # From here on, this is the person's organisation's business.
     set_tenant(user["tenant_id"])
-    await user_repo.update_last_login(str(user["_id"]))
-    await audit.record(
-        "auth.login_succeeded",
-        request,
-        actor={"type": "user", "id": str(user["_id"]), "name": user["username"], "role": user.get("role")},
-    )
 
-    # Create access token
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    token = create_access_token(
-        data={"sub": str(user["_id"])}, expires_delta=access_token_expires
-    )
+    if mfa.enabled(user):
+        # The password was right, but the throttle is only reset once the code is too:
+        # otherwise the password could be used to reset it between guesses at codes.
+        await audit.record("auth.login_password_accepted", request, actor=_actor(user), details={"mfa": "required"})
+        token = create_access_token(
+            data={"sub": str(user["_id"]), "purpose": "mfa", "tenant": user["tenant_id"]}, expires_delta=timedelta(minutes=MFA_TOKEN_MINUTES)
+        )
+        return {"mfa_required": True, "mfa_token": token}
 
+    await login_throttle.record_success(form_data.username, address)
+    return await _signed_in(request, user)
+
+
+def _actor(user: dict) -> dict:
+    return {"type": "user", "id": str(user["_id"]), "name": user["username"], "role": user.get("role")}
+
+
+async def _signed_in(request: Request, user: dict, details: Optional[dict] = None) -> dict:
+    await UserRepository().update_last_login(str(user["_id"]))
+    await audit.record("auth.login_succeeded", request, actor=_actor(user), details=details)
+    token = create_access_token(data={"sub": str(user["_id"])}, expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
     return {"access_token": token, "token_type": "bearer", "user": User(**user)}
+
+
+@router.post("/login/mfa", response_model=Token)
+async def login_mfa(body: MfaLogin, request: Request) -> Any:
+    """
+    Finish signing in with a code from the authenticator app, or a recovery code, and the
+    mfa_token the password step returned. Wrong codes count towards the same throttle as
+    wrong passwords.
+    """
+    import jwt
+
+    expired = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sign in again: the time to enter a code has run out")
+    try:
+        claims = jwt.decode(body.mfa_token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+    except jwt.PyJWTError:
+        raise expired
+    if claims.get("purpose") != "mfa" or not claims.get("sub") or not claims.get("tenant"):
+        raise expired
+    with tenant_context(claims["tenant"]):
+        user = await UserRepository().find_by_id(claims["sub"])
+    if not user or not user.get("active", True):
+        raise expired
+    address = client_address(request)
+    set_tenant(user["tenant_id"])
+    wait = await login_throttle.retry_after(user["username"], address)
+    if wait:
+        await audit.record("auth.login_throttled", request, actor=_actor(user), outcome="denied")
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Too many failed sign-in attempts; try again in {-(-wait // 60)} minute{'s' if wait > 60 else ''}",
+            headers={"Retry-After": str(wait)},
+        )
+    used = await mfa.verify(user, body.code)
+    if not used:
+        await login_throttle.record_failure(user["username"], address)
+        await audit.record("auth.mfa_failed", request, actor=_actor(user), outcome="denied")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="That code is not right")
+    await login_throttle.record_success(user["username"], address)
+    return await _signed_in(request, user, {"mfa": used})
 
 
 @router.post("/register", response_model=User)
@@ -250,3 +336,74 @@ async def change_password(
 
     await audit.record("auth.password_changed", request, target={"type": "user", "id": current_user.id, "name": current_user.username})
     return {"message": "Password changed successfully"}
+
+
+# ---------------------------------------------------------------------------- MFA
+
+
+async def _me(current_user: User) -> dict:
+    user = await UserRepository().find_by_id(current_user.id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+    return user
+
+
+def _person(request: Request) -> None:
+    if (getattr(request.state, "principal", None) or {}).get("type") != "user":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Multi-factor authentication is for people, not API keys")
+
+
+def _refused(error: Exception) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error))
+
+
+@router.get("/mfa", response_model=MfaStatus)
+async def mfa_status(request: Request, current_user: User = Depends(get_current_active_user)) -> Any:
+    """Whether your account has multi-factor authentication, and whether your organisation requires it."""
+    _person(request)
+    return await mfa.status(await _me(current_user))
+
+
+@router.post("/mfa/setup", response_model=MfaSetup)
+async def mfa_setup(request: Request, current_user: User = Depends(get_current_active_user)) -> Any:
+    """Start setting up MFA: a secret for your authenticator app. It is on once you confirm a code from the app."""
+    _person(request)
+    try:
+        return await mfa.start_setup(await _me(current_user))
+    except mfa.MfaError as e:
+        raise _refused(e)
+
+
+@router.post("/mfa/confirm", response_model=RecoveryCodes)
+async def mfa_confirm(body: MfaCode, request: Request, current_user: User = Depends(get_current_active_user)) -> Any:
+    """Turn MFA on with a code from the app. Returns your recovery codes, shown only this once."""
+    _person(request)
+    try:
+        codes = await mfa.confirm_setup(await _me(current_user), body.code)
+    except mfa.MfaError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
+    await audit.record("auth.mfa_enabled", request, target={"type": "user", "id": current_user.id, "name": current_user.username})
+    return {"recovery_codes": codes}
+
+
+@router.post("/mfa/recovery-codes", response_model=RecoveryCodes)
+async def mfa_new_codes(body: MfaCode, request: Request, current_user: User = Depends(get_current_active_user)) -> Any:
+    """Replace your recovery codes (the old ones stop working), with a current code."""
+    _person(request)
+    try:
+        codes = await mfa.new_codes(await _me(current_user), body.code)
+    except mfa.MfaError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
+    await audit.record("auth.mfa_codes_replaced", request, target={"type": "user", "id": current_user.id, "name": current_user.username})
+    return {"recovery_codes": codes}
+
+
+@router.post("/mfa/disable", status_code=status.HTTP_204_NO_CONTENT)
+async def mfa_disable(body: MfaCode, request: Request, current_user: User = Depends(get_current_active_user)) -> None:
+    """Turn MFA off, with a current code. Not allowed when your organisation requires it."""
+    _person(request)
+    try:
+        await mfa.disable(await _me(current_user), body.code)
+    except mfa.MfaError as e:
+        raise _refused(e)
+    await audit.record("auth.mfa_disabled", request, target={"type": "user", "id": current_user.id, "name": current_user.username})
