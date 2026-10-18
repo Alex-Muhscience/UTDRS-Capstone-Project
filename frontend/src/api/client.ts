@@ -2,6 +2,7 @@ import createClient, { type Middleware } from "openapi-fetch"
 
 import { UNAUTHORIZED_EVENT } from "@/auth/session"
 
+import { deployedApiUrl } from "./deployment"
 import type { components, paths } from "./schema"
 
 export type Schemas = components["schemas"]
@@ -73,9 +74,9 @@ const auth: Middleware = {
 }
 
 export const api = createClient<paths>({
-  // VITE_API_URL when set (development, tests); on Vercel, the deployed gateway; otherwise
-  // this origin, whose /api the Docker image's nginx forwards to the gateway.
-  baseUrl: import.meta.env.VITE_API_URL || __DEPLOYED_API_URL__ || "",
+  // VITE_API_URL when set (development, tests); on a hosted deployment, its gateway
+  // (./deployment.ts); otherwise this origin, whose /api the Docker image forwards.
+  baseUrl: import.meta.env.VITE_API_URL || deployedApiUrl(window.location.hostname),
   // Resolved on each call so tests can stub fetch.
   fetch: (request) => globalThis.fetch(request),
 })
