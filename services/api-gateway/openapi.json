@@ -5245,6 +5245,173 @@
         }
       }
     },
+    "/api/v1/reports/": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "List Reports",
+        "description": "Your organisation's reports, newest month first.",
+        "operationId": "list_reports_api_v1_reports__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReportSummary"
+                  },
+                  "type": "array",
+                  "title": "Response List Reports Api V1 Reports  Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Make Report",
+        "description": "Make the report for a month (by default the last full month), or make it again with\ntoday's figures for what is still open. The month must have started.",
+        "operationId": "make_report_api_v1_reports__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportRequest",
+                "default": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reports/{report_id}": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Get Report",
+        "operationId": "get_report_api_v1_reports__report_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Report Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/{report_id}/pdf": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Report As Pdf",
+        "description": "The report as a PDF.",
+        "operationId": "report_as_pdf_api_v1_reports__report_id__pdf_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Report Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/pdf": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/notifications/preferences": {
       "get": {
         "tags": [
@@ -5887,7 +6054,7 @@
             "title": "Label"
           },
           "target": {
-            "$ref": "#/components/schemas/Target"
+            "$ref": "#/components/schemas/core__models__response__Target"
           },
           "params": {
             "additionalProperties": true,
@@ -6077,6 +6244,24 @@
         ],
         "title": "Action"
       },
+      "ActionCount": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "count"
+        ],
+        "title": "ActionCount"
+      },
       "ActionDecision": {
         "properties": {
           "reason": {
@@ -6102,7 +6287,7 @@
             "title": "Action"
           },
           "target": {
-            "$ref": "#/components/schemas/Target"
+            "$ref": "#/components/schemas/Target-Input"
           },
           "params": {
             "additionalProperties": true,
@@ -6128,6 +6313,52 @@
           "target"
         ],
         "title": "ActionRequest"
+      },
+      "ActionSummary": {
+        "properties": {
+          "taken": {
+            "type": "integer",
+            "title": "Taken"
+          },
+          "automatic": {
+            "type": "integer",
+            "title": "Automatic"
+          },
+          "approved": {
+            "type": "integer",
+            "title": "Approved"
+          },
+          "undone": {
+            "type": "integer",
+            "title": "Undone"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "rejected": {
+            "type": "integer",
+            "title": "Rejected"
+          },
+          "by_action": {
+            "items": {
+              "$ref": "#/components/schemas/ActionCount"
+            },
+            "type": "array",
+            "title": "By Action"
+          }
+        },
+        "type": "object",
+        "required": [
+          "taken",
+          "automatic",
+          "approved",
+          "undone",
+          "failed",
+          "rejected",
+          "by_action"
+        ],
+        "title": "ActionSummary"
       },
       "ActionType": {
         "properties": {
@@ -8405,6 +8636,34 @@
         "title": "Explanation",
         "description": "The case in plain language, for whoever has to act on it."
       },
+      "Figure": {
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "previous": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous"
+          }
+        },
+        "type": "object",
+        "title": "Figure"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -8545,6 +8804,11 @@
             ],
             "title": "Actions"
           },
+          "reports": {
+            "type": "boolean",
+            "title": "Reports",
+            "default": true
+          },
           "email_configured": {
             "type": "boolean",
             "title": "Email Configured",
@@ -8630,10 +8894,94 @@
               }
             ],
             "title": "Actions"
+          },
+          "reports": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reports"
           }
         },
         "type": "object",
         "title": "NotificationPreferencesUpdate"
+      },
+      "OpenCase": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "priority": {
+            "type": "string",
+            "title": "Priority"
+          },
+          "due_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Due At"
+          },
+          "overdue": {
+            "type": "boolean",
+            "title": "Overdue"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "priority",
+          "due_at",
+          "overdue"
+        ],
+        "title": "OpenCase"
+      },
+      "Outstanding": {
+        "properties": {
+          "open_cases": {
+            "type": "integer",
+            "title": "Open Cases"
+          },
+          "overdue": {
+            "type": "integer",
+            "title": "Overdue"
+          },
+          "by_priority": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Priority"
+          },
+          "top": {
+            "items": {
+              "$ref": "#/components/schemas/OpenCase"
+            },
+            "type": "array",
+            "title": "Top"
+          },
+          "awaiting_approval": {
+            "type": "integer",
+            "title": "Awaiting Approval"
+          }
+        },
+        "type": "object",
+        "required": [
+          "open_cases",
+          "overdue",
+          "by_priority",
+          "top",
+          "awaiting_approval"
+        ],
+        "title": "Outstanding"
       },
       "PasswordChange": {
         "properties": {
@@ -9051,6 +9399,194 @@
           "password"
         ],
         "title": "Registration"
+      },
+      "Report": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "period": {
+            "type": "string",
+            "title": "Period"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "generated_by": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Generated By"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ReportData"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "period",
+          "generated_at",
+          "generated_by",
+          "data"
+        ],
+        "title": "Report"
+      },
+      "ReportData": {
+        "properties": {
+          "period": {
+            "type": "string",
+            "title": "Period"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "organisation": {
+            "type": "string",
+            "title": "Organisation"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End"
+          },
+          "headline": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Headline"
+          },
+          "figures": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Figure"
+            },
+            "type": "object",
+            "title": "Figures"
+          },
+          "alerts_by_severity": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Alerts By Severity"
+          },
+          "weekly_alerts": {
+            "items": {
+              "$ref": "#/components/schemas/Week"
+            },
+            "type": "array",
+            "title": "Weekly Alerts"
+          },
+          "top_threats": {
+            "items": {
+              "$ref": "#/components/schemas/Threat"
+            },
+            "type": "array",
+            "title": "Top Threats"
+          },
+          "most_targeted": {
+            "items": {
+              "$ref": "#/components/schemas/core__models__report__Target"
+            },
+            "type": "array",
+            "title": "Most Targeted"
+          },
+          "actions": {
+            "$ref": "#/components/schemas/ActionSummary"
+          },
+          "outstanding": {
+            "$ref": "#/components/schemas/Outstanding"
+          },
+          "recommendations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recommendations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "period",
+          "title",
+          "organisation",
+          "start",
+          "end",
+          "headline",
+          "figures",
+          "alerts_by_severity",
+          "weekly_alerts",
+          "top_threats",
+          "most_targeted",
+          "actions",
+          "outstanding",
+          "recommendations"
+        ],
+        "title": "ReportData"
+      },
+      "ReportRequest": {
+        "properties": {
+          "period": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period"
+          }
+        },
+        "type": "object",
+        "title": "ReportRequest"
+      },
+      "ReportSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "period": {
+            "type": "string",
+            "title": "Period"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "headline": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Headline"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "period",
+          "title",
+          "headline",
+          "generated_at"
+        ],
+        "title": "ReportSummary"
       },
       "ResponseSettings": {
         "properties": {
@@ -9793,7 +10329,7 @@
         "type": "object",
         "title": "SimulationUpdate"
       },
-      "Target": {
+      "Target-Input": {
         "properties": {
           "type": {
             "type": "string",
@@ -9894,6 +10430,24 @@
           "sent"
         ],
         "title": "TestEmailResult"
+      },
+      "Threat": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "count"
+        ],
+        "title": "Threat"
       },
       "TimelineEntry": {
         "properties": {
@@ -10221,6 +10775,76 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "Week": {
+        "properties": {
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "count"
+        ],
+        "title": "Week"
+      },
+      "core__models__report__Target": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "cases": {
+            "type": "integer",
+            "title": "Cases"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "name",
+          "cases"
+        ],
+        "title": "Target"
+      },
+      "core__models__response__Target": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Type"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "value"
+        ],
+        "title": "Target"
       }
     },
     "securitySchemes": {

@@ -14,13 +14,13 @@ from api.middleware.security import (
     rate_limit_handler,
 )
 from api.routes import (
-    alerts, api_keys, assets, audit, auth, cases, detection, events, health, notifications, playbooks, response, scans, simulation,
+    alerts, api_keys, assets, audit, auth, cases, detection, events, health, notifications, playbooks, reports, response, scans, simulation,
     tenants as tenant_routes, users,
 )
 from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
 from core.database.indexes import ensure_indexes
-from core.services import case_service, notifications as notification_service, playbooks as playbook_service, tenants
+from core.services import case_service, notifications as notification_service, playbooks as playbook_service, reports as report_service, tenants
 from core.services.bootstrap import ensure_admin
 from core.services.startup_lock import startup_lock
 from core.tenancy import tenant_context
@@ -49,7 +49,11 @@ async def lifespan(app: FastAPI):
         await ensure_indexes()
         await ensure_admin()
         await group_existing_alerts_into_cases()
-    loops = [asyncio.create_task(sync_periodically()), asyncio.create_task(notification_service.deliver_periodically())]
+    loops = [
+        asyncio.create_task(sync_periodically()),
+        asyncio.create_task(notification_service.deliver_periodically()),
+        asyncio.create_task(report_service.generate_periodically()),
+    ]
     yield
     for loop in loops:
         loop.cancel()
@@ -113,6 +117,7 @@ app.include_router(detection.router, prefix=f"{settings.API_PREFIX}/detection", 
 app.include_router(
     simulation.router, prefix=f"{settings.API_PREFIX}/simulation", tags=["simulation"], dependencies=scoped("simulations")
 )
+app.include_router(reports.router, prefix=f"{settings.API_PREFIX}/reports", tags=["reports"], dependencies=scoped("reports"))
 app.include_router(
     notifications.router, prefix=f"{settings.API_PREFIX}/notifications", tags=["notifications"], dependencies=[Depends(audited("notifications"))]
 )

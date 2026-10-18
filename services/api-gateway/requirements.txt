@@ -22,3 +22,6 @@ structlog==26.1.0
 
 # Outbound HTTP (core engine integration)
 httpx==0.28.1
+
+# PDF reports
+reportlab==4.5.1

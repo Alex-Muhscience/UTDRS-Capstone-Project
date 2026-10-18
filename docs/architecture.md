@@ -73,6 +73,8 @@ When an alert is put in a case, the gateway runs the playbooks it matches, once 
 
 New cases, actions waiting for approval and actions that ran are emailed to the people who asked for them: queued in an outbox in MongoDB and sent over SMTP by a background loop that retries failures.
 
+On the first of each month, the gateway makes each organisation's report for the month before (figures against the month before, the threats, what was done, what is still open, and what to do next), keeps it, and emails administrators; it is read in the dashboard or downloaded as a PDF.
+
 The engine's verdict priority, from the most specific evidence to the least, is signature, YARA, correlation, threat intelligence, ML, anomaly. One event produces at most one alert.
 
 ### A device scan, from the agent to an asset

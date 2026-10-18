@@ -19,6 +19,8 @@ class NotificationPreferences(BaseModel):
     approvals: bool
     # Actions that ran: all of them, only those that failed, or none.
     actions: ActionsWanted
+    # The monthly report, when it is ready (administrators only).
+    reports: bool = True
     # Whether this UTDRS can send email at all, and where yours goes.
     email_configured: bool = False
     address: Optional[str] = None
@@ -29,6 +31,7 @@ class NotificationPreferencesUpdate(BaseModel):
     new_cases: Optional[NewCases] = None
     approvals: Optional[bool] = None
     actions: Optional[ActionsWanted] = None
+    reports: Optional[bool] = None
 
 
 class Notification(BaseModel):
