@@ -172,3 +172,7 @@ This repository started as the UTDRS capstone project. The other components were
 ## Licence
 
 No open-source licence has been chosen yet, so all rights are reserved for now. The API gateway carries its original copyright notice in [`services/api-gateway/COPYRIGHT`](services/api-gateway/COPYRIGHT).
+
+## Deploying
+
+See [docs/deploy-render.md](docs/deploy-render.md).

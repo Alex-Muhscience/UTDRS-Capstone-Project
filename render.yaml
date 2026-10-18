@@ -1,0 +1,122 @@
+# Render Blueprint: the UTDRS backend (API gateway and core engine) on Render, with the
+# dashboard on Vercel and the database on MongoDB Atlas. See docs/deploy-render.md.
+#
+# In Render: New > Blueprint, pick this repository. Render asks for the values marked
+# `sync: false` (the MongoDB connection string and the first administrator's password)
+# and generates the secrets marked `generateValue`.
+#
+# Plans: `free` works for trying it out, but free services sleep after 15 minutes idle
+# (the first request then takes about a minute, and the gateway's scheduled work, such
+# as Microsoft 365 polling, email and reports, pauses), and cannot use Render's private
+# network. For real use, choose `starter` or above, and see the private network note on
+# CORE_ENGINE_URL below.
+
+envVarGroups:
+  - name: utdrs-shared
+    envVars:
+      # Shared between the gateway and the engine: the engine only answers requests
+      # carrying it (X-Internal-Token).
+      - key: INTERNAL_API_TOKEN
+        generateValue: true
+
+services:
+  - type: web
+    name: utdrs-core-engine
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerContext: ./services/core-engine
+    dockerfilePath: ./services/core-engine/Dockerfile
+    healthCheckPath: /health
+    buildFilter:
+      paths: ["services/core-engine/**"]
+    envVars:
+      - fromGroup: utdrs-shared
+      - key: PORT
+        value: "8000"
+      - key: MONGODB_URI
+        sync: false
+      - key: DB_NAME
+        value: utdrs_engine
+      - key: ENABLE_THREAT_INTEL
+        value: "false"
+
+  - type: web
+    name: utdrs-api-gateway
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerContext: ./services/api-gateway
+    dockerfilePath: ./services/api-gateway/Dockerfile
+    healthCheckPath: /api/v1/health
+    buildFilter:
+      paths: ["services/api-gateway/**"]
+    envVars:
+      - fromGroup: utdrs-shared
+      - key: PORT
+        value: "8000"
+      # Two workers fit a small instance; raise it on larger plans.
+      - key: WEB_CONCURRENCY
+        value: "2"
+      - key: MONGODB_URI
+        sync: false
+      - key: DB_NAME
+        value: utdrs
+      - key: JWT_SECRET
+        generateValue: true
+      # 32 random bytes, base64: what ENCRYPTION_KEY needs. Keep it: without it, stored
+      # secrets (Microsoft 365, MFA, webhooks) cannot be read.
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      # The engine's public address (free services cannot use the private network).
+      # On a paid plan, use the private network instead, replacing `value` with:
+      #   fromService: {type: web, name: utdrs-core-engine, property: hostport}
+      - key: CORE_ENGINE_URL
+        value: https://utdrs-core-engine.onrender.com
+      - key: CORE_ENGINE_TIMEOUT_SECONDS
+        value: "60"
+      # The first administrator, created at start-up (the password is asked for once).
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      # Only administrators create accounts until you decide otherwise. For a hosted
+      # service where each sign-up is a new organisation: true, and REGISTRATION_MODE
+      # organisation.
+      - key: ALLOW_REGISTRATION
+        value: "false"
+      - key: REGISTRATION_MODE
+        value: organisation
+      # The dashboard on Vercel, and its preview deployments.
+      - key: DASHBOARD_URL
+        value: https://utdrs-capstone-project.vercel.app
+      - key: CORS_ORIGINS
+        value: '["https://utdrs-capstone-project.vercel.app"]'
+      - key: CORS_ORIGIN_REGEX
+        value: '^https://utdrs-capstone-project-[a-z0-9-]+\.vercel\.app$'
+      # Render's proxies: believe their X-Forwarded-For, so sign-in throttling counts
+      # each person's address rather than the proxy's.
+      - key: TRUSTED_PROXIES
+        value: '["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]'
+
+  # The MCP server, for AI assistants. Uncomment to deploy it; it needs nothing but the
+  # gateway's address, and each client brings its own UTDRS API key.
+  # - type: web
+  #   name: utdrs-mcp-server
+  #   runtime: docker
+  #   plan: free
+  #   region: frankfurt
+  #   dockerContext: ./services/mcp-server
+  #   dockerfilePath: ./services/mcp-server/Dockerfile
+  #   healthCheckPath: /health
+  #   buildFilter:
+  #     paths: ["services/mcp-server/**"]
+  #   envVars:
+  #     - key: PORT
+  #       value: "8765"
+  #     - key: UTDRS_GATEWAY_URL
+  #       value: https://utdrs-api-gateway.onrender.com
+  #     - key: MCP_ALLOWED_HOSTS
+  #       value: utdrs-mcp-server.onrender.com
