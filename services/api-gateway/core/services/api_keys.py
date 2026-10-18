@@ -20,7 +20,7 @@ from utils.time import utcnow
 
 PREFIX = "utdrs_"
 COLLECTION = "api_keys"
-AREAS = ["alerts", "cases", "events", "assets", "rules", "simulations"]
+AREAS = ["alerts", "cases", "events", "assets", "rules", "simulations", "response", "playbooks"]
 SCOPES = [f"{area}:{access}" for area in AREAS for access in ("read", "write")]
 # last_used_at is updated at most this often, so busy keys do not write on every request.
 LAST_USED_RESOLUTION = timedelta(minutes=5)
