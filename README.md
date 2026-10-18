@@ -146,6 +146,7 @@ Next:
 - [x] Response actions and playbooks: approval, automatic and notify modes, undo, safety limits and built-in playbooks (Microsoft 365 actions run once its connector is connected)
 - [x] Email notifications: new cases, approvals needed and actions taken, per-person preferences, retried delivery and a delivery log
 - [x] Data retention: per-organisation periods for each kind of data, deleted hourly, never open work
+- [x] Webhooks: signed events for alerts, cases, response actions, reports and connectors, retried for a day, with a delivery log
 - [x] Multi-factor authentication: authenticator codes and recovery codes, enforceable per organisation
 - [x] Onboarding: a checklist from sign-up to first results the same day, worked out from the organisation's state
 - [x] Microsoft 365 connector: admin consent or an own app registration, encrypted secrets, Entra ID sign-ins and audit logs, Exchange mailbox audit, Defender alerts and phishing checks of the emails they name, built-in identity, mailbox and email detections, and response actions through it (built against Graph's documented formats; not yet run against a live tenant)

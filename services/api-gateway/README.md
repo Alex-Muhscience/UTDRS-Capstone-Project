@@ -50,6 +50,7 @@ All routes are under `/api/v1`. Interactive documentation is served at `/api/v1/
 | Response | `GET /response/actions/types` (with whether each needs a service that is connected), `GET /response/actions` (`status`, `case_id`), `POST /response/actions`, `GET /response/actions/{id}`, `POST /response/actions/{id}/approve`, `/reject`, `/undo`, `GET`/`PATCH /response/settings` (changes by administrators) |
 | Retention | `GET /retention/`, `PATCH /retention/` (days per kind of data), `POST /retention/run` (administrators) |
 | Email | `POST /email/check` (`recipient`, `internet_message_id`): check a delivered email for phishing |
+| Webhooks | `GET /webhooks/events`, `GET`/`POST /webhooks/`, `PATCH`/`DELETE /webhooks/{id}`, `POST /webhooks/{id}/rotate-secret`, `POST /webhooks/{id}/test`, `GET /webhooks/{id}/deliveries`, `POST /webhooks/deliveries/{id}/redeliver` (administrators) |
 | Multi-factor authentication | `POST /auth/login/mfa` (`mfa_token`, `code`), `GET /auth/mfa`, `POST /auth/mfa/setup`, `/auth/mfa/confirm`, `/auth/mfa/recovery-codes`, `/auth/mfa/disable`; `PATCH /tenants/current/security` (`require_mfa`; administrators); `POST /users/{id}/reset-mfa` (administrators) |
 | Onboarding | `GET /onboarding/` (the checklist and first results), `PATCH /onboarding/` (`dismissed`; administrators) |
 | Connectors | `GET /connectors/microsoft-365`, `PUT /connectors/microsoft-365` (own app registration), `POST /connectors/microsoft-365/consent-url` and `/consent` (admin consent), `POST /connectors/microsoft-365/check`, `POST /connectors/microsoft-365/poll`, `DELETE /connectors/microsoft-365` (administrators) |
@@ -184,6 +185,15 @@ People are emailed about what they choose (`core/services/notifications.py`).
 - **Limits.** Nobody is sent more than `NOTIFY_MAX_PER_USER_PER_HOUR` emails (default 30) in an hour; the rest are logged as skipped. Alerts from before an upgrade, put into cases at start-up, are not emailed about. Titles cannot add mail headers.
 - **Settings.** `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_SECURITY` (`starttls`, `ssl` or `none`), `MAIL_FROM`. Without `SMTP_HOST`, nothing is sent and the log says so.
 
+## Webhooks
+
+UTDRS tells an organisation's other systems what happens, as it happens (`core/services/webhooks.py`).
+
+- **Events.** `alert.created` (not suppressed alerts), `case.created`, `case.updated` (status, priority or owner, with before and after), `action.approval_requested`, `action.completed`, `report.ready`, `connector.unhealthy` (when Microsoft 365 starts failing), and `ping` (a test). Each payload is `{id, type, created_at, data}`, with a dashboard link in `data.url`.
+- **Signed.** `UTDRS-Signature: t=<unix time>,v1=<hex HMAC-SHA256 of "<t>.<body>">` with the webhook's secret, which is shown once (and can be replaced) and stored encrypted (`ENCRYPTION_KEY`). Receivers check it and reject old timestamps. `UTDRS-Event` and `UTDRS-Delivery` (the event id, the same on every retry) come too.
+- **Delivered.** Each event is queued per webhook and sent by a background loop; failures are retried at growing intervals for about a day, then marked failed. Every attempt is in the delivery log, and any delivery can be sent again.
+- **Not into private networks.** URLs must be HTTPS, carry no credentials, and resolve only to public addresses: private, loopback, link-local (cloud metadata), reserved and multicast are refused when saved and again before every send; redirects are not followed. `WEBHOOK_ALLOW_PRIVATE_ADDRESSES` allows receivers on a deployment's own network (and plain HTTP).
+
 ## Multi-factor authentication
 
 Signing in can need a second factor (`core/services/mfa.py`): a code from an authenticator app (TOTP, RFC 6238: six digits, 30 seconds, what Microsoft, Google and 1Password's apps use), or one of ten single-use recovery codes.
@@ -271,7 +281,7 @@ docker run -d --name utdrs-mongo -p 27017:27017 mongo:7      # once
 MONGODB_URI=mongodb://localhost:27017 python -m pytest
 ```
 
-220 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
+237 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
 
 - `tests/e2e/test_flows.py`: registration and sign-in, events, alerts (filters, ordering, summary, status errors), assets, rules, role and password rules, response headers. Against a real MongoDB, with no mocks.
 - `tests/e2e/test_users.py`: role checks on rules and simulations, the team directory, account administration (create, role changes, deactivation, password resets), self-lockout protection, closed registration and the startup administrator.
@@ -284,6 +294,7 @@ MONGODB_URI=mongodb://localhost:27017 python -m pytest
 - `tests/e2e/test_m365.py`: against a stand-in for Microsoft serving Graph's documented formats: connecting with an app registration (wrong secrets refused, the secret encrypted and kept out of responses and the audit log, the detection rules added once and runnable); no secret stored without an encryption key; polling sign-ins (across pages), audit logs and Defender alerts into events, alerts and cases, once each, resuming from the cursor; a missing permission and throttling; response actions through the connection; admin consent, including refusals, forged and cross-organisation state; disconnecting; organisations kept apart; administrators only.
 - `tests/e2e/test_m365_mailbox.py` and `tests/unit/test_m365_mailbox.py`: Exchange audit samples through a stand-in Management Activity API: subscribing once, inbox rules and forwarding becoming events (outside and inside addresses, hidden mail, keywords, Outlook's rules), other records not kept, the rules runnable, a missing permission stopping only the mailbox, the playbook removing a rule by name, and windows within the API's limits.
 - `tests/e2e/test_m365_email.py` and `tests/unit/test_m365_email.py`: a Defender alert's message checked (sender, Reply-To, SPF/DKIM/DMARC, links, attachment hash, and the body reaching the engine but not stored), an analyst's check (once per mailbox and message, who reported it, a missing message, Microsoft 365 not connected), the email rules runnable, and reading headers, links and text.
+- `tests/e2e/test_webhooks.py`: events arriving signed (checked as a receiver would), only those asked for, retries then giving up, sending again with the same id, unsafe and private URLs refused (including IPv4-mapped IPv6 and cloud metadata), not sending when a URL turns private, private receivers when allowed, managing webhooks, the encryption key, organisations apart and administrators only.
 - `tests/e2e/test_mfa.py` and `tests/unit/test_mfa.py`: TOTP against RFC 6238's test vectors; setting up (the secret encrypted, codes hashed), signing in with a code and with a recovery code, each once; the step token not being a session; guessing throttled, and not reset by the password; stale and forged tokens; an organisation requiring MFA (administrator first, restricted sessions, no lifting it from one, no turning it off); new recovery codes; turning off; an administrator's reset; no encryption key.
 - `tests/unit/test_crypto.py`: encryption round trips, records bound to their context, tampering found, key rotation, and no key.
 - `tests/e2e/test_onboarding.py`: a new organisation's checklist; steps done elsewhere (response mode, team, events) counting; connecting Microsoft 365 bringing first results straight away, and disconnecting showing the step again; a test email ticking email; only administrators putting it away.

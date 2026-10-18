@@ -547,6 +547,60 @@ export function useRunRetention() {
   })
 }
 
+// ---------------------------------------------------------------------------- Webhooks
+
+export function useWebhooks() {
+  return useQuery({ queryKey: ["webhooks", "list"], queryFn: () => unwrap(api.GET("/api/v1/webhooks/")), refetchInterval: POLL_INTERVAL_MS })
+}
+
+export function useWebhookEvents() {
+  return useQuery({ queryKey: ["webhooks", "events"], queryFn: () => unwrap(api.GET("/api/v1/webhooks/events")), staleTime: Infinity })
+}
+
+export function useDeliveries(webhookId: string | null) {
+  return useQuery({
+    queryKey: ["webhooks", "deliveries", webhookId],
+    queryFn: () => unwrap(api.GET("/api/v1/webhooks/{webhook_id}/deliveries", { params: { path: { webhook_id: webhookId ?? "" } } })),
+    enabled: webhookId !== null,
+    refetchInterval: 5_000,
+  })
+}
+
+function useWebhookMutation<TVariables, TResult>(mutationFn: (variables: TVariables) => Promise<TResult>) {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn, onSettled: () => queryClient.invalidateQueries({ queryKey: ["webhooks"] }) })
+}
+
+export function useCreateWebhook() {
+  return useWebhookMutation((body: { name: string; url: string; events: string[] }) => unwrap(api.POST("/api/v1/webhooks/", { body })))
+}
+
+export function useUpdateWebhook() {
+  return useWebhookMutation(({ webhookId, ...body }: { webhookId: string; enabled?: boolean }) =>
+    unwrap(api.PATCH("/api/v1/webhooks/{webhook_id}", { params: { path: { webhook_id: webhookId } }, body })),
+  )
+}
+
+export function useTestWebhook() {
+  return useWebhookMutation((webhookId: string) => unwrap(api.POST("/api/v1/webhooks/{webhook_id}/test", { params: { path: { webhook_id: webhookId } } })))
+}
+
+export function useRotateWebhookSecret() {
+  return useWebhookMutation((webhookId: string) =>
+    unwrap(api.POST("/api/v1/webhooks/{webhook_id}/rotate-secret", { params: { path: { webhook_id: webhookId } } })),
+  )
+}
+
+export function useDeleteWebhook() {
+  return useWebhookMutation((webhookId: string) => unwrap(api.DELETE("/api/v1/webhooks/{webhook_id}", { params: { path: { webhook_id: webhookId } } })))
+}
+
+export function useRedeliver() {
+  return useWebhookMutation((deliveryId: string) =>
+    unwrap(api.POST("/api/v1/webhooks/deliveries/{delivery_id}/redeliver", { params: { path: { delivery_id: deliveryId } } })),
+  )
+}
+
 // ---------------------------------------------------------------------------- API keys
 
 export function useApiKeys() {

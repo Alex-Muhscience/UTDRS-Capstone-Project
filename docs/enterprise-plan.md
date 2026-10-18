@@ -335,7 +335,7 @@ Detailed in [section 7](#7-public-api-mcp-server-and-integrations).
 |---|---|---|---|
 | FR-API-01 | Versioned public REST API covering everything the dashboard can do, documented with OpenAPI | P0 | 1 |
 | FR-API-02 | API keys and OAuth 2.0 client credentials with scopes, per-tenant | P0 | 1 |
-| FR-API-03 | Webhooks with signed payloads, retries and delivery log | P1 | 2 |
+| FR-API-03 | Webhooks with signed payloads, retries and delivery log **Done (#34).** | P1 | 2 |
 | FR-API-04 | MCP server with read tools, guarded response tools and resources | P1 | 2 |
 | FR-API-05 | SIEM forwarding: Splunk HEC, Microsoft Sentinel, Elastic, syslog/CEF | P2 | 3 |
 | FR-API-06 | SDKs: Python and TypeScript, generated from the OpenAPI schema | P2 | 3 |
@@ -493,7 +493,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 | ID | Gap | Blocks | Priority |
 |---|---|---|---|
 | GAP-API-01 | API is not tenant-aware and not versioned for public use; offset pagination only (`limit`/`skip`); no idempotency keys; error format is ad hoc | FR-API-01 | P0 |
-| GAP-API-02 | No webhooks | FR-API-03 | P1 |
+| GAP-API-02 | No webhooks **Done (#34).** | FR-API-03 | P1 |
 | GAP-API-03 | No cases: alerts are standalone; no grouping, SLA, evidence model or timeline **Done (#20): cases group alerts by strong entities, with owner, SLA deadline, timeline, notes, evidence, plain-language explanation; closing a case closes its alerts.** | FR-CAS-01 to 03 | P0 |
 | GAP-API-04 | No event search beyond simple filters and a regex on description (`event_repository.search_events`) | FR-CAS-05 | P1 |
 | GAP-API-05 | Simulations are records only: starting one in the engine is a stub that logs "Would start simulation" (`core/services/simulation_service.py`), and simulation events are stored without detection | Demo and testing value | P2 |
