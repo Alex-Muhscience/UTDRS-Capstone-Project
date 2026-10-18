@@ -45,6 +45,13 @@ BUILT_IN: List[Dict[str, Any]] = [
         "steps": [{"action": "m365.purge_message", "target": "message", "params": {}}],
     },
     {
+        "built_in": "inbox-rule",
+        "name": "Malicious inbox rule",
+        "description": "Someone set an inbox rule that sends mail outside or hides it: remove the rule and sign the account out everywhere.",
+        "trigger": {"min_severity": "medium", "tags": ["inbox-rule"], "techniques": ["T1114.003", "T1564.008"]},
+        "steps": [{"action": "m365.remove_inbox_rule", "target": "user", "params": {}}, {"action": "m365.revoke_sessions", "target": "user", "params": {}}],
+    },
+    {
         "built_in": "ransomware",
         "name": "Ransomware",
         "description": "Signs of ransomware: make the case critical, so it is dealt with within the hour.",
@@ -134,10 +141,27 @@ def _targets(step: Dict[str, Any], case: Dict[str, Any]) -> List[str]:
     return [e["value"] for e in case.get("entities", []) if e["type"] == step["target"]][:MAX_TARGETS]
 
 
-def _params(step: Dict[str, Any], case: Dict[str, Any]) -> Dict[str, Any]:
+async def _rule_name(case: Dict[str, Any], user: str) -> Optional[str]:
+    """The inbox rule the case's mailbox events name for `user`, most recent first."""
+    alerts = scoped(get_database(), "alerts")
+    ids = [ObjectId(a) for a in case.get("alert_ids") or [] if ObjectId.is_valid(a)]
+    event_ids = [ObjectId(e) async for a in alerts.find({"_id": {"$in": ids}}, {"event_ids": 1}) for e in a.get("event_ids") or [] if ObjectId.is_valid(e)]
+    events = scoped(get_database(), "events").find(
+        {"_id": {"$in": event_ids}, "event_type": "mailbox", "raw_data.user": user, "raw_data.rule_name": {"$type": "string"}}, {"raw_data.rule_name": 1}
+    ).sort("timestamp", -1)
+    async for event in events:
+        return event["raw_data"]["rule_name"]
+    return None
+
+
+async def _params(step: Dict[str, Any], case: Dict[str, Any], target: str) -> Dict[str, Any]:
     params = dict(step.get("params") or {})
     if step["action"] == "m365.purge_message" and "recipients" not in params:
         params["recipients"] = [e["value"] for e in case.get("entities", []) if e["type"] == "user"]
+    if step["action"] == "m365.remove_inbox_rule" and not (params.get("rule_id") or params.get("rule_name")):
+        name = await _rule_name(case, target)
+        if name:
+            params["rule_name"] = name
     return params
 
 
@@ -159,7 +183,7 @@ async def run(
         for target in targets:
             try:
                 actions.append(await response_actions.request(
-                    step["action"], {"type": step["target"], "value": target}, _params(step, case), actor=actor, case_id=case_id,
+                    step["action"], {"type": step["target"], "value": target}, await _params(step, case, target), actor=actor, case_id=case_id,
                     alert_id=alert_id, playbook=about, mode=playbook["mode"] if unattended else "automatic", unattended=unattended,
                 ))
             except NotConnected as e:

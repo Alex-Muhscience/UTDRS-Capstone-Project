@@ -227,7 +227,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 | ID | Requirement | Priority | Phase |
 |---|---|---|---|
 | FR-ING-01 | Common event schema (OCSF) with versioning; every source is normalised to it; raw event kept alongside | P0 | 1 |
-| FR-ING-02 | Microsoft 365 connector: Entra ID sign-ins and audit logs, Exchange Online message trace and mailbox audit, Defender alerts (Microsoft Graph and Office 365 Management Activity API), with OAuth admin consent **Partly (#25): admin consent or own app registration, Entra ID sign-ins and audit logs, and Defender alerts, built against Graph's documented formats; Exchange message trace and mailbox audit (Management Activity API) remain, and it has not yet run against a live tenant.** | P0 | 1 |
+| FR-ING-02 | Microsoft 365 connector: Entra ID sign-ins and audit logs, Exchange Online message trace and mailbox audit, Defender alerts (Microsoft Graph and Office 365 Management Activity API), with OAuth admin consent **Partly: admin consent or own app registration, Entra ID sign-ins and audit logs, and Defender alerts (#25); Exchange mailbox audit through the Management Activity API (#29). Built against Microsoft's documented formats; Exchange message trace remains, and it has not yet run against a live tenant.** | P0 | 1 |
 | FR-ING-03 | Google Workspace connector: login, admin, Gmail and Drive audit (Reports API) | P1 | 2 |
 | FR-ING-04 | Email content access for phishing analysis: messages delivered to mailboxes, with headers, links and attachment hashes (Graph and Gmail APIs) | P0 | 1 |
 | FR-ING-05 | HTTP ingestion API with API keys, batching, compression and idempotency | P0 | 1 |
@@ -260,7 +260,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 | FR-DET-01 | Stream detection: every event evaluated within seconds, horizontally scalable workers | P0 | 1 |
 | FR-DET-02 | Rule service: one store of rules per tenant plus a global library, versioned, with test cases, enable/disable, and changes taking effect within a minute | P0 | 1 |
 | FR-DET-03 | Sigma rule support (import, convert to the engine's form, test) | P1 | 2 |
-| FR-DET-04 | Detection library for email and identity: phishing, business email compromise, malicious inbox rules, mass forwarding, impossible travel, MFA fatigue, password spraying, OAuth consent phishing, risky sign-ins **Identity done (#25, #26); email and mailbox detections remain.** | P0 | 1 |
+| FR-DET-04 | Detection library for email and identity: phishing, business email compromise, malicious inbox rules, mass forwarding, impossible travel, MFA fatigue, password spraying, OAuth consent phishing, risky sign-ins **Identity (#25, #26) and mailbox rules and forwarding (#29) done; phishing and business email compromise remain.** | P0 | 1 |
 | FR-DET-05 | Phishing model v2: trained on current, multilingual phishing; uses headers, sender reputation, URLs and attachments, not only text; evaluated per language | P0 | 1 |
 | FR-DET-06 | User and entity behaviour analytics (UEBA): per-user baselines for sign-in times, locations, devices, data volumes | P1 | 2 |
 | FR-DET-07 | Network detection: network model retrained on modern and customer-like traffic; Suricata signatures; DNS and TLS anomalies | P2 | 3 |
@@ -512,7 +512,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 | GAP-ENG-05 | Threat intelligence is per-lookup API calls (VirusTotal, AbuseIPDB, OTX) with a file cache; no feeds, no STIX/TAXII, no indicator store | FR-DET-09 | P1 |
 | GAP-ENG-06 | No suppressions, allow-lists or analyst feedback loop **Done (#24).** | FR-DET-10 | P0 |
 | GAP-ENG-07 | No model registry, versioning, shadow mode or drift monitoring; models are files in the image | FR-DET-12 | P1 |
-| GAP-ENG-08 | No identity or email detections (impossible travel, inbox rules, MFA fatigue, OAuth consent) because no such data arrives **Partly: risky sign-ins, smart lockout, legacy authentication, admin roles granted, OAuth consent and MFA methods removed (#25); impossible travel, password spraying, password guessing, success after failures and MFA fatigue (#26). Mailbox data (inbox rules, mass forwarding) and email (phishing, business email compromise) remain.** | FR-DET-04 | P0 |
+| GAP-ENG-08 | No identity or email detections (impossible travel, inbox rules, MFA fatigue, OAuth consent) because no such data arrives **Partly: risky sign-ins, smart lockout, legacy authentication, admin roles granted, OAuth consent and MFA methods removed (#25); impossible travel, password spraying, password guessing, success after failures and MFA fatigue (#26). malicious inbox rules and mailbox forwarding (#29). Email content detections (phishing, business email compromise) remain.** | FR-DET-04 | P0 |
 | GAP-ENG-09 | Uses `ModelRegistry` that writes placeholder models into the working directory at start-up; read-only containers would fail | NFR-08 | P2 |
 
 ### 8.5 Machine learning

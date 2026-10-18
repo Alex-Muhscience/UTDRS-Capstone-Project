@@ -33,6 +33,9 @@ logger = get_logger(__name__)
 
 KIND = {"connector": "m365"}
 SCOPE = "https://graph.microsoft.com/.default"
+# The Office 365 Management Activity API (Exchange's mailbox audit) is a separate
+# resource, with tokens of its own.
+MANAGEMENT_SCOPE = "https://manage.office.com/.default"
 TOKEN_MARGIN_SECONDS = 120
 TIMEOUT = httpx.Timeout(20.0, connect=10.0)
 CONSENT_STATE_MINUTES = 15
@@ -46,12 +49,13 @@ PERMISSIONS = [
     ("User.RevokeSessions.All", "sign users out everywhere"),
     ("MailboxSettings.ReadWrite", "remove and restore inbox rules"),
     ("Mail.ReadWrite", "remove phishing email from mailboxes and put it back"),
+    ("ActivityFeed.Read", "read Exchange's mailbox audit: inbox rules and forwarding (Office 365 Management APIs)"),
 ]
 
 # For tests: a transport standing in for Microsoft's sign-in service and Graph.
 transport: Optional[httpx.AsyncBaseTransport] = None
 
-_tokens: Dict[str, Tuple[str, float]] = {}  # UTDRS tenant -> (access token, expiry)
+_tokens: Dict[Tuple[str, str], Tuple[str, float]] = {}  # (UTDRS tenant, scope) -> (access token, expiry)
 
 
 class NotConnected(RuntimeError):
@@ -95,12 +99,12 @@ def _credentials(connection: Dict[str, Any]) -> Tuple[str, str]:
     return connection["client_id"], crypto.decrypt(connection["client_secret"], f"m365:{connection['tenant_id']}")
 
 
-async def _sign_in(azure_tenant_id: str, client_id: str, client_secret: str) -> Tuple[str, int]:
+async def _sign_in(azure_tenant_id: str, client_id: str, client_secret: str, scope: str = SCOPE) -> Tuple[str, int]:
     """An access token for Graph, as the application, and how long it lasts."""
     async with _http() as client:
         response = await client.post(
             f"{settings.M365_LOGIN_URL.rstrip('/')}/{azure_tenant_id}/oauth2/v2.0/token",
-            data={"grant_type": "client_credentials", "client_id": client_id, "client_secret": client_secret, "scope": SCOPE},
+            data={"grant_type": "client_credentials", "client_id": client_id, "client_secret": client_secret, "scope": scope},
         )
     if response.is_error:
         try:
@@ -113,22 +117,38 @@ async def _sign_in(azure_tenant_id: str, client_id: str, client_secret: str) -> 
     return body["access_token"], int(body.get("expires_in", 3600))
 
 
-async def token(connection: Optional[Dict[str, Any]] = None) -> str:
-    """A current access token for the current organisation's Microsoft 365."""
-    tenant_id = current_tenant()
-    cached = _tokens.get(tenant_id)
+async def token(connection: Optional[Dict[str, Any]] = None, scope: str = SCOPE) -> str:
+    """A current access token for the current organisation's Microsoft 365 (Graph, or `scope`)."""
+    key = (current_tenant(), scope)
+    cached = _tokens.get(key)
     if cached and cached[1] > time.time():
         return cached[0]
     connection = connection or await get_connection()
     if not connection:
         raise NotConnected("Microsoft 365 is not connected")
-    access, lasts = await _sign_in(connection["azure_tenant_id"], *_credentials(connection))
-    _tokens[tenant_id] = (access, time.time() + lasts - TOKEN_MARGIN_SECONDS)
+    access, lasts = await _sign_in(connection["azure_tenant_id"], *_credentials(connection), scope=scope)
+    _tokens[key] = (access, time.time() + lasts - TOKEN_MARGIN_SECONDS)
     return access
 
 
 def forget_token(tenant_id: Optional[str] = None) -> None:
-    _tokens.pop(tenant_id or current_tenant(), None)
+    tenant_id = tenant_id or current_tenant()
+    for key in [k for k in _tokens if k[0] == tenant_id]:
+        _tokens.pop(key, None)
+
+
+async def management() -> Optional[httpx.AsyncClient]:
+    """A client for the Office 365 Management Activity API, as the current organisation, or None."""
+    connection = await get_connection() if current_tenant_or_none() else None
+    if not connection:
+        return None
+    try:
+        access = await token(connection, MANAGEMENT_SCOPE)
+    except (SignInFailed, crypto.DecryptionFailed, crypto.EncryptionUnavailable) as e:
+        logger.warning(f"Microsoft 365 management sign-in failed: {e}")
+        return None
+    base = f"{settings.M365_MANAGEMENT_URL.rstrip('/')}/{connection['azure_tenant_id']}/activity/feed"
+    return _http(base_url=base, headers={"Authorization": f"Bearer {access}"})
 
 
 async def graph() -> Optional[httpx.AsyncClient]:
@@ -244,5 +264,25 @@ async def check() -> List[Dict[str, Any]]:
                 results.append({"name": name, "ok": False, "detail": f"Not allowed: needs {needs}"})
             else:
                 results.append({"name": name, "ok": False, "detail": f"Microsoft Graph answered {response.status_code}"})
+    results.append(await _check_management(connection))
     await _connections().update_one(KIND, {"$set": {"checks": results, "checked_at": utcnow()}})
     return results
+
+
+async def _check_management(connection: Dict[str, Any]) -> Dict[str, Any]:
+    name = "Exchange mailbox audit"
+    try:
+        access = await token(connection, MANAGEMENT_SCOPE)
+    except SignInFailed as e:
+        return {"name": name, "ok": False, "detail": str(e)}
+    base = f"{settings.M365_MANAGEMENT_URL.rstrip('/')}/{connection['azure_tenant_id']}/activity/feed"
+    try:
+        async with _http(base_url=base, headers={"Authorization": f"Bearer {access}"}) as client:
+            response = await client.get("/subscriptions/list")
+    except httpx.HTTPError as e:
+        return {"name": name, "ok": False, "detail": f"Could not reach the Office 365 Management API: {e.__class__.__name__}"}
+    if response.is_success:
+        return {"name": name, "ok": True, "detail": "Readable"}
+    if response.status_code in (401, 403):
+        return {"name": name, "ok": False, "detail": "Not allowed: needs ActivityFeed.Read (Office 365 Management APIs), and auditing turned on"}
+    return {"name": name, "ok": False, "detail": f"The Office 365 Management API answered {response.status_code}"}

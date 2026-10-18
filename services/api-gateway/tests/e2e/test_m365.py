@@ -38,6 +38,11 @@ class FakeMicrosoft:
         self.forbidden = set()  # Graph paths answered 403
         self.throttle_once = set()
         self.revoked = []
+        self.scopes = []
+        self.subscribed = 0
+        self.content_served = False
+        self.management_forbidden = False
+        self.rules = {}  # (mailbox, rule id) -> rule
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         url = request.url
@@ -46,11 +51,14 @@ class FakeMicrosoft:
             form = parse_qs(request.content.decode())
             if self.secrets.get(form["client_id"][0]) != form["client_secret"][0]:
                 return httpx.Response(401, json={"error": "invalid_client", "error_description": "AADSTS7000215: Invalid client secret provided.\r\nTrace ID: x"})
+            self.scopes.append(form["scope"][0])
             token = f"token-{uuid.uuid4().hex[:8]}"
             self.issued.add(token)
             return httpx.Response(200, json={"token_type": "Bearer", "expires_in": 3599, "access_token": token})
         if request.headers.get("Authorization", "").removeprefix("Bearer ") not in self.issued:
             return httpx.Response(401, json={"error": {"code": "InvalidAuthenticationToken", "message": "Access token is empty."}})
+        if url.host == "manage.office.com":
+            return self.management(request)
         path = url.path.removeprefix("/v1.0")
         if path in self.forbidden:
             return httpx.Response(403, json={"error": {"code": "Authorization_RequestDenied", "message": "Insufficient privileges"}})
@@ -67,10 +75,44 @@ class FakeMicrosoft:
             return httpx.Response(200, json=sample("directory_audits.json") if url.params.get("$top") != "1" else {"value": []})
         if path == "/security/alerts_v2":
             return httpx.Response(200, json=sample("alerts_v2.json") if url.params.get("$top") != "1" else {"value": []})
+        if path == "/domains":
+            return httpx.Response(200, json={"value": [{"id": "contoso.example", "isVerified": True}, {"id": "contoso-old.example", "isVerified": False}]})
+        if path.endswith("/mailFolders/inbox/messageRules"):
+            mailbox = path.split("/")[2]
+            return httpx.Response(200, json={"value": [r for (box, _), r in self.rules.items() if box == mailbox]})
+        if "/mailFolders/inbox/messageRules/" in path:
+            mailbox, rule_id = path.split("/")[2], path.rsplit("/", 1)[1]
+            if (mailbox, rule_id) not in self.rules:
+                return httpx.Response(404, json={"error": {"code": "ErrorItemNotFound", "message": "The rule was not found"}})
+            if request.method == "DELETE":
+                del self.rules[(mailbox, rule_id)]
+                return httpx.Response(204)
+            return httpx.Response(200, json=self.rules[(mailbox, rule_id)])
         if path.endswith("/revokeSignInSessions"):
             self.revoked.append(path.split("/")[2])
             return httpx.Response(200, json={"value": True})
         return httpx.Response(404, json={"error": {"code": "NotFound", "message": path}})
+
+    def management(self, request: httpx.Request) -> httpx.Response:
+        """The Office 365 Management Activity API, serving the Exchange audit samples once."""
+        if request.headers.get("Authorization", "").removeprefix("Bearer ") not in self.issued:
+            return httpx.Response(401, json={"error": {"code": "AF10001", "message": "Invalid token"}})
+        if self.management_forbidden:
+            return httpx.Response(403, json={"error": {"code": "AF10002", "message": "Permission denied"}})
+        path = request.url.path.split("/activity/feed", 1)[1]
+        if path == "/subscriptions/start":
+            self.subscribed += 1
+            if self.subscribed > 1:
+                return httpx.Response(400, json={"error": {"code": "AF20024", "message": "The subscription is already enabled."}})
+            return httpx.Response(200, json={"contentType": "Audit.Exchange", "status": "enabled"})
+        if path == "/subscriptions/list":
+            return httpx.Response(200, json=[])
+        if path == "/subscriptions/content":
+            served, self.content_served = self.content_served, True
+            return httpx.Response(200, json=[] if served else sample("exchange_content.json"))
+        if path.startswith("/audit/"):
+            return httpx.Response(200, json=sample("exchange_audit.json"))
+        return httpx.Response(404, json={"error": {"code": "NotFound"}})
 
 
 @pytest.fixture(scope="module")
@@ -140,9 +182,9 @@ def test_connecting_with_an_app_registration(client, org, microsoft):
 
     # Its detection rules are in the catalogue, and the engine can run every one.
     rules = [r for r in client.get(f"{API}/detection/rules", params={"limit": 500}, headers=org).json() if r["name"].startswith("Microsoft 365:")]
-    assert len(rules) == 6 and all(r["engine"]["runs"] for r in rules), [r["engine"] for r in rules]
+    assert len(rules) == 9 and all(r["engine"]["runs"] for r in rules), [r["engine"] for r in rules]
     connect(client, org)  # connecting again adds them once
-    assert len([r for r in client.get(f"{API}/detection/rules", params={"limit": 500}, headers=org).json() if r["name"].startswith("Microsoft 365:")]) == 6
+    assert len([r for r in client.get(f"{API}/detection/rules", params={"limit": 500}, headers=org).json() if r["name"].startswith("Microsoft 365:")]) == 9
 
 
 def test_no_secret_is_stored_without_an_encryption_key(client, org, microsoft, monkeypatch):
@@ -155,7 +197,7 @@ def test_polling_brings_in_sign_ins_audits_and_defender_alerts(client, org, micr
     connect(client, org)
     # Connecting fetches the last day straight away.
     first = client.get(f"{API}/connectors/microsoft-365", headers=org).json()
-    assert (first["last_poll"], first["errors"]) == ({"signins": 3, "audits": 2, "alerts": 1}, {})
+    assert (first["last_poll"], first["errors"]) == ({"signins": 3, "audits": 2, "alerts": 1, "mailbox": 3}, {})
 
     events = client.get(f"{API}/events/", params={"limit": 50}, headers=org).json()
     by_id = {e["raw_data"].get("external_id"): e for e in events}
@@ -179,11 +221,11 @@ def test_polling_brings_in_sign_ins_audits_and_defender_alerts(client, org, micr
 
     # Polling again brings nothing twice, and asks only for what is newer.
     again = client.post(f"{API}/connectors/microsoft-365/poll", headers=org).json()
-    assert again["counts"] == {"signins": 0, "audits": 0, "alerts": 0}
+    assert again["counts"] == {"signins": 0, "audits": 0, "alerts": 0, "mailbox": 0}
     last_signins = [params for method, path, params in microsoft.calls if path.endswith("/auditLogs/signIns") and "$filter" in params][-1]
     assert last_signins["$filter"] == "createdDateTime ge 2026-10-18T06:05:02Z" and last_signins["$orderby"] == "createdDateTime asc"
     status = client.get(f"{API}/connectors/microsoft-365", headers=org).json()
-    assert status["last_poll"] == {"signins": 0, "audits": 0, "alerts": 0} and status["last_poll_at"]
+    assert status["last_poll"] == {"signins": 0, "audits": 0, "alerts": 0, "mailbox": 0} and status["last_poll_at"]
 
 
 def test_a_missing_permission_stops_only_its_source(client, org, microsoft):
