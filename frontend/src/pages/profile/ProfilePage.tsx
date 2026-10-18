@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react"
 import { toast } from "sonner"
 
-import { useChangePassword, useCurrentTenant, useRenameTenant, useUpdateProfile } from "@/api/queries"
+import { useChangePassword, useCurrentTenant, useRenameTenant, useRequireMfa, useUpdateProfile } from "@/api/queries"
 import { useIsAdmin, useUser } from "@/auth/context"
 import { Badge } from "@/components/ui/Badge"
 import { Button, ButtonLink } from "@/components/ui/Button"
@@ -10,6 +10,8 @@ import { DescriptionList } from "@/components/ui/DescriptionList"
 import { Field, Input } from "@/components/ui/Field"
 import { PageHeader } from "@/components/ui/PageHeader"
 import { formatDateTime, humanize } from "@/lib/format"
+
+import { SecurityCard } from "@/pages/security/SecurityCard"
 
 import { NotificationsCard } from "./NotificationsCard"
 
@@ -46,7 +48,36 @@ function OrganisationCard() {
       ) : (
         <DescriptionList items={[["Name", tenant.data.name]]} />
       )}
+      <RequireMfa required={tenant.data.require_mfa} isAdmin={isAdmin} />
     </Card>
+  )
+}
+
+function RequireMfa({ required, isAdmin }: { required: boolean; isAdmin: boolean }) {
+  const update = useRequireMfa()
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 text-sm">
+      <span>
+        <span className="block font-medium">Multi-factor authentication for everyone</span>
+        <span className="block text-xs text-muted">
+          {required ? "Required: people without it set it up when they next sign in." : "Not required: each person chooses."}
+        </span>
+      </span>
+      {isAdmin && (
+        <Button
+          size="sm"
+          loading={update.isPending}
+          onClick={() =>
+            update.mutate(!required, {
+              onSuccess: () => toast.success(required ? "No longer required" : "Now required for everyone"),
+              onError: (error) => toast.error(error.message),
+            })
+          }
+        >
+          {required ? "Stop requiring" : "Require"}
+        </Button>
+      )}
+    </div>
   )
 }
 
@@ -151,6 +182,8 @@ export function ProfilePage() {
             </Button>
           </form>
         </Card>
+
+        <SecurityCard />
 
         <NotificationsCard />
       </div>

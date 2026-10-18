@@ -2,12 +2,13 @@ import { Navigate, Outlet, useLocation, type Location } from "react-router"
 
 import { Button } from "@/components/ui/Button"
 import { FullPageSpinner } from "@/components/ui/Spinner"
+import { MfaRequiredPage } from "@/pages/security/MfaRequiredPage"
 
 import { useAuth } from "./context"
 
 /** Renders child routes for a signed-in user; otherwise sends them to sign in. */
 export function RequireAuth() {
-  const { status, retry, logout } = useAuth()
+  const { status, retry, logout, user } = useAuth()
   const location = useLocation()
 
   if (status === "loading") return <FullPageSpinner label="Loading your session" />
@@ -30,6 +31,8 @@ export function RequireAuth() {
     )
   }
   if (status === "signed-out") return <Navigate to="/login" replace state={{ from: location }} />
+  // The organisation requires MFA, and this account has none yet: that comes first.
+  if (user?.mfa_setup_required) return <MfaRequiredPage />
   return <Outlet />
 }
 
