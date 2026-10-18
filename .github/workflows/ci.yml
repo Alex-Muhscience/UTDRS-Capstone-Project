@@ -1,9 +1,13 @@
 name: CI
 
+# GitHub bills each job in whole minutes, so CI runs only what a change touches: a pull
+# request runs the jobs for the parts it changed (all of them if it changes CI itself),
+# and the merge is not tested again. Everything runs every Monday, and on demand.
 on:
-  push:
-    branches: [main]
   pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
 
 permissions:
   contents: read
@@ -16,8 +20,53 @@ env:
   MONGODB_URI: mongodb://localhost:27017
 
 jobs:
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    outputs:
+      gateway: ${{ steps.diff.outputs.gateway }}
+      engine: ${{ steps.diff.outputs.engine }}
+      frontend: ${{ steps.diff.outputs.frontend }}
+      scanner: ${{ steps.diff.outputs.scanner }}
+      processor: ${{ steps.diff.outputs.processor }}
+      mcp: ${{ steps.diff.outputs.mcp }}
+      stack: ${{ steps.diff.outputs.stack }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.base_ref }}
+        run: |
+          all=true
+          if [ "$EVENT" = pull_request ]; then
+            files=$(git diff --name-only "origin/$BASE...HEAD")
+            printf 'Changed:\n%s\n' "$files"
+            # CI itself, or the scripts it runs: test everything.
+            printf '%s\n' "$files" | grep -Eq '^(\.github/|scripts/)' || all=false
+          fi
+          touched() { [ "$all" = true ] || printf '%s\n' "$files" | grep -Eq "$1"; }
+          out() { if touched "$2"; then echo "$1=true"; else echo "$1=false"; fi >> "$GITHUB_OUTPUT"; }
+          out gateway '^services/api-gateway/'
+          out engine '^services/core-engine/'
+          out frontend '^frontend/'
+          out scanner '^scanner/'
+          out processor '^services/data-processor/'
+          out mcp '^services/mcp-server/'
+          # Anything but documentation can change how the stack runs.
+          if [ "$all" = true ] || printf '%s\n' "$files" | grep -Evq '(\.md$|^docs/|^LICENSE|^\.gitignore$)'; then
+            echo "stack=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "stack=false" >> "$GITHUB_OUTPUT"
+          fi
+          cat "$GITHUB_OUTPUT"
+
   api-gateway:
     name: API gateway tests
+    needs: changes
+    if: needs.changes.outputs.gateway == 'true'
     runs-on: ubuntu-latest
     services:
       mongodb:
@@ -41,6 +90,8 @@ jobs:
 
   core-engine:
     name: Core engine tests
+    needs: changes
+    if: needs.changes.outputs.engine == 'true'
     runs-on: ubuntu-latest
     services:
       mongodb:
@@ -64,7 +115,11 @@ jobs:
 
   system:
     name: System test (gateway + core engine)
-    needs: [api-gateway, core-engine]
+    needs: [changes, api-gateway, core-engine]
+    # After the unit tests pass, or are not needed.
+    if: >-
+      !cancelled() && !failure() &&
+      (needs.changes.outputs.gateway == 'true' || needs.changes.outputs.engine == 'true')
     runs-on: ubuntu-latest
     services:
       mongodb:
@@ -93,6 +148,8 @@ jobs:
 
   frontend:
     name: Dashboard checks
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -115,6 +172,8 @@ jobs:
 
   api-contract:
     name: API contract (gateway schema and dashboard types)
+    needs: changes
+    if: needs.changes.outputs.gateway == 'true' || needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -142,6 +201,9 @@ jobs:
   e2e:
     name: Dashboard end-to-end (Playwright)
     needs: [api-gateway, core-engine, frontend]
+    # The Compose job runs the same Playwright tests against the containers on pull
+    # requests; this run, against the services started directly, is weekly and on demand.
+    if: github.event_name != 'pull_request' && !cancelled() && !failure()
     runs-on: ubuntu-latest
     services:
       mongodb:
@@ -182,6 +244,8 @@ jobs:
 
   scanner:
     name: Scanner build (Linux)
+    needs: changes
+    if: needs.changes.outputs.scanner == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -193,6 +257,8 @@ jobs:
 
   data-processor:
     name: Data processor checks
+    needs: changes
+    if: needs.changes.outputs.processor == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -206,8 +272,29 @@ jobs:
       - run: python -m py_compile data-processor.py config.py scan_delivery.py
       - run: python -m unittest
 
+  mcp-server:
+    name: MCP server tests
+    needs: changes
+    if: needs.changes.outputs.mcp == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/mcp-server
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services/mcp-server/requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+
   compose:
     name: Docker Compose stack
+    # The longest job: only once the quicker checks have passed (or were not needed).
+    needs: [changes, api-gateway, core-engine, frontend, scanner, data-processor, mcp-server]
+    if: "!cancelled() && !failure() && needs.changes.outputs.stack == 'true'"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -233,6 +320,7 @@ jobs:
           curl -fsS http://localhost:8080/api/v1/health
           curl -fsS http://localhost:8000/api/v1/health
           curl -fsS http://localhost:5000/health
+          curl -fsS http://localhost:8765/health
           reply=$( (printf 'SCAN not-json'; sleep 2) | timeout 10 openssl s_client -quiet -connect localhost:8443 -servername localhost \
             -cert scanner/configs/certs/agent.crt -key scanner/configs/certs/agent.key -CAfile scanner/configs/certs/ca.crt 2>/dev/null || true)
           echo "scanner replied: $reply"
@@ -243,7 +331,7 @@ jobs:
           . ./.env
           token=$(curl -fsS -X POST http://localhost:8000/api/v1/auth/login \
             --data-urlencode "username=$ADMIN_USERNAME" --data-urlencode "password=$ADMIN_PASSWORD" | jq -r .access_token)
-          for attempt in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             assets=$(curl -fsS -H "Authorization: Bearer $token" http://localhost:8000/api/v1/assets/)
             if echo "$assets" | jq -e 'any(.[]; .name == "demo-device" and (.tags | index("scanner")))' >/dev/null; then break; fi
             sleep 2

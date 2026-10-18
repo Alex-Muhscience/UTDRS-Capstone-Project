@@ -15,6 +15,7 @@ UTDRS was a **Top 5 finalist in the Mozilla Responsible Computing Challenge**.
 | **Dashboard**: getting started, overview, cases, response and playbooks, connectors, detection tuning, monthly reports, email notifications, alert triage, events with the engine's verdict, assets, detection rules, simulations, and administration | [`frontend/`](frontend) | Working. React 19, TypeScript, Vite, Tailwind CSS; typed against the gateway's API schema. |
 | **API gateway**: authentication, events, alerts, assets, rules, simulations, API keys, audit log; sends every event to the engine, and turns device scans into assets and events. Each organisation's data is kept apart | [`services/api-gateway/`](services/api-gateway) | Working. Python 3.12, FastAPI, MongoDB. |
 | **Core engine**: six detectors, MITRE ATT&CK mapping, risk scoring | [`services/core-engine/`](services/core-engine) | Working. The ML detector classifies emails and network flows with trained models, and uses hand-written indicators for everything else. |
+| **MCP server**: AI assistants (Claude and other MCP clients) investigate and act through UTDRS's API with an API key | [`services/mcp-server/`](services/mcp-server) | Working. Python 3.12, the official MCP SDK; Streamable HTTP and stdio. |
 | **Data processor**: batch worker that delivers the scanner's scans to the gateway, with retries and a dead-letter collection | [`services/data-processor/`](services/data-processor) | Working. Python 3.12, PyMongo. |
 | **Device scanner**: inventory agent and collection server over mutual TLS | [`scanner/`](scanner) | Working on Linux. C, OpenSSL. Windows code paths are not built or tested in CI. |
 | **Research models**: the original capstone's models, and the scripts that train the versions the engine runs | [`research/capstone/models/`](research/capstone/models) | Both models are retrained from public datasets (phishing emails; UNSW-NB15 network flows) because the originals' preprocessing was not kept. |
@@ -125,7 +126,7 @@ The plan for turning UTDRS into a commercial product, with every requirement and
 Done:
 
 - [x] Bring the components into one repository with their history, removing committed credentials, vendored tools and binaries
-- [x] Python 3.12 and current FastAPI, Pydantic and PyMongo; tests and CI for every component
+- [x] Python 3.12 and current FastAPI, Pydantic and PyMongo; tests and CI for every component (a pull request runs the jobs for the parts it changes; everything runs weekly and on demand)
 - [x] Connect the gateway to the core engine: event in, detection, alert out
 - [x] Rebuild the dashboard on the gateway's real API, typed against its schema, with unit and end-to-end tests
 - [x] Give the engine its own database and load its signature rules; fix rules that flagged all DNS and network traffic
@@ -146,6 +147,9 @@ Next:
 - [x] Response actions and playbooks: approval, automatic and notify modes, undo, safety limits and built-in playbooks (Microsoft 365 actions run once its connector is connected)
 - [x] Email notifications: new cases, approvals needed and actions taken, per-person preferences, retried delivery and a delivery log
 - [x] Data retention: per-organisation periods for each kind of data, deleted hourly, never open work
+- [x] MCP server: AI assistants investigate cases and alerts, give verdicts and propose response actions through UTDRS, with an API key's permissions and audit trail
+- [x] Webhooks: signed events for alerts, cases, response actions, reports and connectors, retried for a day, with a delivery log
+- [x] Multi-factor authentication: authenticator codes and recovery codes, enforceable per organisation
 - [x] Onboarding: a checklist from sign-up to first results the same day, worked out from the organisation's state
 - [x] Microsoft 365 connector: admin consent or an own app registration, encrypted secrets, Entra ID sign-ins and audit logs, Exchange mailbox audit, Defender alerts and phishing checks of the emails they name, built-in identity, mailbox and email detections, and response actions through it (built against Graph's documented formats; not yet run against a live tenant)
 - [x] Identity correlations in the engine: impossible travel, password spraying, password guessing, success after repeated failures and MFA fatigue
@@ -168,3 +172,7 @@ This repository started as the UTDRS capstone project. The other components were
 ## Licence
 
 No open-source licence has been chosen yet, so all rights are reserved for now. The API gateway carries its original copyright notice in [`services/api-gateway/COPYRIGHT`](services/api-gateway/COPYRIGHT).
+
+## Deploying
+
+See [docs/deploy-render.md](docs/deploy-render.md).

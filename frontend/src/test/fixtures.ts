@@ -19,6 +19,8 @@ export const user: User = {
   updatedAt: now,
   lastLogin: now,
   preferences: {},
+  mfa_enabled: false,
+  mfa_setup_required: false,
 }
 
 export const admin: User = {

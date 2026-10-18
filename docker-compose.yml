@@ -91,6 +91,8 @@ services:
       RETENTION_EVENTS_DAYS: ${RETENTION_EVENTS_DAYS:-90}
       RETENTION_ALERTS_DAYS: ${RETENTION_ALERTS_DAYS:-365}
       RETENTION_MAX_DAYS: ${RETENTION_MAX_DAYS:-730}
+      # Webhooks only go to public addresses unless this is true (receivers on your own network).
+      WEBHOOK_ALLOW_PRIVATE_ADDRESSES: ${WEBHOOK_ALLOW_PRIVATE_ADDRESSES:-false}
     depends_on:
       mongodb:
         condition: service_healthy
@@ -113,6 +115,24 @@ services:
         condition: service_healthy
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:${DASHBOARD_PORT:-8080}:8080"
+
+  # AI assistants (Claude and other MCP clients) investigate and act through UTDRS:
+  # Streamable HTTP at http://localhost:8765/mcp, each client sending a UTDRS API key.
+  mcp-server:
+    build: ./services/mcp-server
+    restart: unless-stopped
+    environment:
+      UTDRS_GATEWAY_URL: http://api-gateway:8000
+      # Host headers accepted (DNS-rebinding protection); add your public name when exposing it.
+      MCP_ALLOWED_HOSTS: ${MCP_ALLOWED_HOSTS:-localhost:*,127.0.0.1:*}
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${MCP_PORT:-8765}:8765"
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/health', timeout=3)"]
 
   # Demo data through the gateway's API: docker compose run --rm seed
   seed:

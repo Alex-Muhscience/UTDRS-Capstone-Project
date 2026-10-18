@@ -71,6 +71,11 @@ class AlertService:
                 logger.error(f"Could not put alert {alert_id} in a case: {e}")
             else:
                 playbooks.start(alert_id)
+                from core.services import webhooks
+
+                alert = await self.alert_repo.find_by_id(alert_id)
+                if alert:
+                    await webhooks.emit("alert.created", webhooks.alert_data(alert))
             return alert_id
         except Exception as e:
             logger.error(f"Error creating alert: {str(e)}")

@@ -2,6 +2,7 @@ import createClient, { type Middleware } from "openapi-fetch"
 
 import { UNAUTHORIZED_EVENT } from "@/auth/session"
 
+import { deployedApiUrl } from "./deployment"
 import type { components, paths } from "./schema"
 
 export type Schemas = components["schemas"]
@@ -36,6 +37,8 @@ export type SuppressionCreate = Schemas["SuppressionCreate"]
 export type SuppressionSuggestion = Schemas["SuppressionSuggestion"]
 export type DetectorQuality = Schemas["DetectorQuality"]
 export type Microsoft365 = Schemas["Microsoft365"]
+export type Webhook = Schemas["Webhook"]
+export type Delivery = Schemas["Delivery"]
 export type Role = Schemas["UserAdminUpdate"]["role"]
 
 /** An error response from the gateway, or a network failure (status 0). */
@@ -71,7 +74,9 @@ const auth: Middleware = {
 }
 
 export const api = createClient<paths>({
-  baseUrl: import.meta.env.VITE_API_URL ?? "",
+  // VITE_API_URL when set (development, tests); on a hosted deployment, its gateway
+  // (./deployment.ts); otherwise this origin, whose /api the Docker image forwards.
+  baseUrl: import.meta.env.VITE_API_URL || deployedApiUrl(window.location.hostname),
   // Resolved on each call so tests can stub fetch.
   fetch: (request) => globalThis.fetch(request),
 })

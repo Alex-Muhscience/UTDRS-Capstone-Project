@@ -16,5 +16,7 @@ USER utdrs
 
 EXPOSE 8000
 
-# Run gunicorn for production
-CMD ["gunicorn", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "app:app"]
+# Run gunicorn for production; WEB_CONCURRENCY sets the number of workers (fewer on
+# small instances: each is a full copy of the gateway).
+ENV WEB_CONCURRENCY=4
+CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "app:app"]

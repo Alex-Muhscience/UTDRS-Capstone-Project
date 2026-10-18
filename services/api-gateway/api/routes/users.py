@@ -124,3 +124,18 @@ async def reset_password(user_id: str = Path(...), admin: User = Depends(require
     password = temporary_password()
     await user_repo.change_password(user_id, password)
     return UserWithPassword(user=User(**user), temporary_password=password)
+
+
+@router.post("/{user_id}/reset-mfa", response_model=User)
+async def reset_mfa(user_id: str = Path(...), admin: User = Depends(require_admin)):
+    """
+    Turn off someone's multi-factor authentication (admins only), for example when they
+    have lost their phone. If the organisation requires MFA, they set it up again when
+    they next sign in.
+    """
+    from core.services import mfa
+
+    user_repo = UserRepository()
+    await find_user_or_404(user_repo, user_id)
+    await mfa.reset(user_id)
+    return User(**await user_repo.find_by_id(user_id))

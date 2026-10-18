@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from pydantic import AliasChoices, BaseModel, Field
+from typing import Any
+
+from pydantic import AliasChoices, BaseModel, Field, model_validator
 
 from core.models.common import IdString
 
@@ -14,6 +16,19 @@ class Tenant(BaseModel):
     status: str
     created_at: datetime
     updated_at: datetime
+    # Everyone must use multi-factor authentication to sign in.
+    require_mfa: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _security(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "security" in data:
+            data = {**data, "require_mfa": bool((data.get("security") or {}).get("require_mfa"))}
+        return data
+
+
+class TenantSecurity(BaseModel):
+    require_mfa: bool
 
 
 class TenantUpdate(BaseModel):
