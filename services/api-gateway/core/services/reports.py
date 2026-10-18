@@ -287,6 +287,10 @@ async def generate_due(now: Optional[datetime] = None) -> int:
             except DuplicateKeyError:
                 continue  # another process made it first, and tells people
             await notifications.report_ready({"_id": result.inserted_id, "period": period, "data": data})
+            from core.services import webhooks
+
+            await webhooks.emit("report.ready", {"id": str(result.inserted_id), "period": period, "title": data["title"],
+                                                 "headline": data["headline"], "url": settings.DASHBOARD_URL.rstrip("/") + f"/reports/{result.inserted_id}"})
             made += 1
     return made
 

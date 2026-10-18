@@ -36,6 +36,8 @@ export type SuppressionCreate = Schemas["SuppressionCreate"]
 export type SuppressionSuggestion = Schemas["SuppressionSuggestion"]
 export type DetectorQuality = Schemas["DetectorQuality"]
 export type Microsoft365 = Schemas["Microsoft365"]
+export type Webhook = Schemas["Webhook"]
+export type Delivery = Schemas["Delivery"]
 export type Role = Schemas["UserAdminUpdate"]["role"]
 
 /** An error response from the gateway, or a network failure (status 0). */

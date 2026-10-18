@@ -449,6 +449,11 @@ async def poll() -> Optional[Dict[str, Any]]:
             "cursors": cursors, "last_poll_at": utcnow(), "last_poll": counts, "errors": errors,
             "status": "error" if errors else "connected", "poll_lease_until": None,
         }})
+    if errors and connection.get("status") != "error":  # it has just become unhealthy
+        from core.services import webhooks
+
+        await webhooks.emit("connector.unhealthy", {"connector": "microsoft-365", "errors": errors,
+                                                     "url": settings.DASHBOARD_URL.rstrip("/") + "/connectors"})
     return {"counts": counts, "errors": errors}
 
 
