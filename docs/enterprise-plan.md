@@ -288,7 +288,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 | ID | Requirement | Priority | Phase |
 |---|---|---|---|
 | FR-RSP-01 | Response actions through connectors: quarantine or delete an email for all recipients, revoke a user's sessions, force password reset, disable an account, remove an inbox rule, block a sender or domain **Done (#21) except blocking a sender or domain, which needs Exchange Online or Defender rather than Graph; the actions run once the Microsoft 365 connector is connected.** | P0 | 1 |
-| FR-RSP-02 | Playbooks: triggers (detection, severity, entity), conditions, ordered actions, approval steps, notifications; built-in playbooks for the top threats **Done (#21) except notifications, which come with FR-NTF-01.** | P0 | 1 |
+| FR-RSP-02 | Playbooks: triggers (detection, severity, entity), conditions, ordered actions, approval steps, notifications; built-in playbooks for the top threats **Done (#21); approval and action emails (#22).** | P0 | 1 |
 | FR-RSP-03 | Response modes per tenant and per playbook: automatic, needs approval, notify only **Done (#21).** | P0 | 1 |
 | FR-RSP-04 | Every action recorded in the audit log with its result; every action that can be undone has an undo **Done (#21).** | P0 | 1 |
 | FR-RSP-05 | Endpoint actions through the agent (isolate, kill, quarantine file) | P2 | 3 |
@@ -300,7 +300,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 
 | ID | Requirement | Priority | Phase |
 |---|---|---|---|
-| FR-NTF-01 | Email notifications for new cases, actions taken and approvals needed, with per-user preferences | P0 | 1 |
+| FR-NTF-01 | Email notifications for new cases, actions taken and approvals needed, with per-user preferences **Done (#22).** | P0 | 1 |
 | FR-NTF-02 | Slack and Microsoft Teams, with approve/reject buttons for response actions | P1 | 2 |
 | FR-NTF-03 | SMS and voice escalation for critical cases | P2 | 3 |
 | FR-NTF-04 | Notify the affected end user (for example, "we removed a phishing email from your inbox") | P1 | 2 |

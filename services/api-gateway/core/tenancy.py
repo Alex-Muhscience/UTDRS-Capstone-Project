@@ -25,6 +25,7 @@ TENANT_SCOPED = {
     "cases",
     "actions",
     "playbooks",
+    "notifications",
     "assets",
     "detection_rules",
     "simulations",
