@@ -66,6 +66,7 @@ class ActionType:
     params: Tuple[str, ...] = ()
     undo: Optional[str] = None  # the action that undoes it
     disruptive: bool = False  # stops someone working, so protected accounts need an administrator
+    one_of: Tuple[str, ...] = ()  # at least one of these parameters is needed
 
 
 # ---------------------------------------------------------------------------
@@ -124,11 +125,22 @@ RULE_READ_ONLY = ("id", "isReadOnly", "hasError", "@odata.context", "@odata.etag
 
 
 async def remove_inbox_rule(client, user, params):
-    path = f"{_user(user)}/mailFolders/inbox/messageRules/{quote(str(params['rule_id']), safe='')}"
+    """Remove a rule by its id, or by its name (as Exchange's audit log records it)."""
+    rules = f"{_user(user)}/mailFolders/inbox/messageRules"
+    rule_id = params.get("rule_id")
+    if not rule_id:
+        name = str(params.get("rule_name") or "").strip()
+        if not name:
+            raise ActionError("Say which rule: its id (rule_id) or its name (rule_name)")
+        found = [r for r in (await _graph(client, "GET", rules)).get("value", []) if (r.get("displayName") or "").strip().lower() == name.lower()]
+        if not found:
+            raise ActionError(f"{user} has no inbox rule called \"{name}\" (it may already be gone)")
+        rule_id = found[0]["id"]
+    path = f"{rules}/{quote(str(rule_id), safe='')}"
     rule = await _graph(client, "GET", path)
     await _graph(client, "DELETE", path)
     saved = {k: v for k, v in rule.items() if k not in RULE_READ_ONLY}
-    return {"summary": f"Removed the inbox rule \"{rule.get('displayName', params['rule_id'])}\"", "rule": saved}, {"rule": saved}
+    return {"summary": f"Removed the inbox rule \"{rule.get('displayName', rule_id)}\"", "rule": saved}, {"rule": saved}
 
 
 async def restore_inbox_rule(client, user, params):
@@ -198,7 +210,7 @@ CATALOGUE: Dict[str, ActionType] = {a.name: a for a in [
     ActionType("m365.require_password_change", "Require a new password", "Make the user choose a new password when they next sign in.",
                "m365", "user", require_password_change, disruptive=True),
     ActionType("m365.remove_inbox_rule", "Remove an inbox rule", "Delete an inbox rule, such as one forwarding mail to an outsider. The rule is kept so it can be put back.",
-               "m365", "user", remove_inbox_rule, params=("rule_id",), undo="m365.restore_inbox_rule"),
+               "m365", "user", remove_inbox_rule, undo="m365.restore_inbox_rule", one_of=("rule_id", "rule_name")),
     ActionType("m365.restore_inbox_rule", "Put back an inbox rule", "Recreate an inbox rule that was removed.", "m365", "user", restore_inbox_rule, params=("rule",)),
     ActionType("m365.purge_message", "Remove the email from every mailbox", "Move the message out of each recipient's mailbox into their recoverable items, where it can be put back.",
                "m365", "message", purge_message, params=("recipients",), undo="m365.restore_message"),
@@ -214,7 +226,7 @@ UNDO_ONLY = {a.undo for a in CATALOGUE.values() if a.undo} - {"m365.enable_accou
 def catalogue() -> List[Dict[str, Any]]:
     return [
         {"name": a.name, "label": a.label, "description": a.description, "connector": a.connector, "connector_name": connectors.NAMES.get(a.connector, a.connector),
-         "target": a.target, "params": list(a.params), "can_undo": bool(a.undo), "disruptive": a.disruptive}
+         "target": a.target, "params": list(a.params) + [" or ".join(a.one_of)] * bool(a.one_of), "can_undo": bool(a.undo), "disruptive": a.disruptive}
         for a in CATALOGUE.values() if a.name not in UNDO_ONLY
     ]
 
@@ -278,6 +290,8 @@ def _validate(action: str, target: Dict[str, str], params: Dict[str, Any]) -> Ac
     missing = [p for p in kind.params if p not in params or params[p] in (None, "", [])]
     if missing:
         raise ActionError(f"{kind.label} needs {', '.join(missing)}")
+    if kind.one_of and not any(params.get(p) not in (None, "", []) for p in kind.one_of):
+        raise ActionError(f"{kind.label} needs {' or '.join(kind.one_of)}")
     if kind.target == "case" and not ObjectId.is_valid(target["value"]):
         raise ActionError("That is not a case")
     return kind

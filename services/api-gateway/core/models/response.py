@@ -10,7 +10,7 @@ Mode = Literal["automatic", "approval", "notify"]
 ActionStatus = Literal["pending", "running", "succeeded", "failed", "rejected", "undoing", "undone"]
 
 # Parameters a playbook fills in from the case, so its steps need not give them.
-FROM_CASE = {"m365.purge_message": {"recipients"}}
+FROM_CASE = {"m365.purge_message": {"recipients"}, "m365.remove_inbox_rule": {"rule_name"}}
 
 
 class Target(BaseModel):
@@ -110,6 +110,8 @@ class PlaybookStep(BaseModel):
         missing = [p for p in kind.params if p not in self.params and p not in FROM_CASE.get(self.action, set())]
         if missing:
             raise ValueError(f"{kind.label} needs {', '.join(missing)}")
+        if kind.one_of and not (set(kind.one_of) & (set(self.params) | FROM_CASE.get(self.action, set()))):
+            raise ValueError(f"{kind.label} needs {' or '.join(kind.one_of)}")
         return self
 
 

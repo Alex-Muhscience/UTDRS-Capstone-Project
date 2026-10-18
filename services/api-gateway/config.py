@@ -106,6 +106,7 @@ class Settings(BaseSettings):
     M365_CLIENT_SECRET: Optional[str] = None
     M365_LOGIN_URL: str = "https://login.microsoftonline.com"
     M365_GRAPH_URL: str = "https://graph.microsoft.com/v1.0"
+    M365_MANAGEMENT_URL: str = "https://manage.office.com/api/v1.0"
     # How often sign-ins, audit logs and Defender alerts are fetched.
     M365_POLL_INTERVAL_SECONDS: int = 300
 
