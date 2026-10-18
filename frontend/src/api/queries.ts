@@ -84,7 +84,10 @@ export function useRenameTenant() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (name: string) => unwrap(api.PATCH("/api/v1/tenants/current", { body: { name } })),
-    onSuccess: (tenant) => queryClient.setQueryData(["tenant"], tenant),
+    onSuccess: (tenant) => {
+      queryClient.setQueryData(["tenant"], tenant)
+      void queryClient.invalidateQueries({ queryKey: ["onboarding"] })
+    },
   })
 }
 
@@ -222,7 +225,10 @@ export function useUpdateResponseSettings() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (body: Partial<ResponseSettings>) => unwrap(api.PATCH("/api/v1/response/settings", { body })),
-    onSuccess: (updated) => queryClient.setQueryData(["response", "settings"], updated),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(["response", "settings"], updated)
+      void queryClient.invalidateQueries({ queryKey: ["onboarding"] })
+    },
   })
 }
 
@@ -267,7 +273,11 @@ export function useUpdateNotificationPreferences() {
 }
 
 export function useSendTestEmail() {
-  return useMutation({ mutationFn: () => unwrap(api.POST("/api/v1/notifications/test")) })
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => unwrap(api.POST("/api/v1/notifications/test")),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["onboarding"] }),
+  })
 }
 
 type DeliveryStatus = NonNullable<NonNullable<paths["/api/v1/notifications/"]["get"]["parameters"]["query"]>["status"]>
@@ -395,6 +405,7 @@ function useConnectorMutation<TVariables, TResult>(mutationFn: (variables: TVari
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["connectors"] })
       void queryClient.invalidateQueries({ queryKey: ["actions", "types"] })
+      void queryClient.invalidateQueries({ queryKey: ["onboarding"] })
     },
   })
 }
@@ -429,6 +440,20 @@ export function usePollMicrosoft365() {
 
 export function useDisconnectMicrosoft365() {
   return useConnectorMutation(() => unwrap(api.DELETE("/api/v1/connectors/microsoft-365")))
+}
+
+// ---------------------------------------------------------------------------- Onboarding
+
+export function useOnboarding() {
+  return useQuery({ queryKey: ["onboarding"], queryFn: () => unwrap(api.GET("/api/v1/onboarding/")), refetchInterval: POLL_INTERVAL_MS })
+}
+
+export function useDismissOnboarding() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (dismissed: boolean) => unwrap(api.PATCH("/api/v1/onboarding/", { body: { dismissed } })),
+    onSuccess: (updated) => queryClient.setQueryData(["onboarding"], updated),
+  })
 }
 
 // ---------------------------------------------------------------------------- API keys

@@ -12,7 +12,7 @@ UTDRS was a **Top 5 finalist in the Mozilla Responsible Computing Challenge**.
 
 | Component | Path | Status |
 |---|---|---|
-| **Dashboard**: overview, cases, response and playbooks, connectors, detection tuning, monthly reports, email notifications, alert triage, events with the engine's verdict, assets, detection rules, simulations, and administration | [`frontend/`](frontend) | Working. React 19, TypeScript, Vite, Tailwind CSS; typed against the gateway's API schema. |
+| **Dashboard**: getting started, overview, cases, response and playbooks, connectors, detection tuning, monthly reports, email notifications, alert triage, events with the engine's verdict, assets, detection rules, simulations, and administration | [`frontend/`](frontend) | Working. React 19, TypeScript, Vite, Tailwind CSS; typed against the gateway's API schema. |
 | **API gateway**: authentication, events, alerts, assets, rules, simulations, API keys, audit log; sends every event to the engine, and turns device scans into assets and events. Each organisation's data is kept apart | [`services/api-gateway/`](services/api-gateway) | Working. Python 3.12, FastAPI, MongoDB. |
 | **Core engine**: six detectors, MITRE ATT&CK mapping, risk scoring | [`services/core-engine/`](services/core-engine) | Working. The ML detector classifies emails and network flows with trained models, and uses hand-written indicators for everything else. |
 | **Data processor**: batch worker that delivers the scanner's scans to the gateway, with retries and a dead-letter collection | [`services/data-processor/`](services/data-processor) | Working. Python 3.12, PyMongo. |
@@ -145,6 +145,7 @@ Next:
 - [x] Cases: related alerts grouped by user, device, address or sender, with owners, deadlines, timelines, notes, evidence and a plain-language explanation
 - [x] Response actions and playbooks: approval, automatic and notify modes, undo, safety limits and built-in playbooks (Microsoft 365 actions run once its connector is connected)
 - [x] Email notifications: new cases, approvals needed and actions taken, per-person preferences, retried delivery and a delivery log
+- [x] Onboarding: a checklist from sign-up to first results the same day, worked out from the organisation's state
 - [x] Microsoft 365 connector: admin consent or an own app registration, encrypted secrets, Entra ID sign-ins and audit logs and Defender alerts, built-in identity detections, and response actions through it (built against Graph's documented formats; not yet run against a live tenant)
 - [x] Identity correlations in the engine: impossible travel, password spraying, password guessing, success after repeated failures and MFA fatigue
 - [x] Detection tuning: analysts' verdicts, suppressions and allow-lists with safety limits, noisy-detector reporting, and labels exported for retraining

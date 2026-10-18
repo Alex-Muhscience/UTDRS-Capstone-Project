@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from core.models.notification import Notification, NotificationPreferences, NotificationPreferencesUpdate, TestEmailResult
 from core.models.user import User
-from core.services import notifications
+from core.services import notifications, onboarding
 from utils.security import get_current_active_user, require_admin
 
 router = APIRouter()
@@ -37,6 +37,8 @@ async def update_preferences(body: NotificationPreferencesUpdate, user: User = D
 async def send_test_email(user: User = Depends(_person)):
     """Send yourself a test email now, to check that email works."""
     error = await notifications.send_test(user.email)
+    if error is None:
+        await onboarding.email_tested()
     return {"sent": error is None, "error": error}
 
 

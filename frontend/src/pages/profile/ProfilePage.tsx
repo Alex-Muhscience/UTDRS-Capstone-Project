@@ -4,7 +4,7 @@ import { toast } from "sonner"
 import { useChangePassword, useCurrentTenant, useRenameTenant, useUpdateProfile } from "@/api/queries"
 import { useIsAdmin, useUser } from "@/auth/context"
 import { Badge } from "@/components/ui/Badge"
-import { Button } from "@/components/ui/Button"
+import { Button, ButtonLink } from "@/components/ui/Button"
 import { Card } from "@/components/ui/Card"
 import { DescriptionList } from "@/components/ui/DescriptionList"
 import { Field, Input } from "@/components/ui/Field"
@@ -93,7 +93,15 @@ export function ProfilePage() {
 
   return (
     <>
-      <PageHeader title="Profile" description="Your account on this UTDRS deployment." />
+      <PageHeader
+        title="Profile"
+        description="Your account on this UTDRS deployment."
+        actions={
+          <ButtonLink to="/get-started" size="sm">
+            Setup checklist
+          </ButtonLink>
+        }
+      />
       <div className="grid gap-4 xl:grid-cols-3">
         <Card title="Account">
           <DescriptionList
