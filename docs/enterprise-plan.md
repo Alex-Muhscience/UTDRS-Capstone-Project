@@ -266,7 +266,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 | FR-DET-07 | Network detection: network model retrained on modern and customer-like traffic; Suricata signatures; DNS and TLS anomalies | P2 | 3 |
 | FR-DET-08 | Correlation across sources into incidents (for example, phishing email, then sign-in from a new country, then inbox rule) | P1 | 2 |
 | FR-DET-09 | Threat intelligence: STIX/TAXII and MISP feeds, abuse.ch, OTX; indicator matching with expiry and confidence | P1 | 2 |
-| FR-DET-10 | Detection tuning: suppressions and allow-lists per tenant, feedback from analysts' verdicts used to tune rules and retrain models | P0 | 1 |
+| FR-DET-10 | Detection tuning: suppressions and allow-lists per tenant, feedback from analysts' verdicts used to tune rules and retrain models **Done (#24): verdicts, suppressions and allow-lists, detector quality, and labels exported for retraining; retraining from them is still to come (GAP-ML-03).** | P0 | 1 |
 | FR-DET-11 | MITRE ATT&CK coverage view: which techniques are covered, by which rules, for which data sources | P1 | 2 |
 | FR-DET-12 | Model operations: model registry, versioning, shadow evaluation before promotion, drift monitoring, per-tenant false-positive tracking | P1 | 2 |
 | FR-DET-13 | Detection-as-code repository with CI tests against recorded attack data | P1 | 2 |
@@ -510,7 +510,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 | GAP-ENG-03 | Malware and user-behaviour ML detectors are hand-written indicator scores (`ml_detector.py`); placeholder pickles in `ml_models/` | FR-DET-06 | P1 |
 | GAP-ENG-04 | No Sigma support; rules are the engine's own format | FR-DET-03 | P1 |
 | GAP-ENG-05 | Threat intelligence is per-lookup API calls (VirusTotal, AbuseIPDB, OTX) with a file cache; no feeds, no STIX/TAXII, no indicator store | FR-DET-09 | P1 |
-| GAP-ENG-06 | No suppressions, allow-lists or analyst feedback loop | FR-DET-10 | P0 |
+| GAP-ENG-06 | No suppressions, allow-lists or analyst feedback loop **Done (#24).** | FR-DET-10 | P0 |
 | GAP-ENG-07 | No model registry, versioning, shadow mode or drift monitoring; models are files in the image | FR-DET-12 | P1 |
 | GAP-ENG-08 | No identity or email detections (impossible travel, inbox rules, MFA fatigue, OAuth consent) because no such data arrives | FR-DET-04 | P0 |
 | GAP-ENG-09 | Uses `ModelRegistry` that writes placeholder models into the working directory at start-up; read-only containers would fail | NFR-08 | P2 |
@@ -521,7 +521,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 |---|---|---|---|
 | GAP-ML-01 | Phishing model trained on English email mostly from 2008 or earlier; text only; never evaluated on current phishing or on customers' mail ([model card](../services/core-engine/core/models/ml/phishing_email/MODEL_CARD.md)) | FR-DET-05 | P0 |
 | GAP-ML-02 | Network model trained on a 2015 lab dataset (UNSW-NB15); 20% of attacks missed at the chosen threshold; weak on fuzzing, shellcode and worms; no source of flow records in UTDRS yet ([model card](../services/core-engine/core/models/ml/network_threat/MODEL_CARD.md)) | FR-DET-07, FR-ING-08 | P2 |
-| GAP-ML-03 | No labelled data pipeline from customers (analyst verdicts, user reports of phishing) for retraining | FR-DET-10, FR-DET-12 | P1 |
+| GAP-ML-03 | No labelled data pipeline from customers (analyst verdicts, user reports of phishing) for retraining **Partly (#24): analysts' verdicts are kept as labels with their events and exported as JSON Lines; user reports of phishing and the retraining job remain.** | FR-DET-10, FR-DET-12 | P1 |
 | GAP-ML-04 | No evaluation harness in CI that fails a change when detection quality drops | NFR-15 | P1 |
 | GAP-ML-05 | No explanation of model verdicts (which words, which features drove a score) | FR-CAS-04 | P1 |
 

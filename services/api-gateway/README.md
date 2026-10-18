@@ -48,6 +48,7 @@ All routes are under `/api/v1`. Interactive documentation is served at `/api/v1/
 | Events | `GET /events/` (filters: `event_type`, `asset_id`, `user_id`, `ip_address`), `POST /events/`, `GET`/`PUT /events/{id}`, `GET /events/recent/`, `GET /events/timerange/`, `PATCH /events/{id}/severity`, tags, `GET /events/search/` |
 | Assets | `GET /assets/` (filters: `asset_type`, `status`, `criticality`, `department`), `POST /assets/`, `GET`/`PUT /assets/{id}`, lookup by `name`, `ip` or `mac`, `PATCH /assets/{id}/vulnerabilities/add` and `/remove`, `PATCH /assets/{id}/lastseen`, tags, search |
 | Response | `GET /response/actions/types` (with whether each needs a service that is connected), `GET /response/actions` (`status`, `case_id`), `POST /response/actions`, `GET /response/actions/{id}`, `POST /response/actions/{id}/approve`, `/reject`, `/undo`, `GET`/`PATCH /response/settings` (changes by administrators) |
+| Tuning | `POST /alerts/{id}/feedback` (`verdict`: `true_positive`, `false_positive` or `benign`; `note`), `GET`/`POST /tuning/suppressions`, `PATCH`/`DELETE /tuning/suppressions/{id}`, `GET /tuning/quality` (`days`), `GET /tuning/labels` (JSON Lines, `since`; administrators) |
 | Reports | `GET /reports/`, `POST /reports/` (`period`, `YYYY-MM`; by default the last full month), `GET /reports/{id}`, `GET /reports/{id}/pdf` |
 | Notifications | `GET`/`PATCH /notifications/preferences` (yours), `POST /notifications/test` (send yourself a test email), `GET /notifications/` (the email log, `status`; administrators) |
 | Playbooks | `GET /playbooks/`, `POST /playbooks/`, `GET`/`PATCH`/`DELETE /playbooks/{id}` (changes by administrators), `POST /playbooks/{id}/run` (`case_id`) |
@@ -124,6 +125,17 @@ UTDRS can act on a threat, not only report it (`core/services/response_actions.p
 - **Who decides.** A person's own request runs at once. A playbook acting on its own follows the more cautious of its mode and the organisation's: `automatic`, `approval` (the default) or `notify` (only suggest). Actions waiting for a decision are approved or rejected by a person; API keys can request actions (with the `response` scopes) but those always wait for a person, and keys cannot approve, reject or undo.
 - **Safety limits.** At most `max_actions_per_hour` actions (default 20) run automatically per organisation in an hour; beyond that they wait. Protected accounts (listed by an administrator, plus the organisation's UTDRS administrators) are never disrupted automatically, and only an administrator can approve disrupting one. Disabling the last enabled Microsoft 365 Global Administrator is refused.
 - Not yet: blocking a sender or domain (Microsoft Graph has no API for the tenant block list; it needs Exchange Online or Defender).
+
+## Detection tuning
+
+Detection is fitted to each organisation by the people who use it (`core/services/tuning.py`).
+
+- **Verdicts.** On any alert, say whether it was a real threat, a false positive or real but expected activity (benign), with a note. A false positive is marked so and a benign alert closed; marking an alert a false positive by its status counts as a verdict too. The verdict shows on the alert and its case's timeline.
+- **Labels.** Each verdict is kept as a label: the alert, its detector, the engine's findings and the events behind it. `GET /tuning/labels` exports them as JSON Lines for retraining the models (administrators).
+- **Suppressions and allow-lists.** A suppression matches alerts by any of: title, detector, and an entity (user, device, address, sender, file, message); with only an entity it is an allow-list entry. Matching alerts are kept with status `suppressed`, naming the suppression, but go in no case, run no playbook and email nobody. Each suppression has a reason everyone can see, counts its hits, can be turned off, and expires (after 90 days by default).
+- **Safety.** Critical alerts get through unless a suppression says otherwise, and only administrators can say so or make a suppression permanent.
+- **Suggestions.** A false positive or benign verdict answers with a suppression for alerts like it (same detector and main entity, up to the alert's severity), applied only if someone creates it.
+- **Quality.** `GET /tuning/quality` lists each detector's alerts, suppressed alerts, verdicts and precision over a period; one whose verdicts were mostly not real threats (at least five) is noisy.
 
 ## Monthly reports
 
@@ -221,7 +233,7 @@ docker run -d --name utdrs-mongo -p 27017:27017 mongo:7      # once
 MONGODB_URI=mongodb://localhost:27017 python -m pytest
 ```
 
-156 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
+166 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
 
 - `tests/e2e/test_flows.py`: registration and sign-in, events, alerts (filters, ordering, summary, status errors), assets, rules, role and password rules, response headers. Against a real MongoDB, with no mocks.
 - `tests/e2e/test_users.py`: role checks on rules and simulations, the team directory, account administration (create, role changes, deactivation, password resets), self-lockout protection, closed registration and the startup administrator.
@@ -230,6 +242,7 @@ MONGODB_URI=mongodb://localhost:27017 python -m pytest
 - `tests/e2e/test_response.py`: against a stand-in for Microsoft Graph: actions that run, fail and are undone; the last Global Administrator; playbooks proposing, people approving and rejecting, and running once per case; the organisation's mode capping a playbook's; the hourly limit; protected accounts and administrators; steps skipped without their connector; removing an email from every mailbox and putting it back; removing and restoring an inbox rule; running a playbook yourself; API keys asking and people deciding; writing playbooks; disabled playbooks; response kept within an organisation.
 - `tests/e2e/test_notifications.py`: against a small SMTP server run by the test: preferences and their defaults; new cases to those who want them, once per case, with the explanation and link; approvals needed and actions done; failures retried and then given up; the hourly limit; nothing sent without email set up; titles unable to add headers; test emails, including a mail server that cannot be reached; the log for administrators only, and none for API keys.
 - `tests/e2e/test_reports.py`: each in an organisation of its own: a month's figures, threats, people and devices involved, actions and open cases, in figures and words; overdue cases and waiting actions called out; comparison with the month before; reports kept, listed and made again; the PDF, with markup in a title; months not started or not real; last month's report made once and administrators told; none for months before an organisation existed; reports kept within an organisation and the `reports` scope.
+- `tests/e2e/test_tuning.py`: verdicts (false positive, benign, real threat), labels and their export, suggestions and case timelines; suppressions by address, title, detector and user, with critical alerts getting through, expiry and turning off; what analysts may and may not suppress; noisy detectors; a false positive by status counting as a verdict; tuning kept within an organisation and the `tuning` scope.
 - `tests/e2e/test_tenancy.py`: two organisations: lists, search, counts, reads and changes of another organisation's users, events, alerts, assets, rules, simulations and API keys refused; names unique per organisation; API keys confined to their organisation; separate audit chains; rules and events sent to the engine per organisation; organisation registration; scoped collections failing closed.
 - `tests/e2e/test_api_keys_audit.py`: API keys shown once and stored as hashes; scopes allowing and refusing; keys never acting as administrators; revoked, expired and unknown keys refused; sign-ins and changes audited with who made them (people and keys) and refused attempts recorded; no secrets in the log; tampering found by the chain; concurrent entries forming one chain.
 - `tests/e2e/test_hardening.py`: sign-in throttling per account and address and per address, a correct password clearing the count, identical answers for unknown and wrong passwords, client addresses behind trusted proxies, and unique asset names under concurrent scans.
