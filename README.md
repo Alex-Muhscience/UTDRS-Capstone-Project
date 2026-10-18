@@ -12,7 +12,7 @@ UTDRS was a **Top 5 finalist in the Mozilla Responsible Computing Challenge**.
 
 | Component | Path | Status |
 |---|---|---|
-| **Dashboard**: overview, cases, response and playbooks, email notifications, alert triage, events with the engine's verdict, assets, detection rules, simulations, and administration | [`frontend/`](frontend) | Working. React 19, TypeScript, Vite, Tailwind CSS; typed against the gateway's API schema. |
+| **Dashboard**: overview, cases, response and playbooks, monthly reports, email notifications, alert triage, events with the engine's verdict, assets, detection rules, simulations, and administration | [`frontend/`](frontend) | Working. React 19, TypeScript, Vite, Tailwind CSS; typed against the gateway's API schema. |
 | **API gateway**: authentication, events, alerts, assets, rules, simulations, API keys, audit log; sends every event to the engine, and turns device scans into assets and events. Each organisation's data is kept apart | [`services/api-gateway/`](services/api-gateway) | Working. Python 3.12, FastAPI, MongoDB. |
 | **Core engine**: six detectors, MITRE ATT&CK mapping, risk scoring | [`services/core-engine/`](services/core-engine) | Working. The ML detector classifies emails and network flows with trained models, and uses hand-written indicators for everything else. |
 | **Data processor**: batch worker that delivers the scanner's scans to the gateway, with retries and a dead-letter collection | [`services/data-processor/`](services/data-processor) | Working. Python 3.12, PyMongo. |
@@ -145,6 +145,7 @@ Next:
 - [x] Cases: related alerts grouped by user, device, address or sender, with owners, deadlines, timelines, notes, evidence and a plain-language explanation
 - [x] Response actions and playbooks: approval, automatic and notify modes, undo, safety limits and built-in playbooks (Microsoft 365 actions run once its connector is connected)
 - [x] Email notifications: new cases, approvals needed and actions taken, per-person preferences, retried delivery and a delivery log
+- [x] Monthly executive report: figures against the month before, threats, actions, what is still open and what to do next; on the web and as a PDF, made and emailed on the 1st
 - [ ] Trained models for the remaining indicator-based ML detectors (malware, user behaviour)
 - [ ] Public demo deployment
 

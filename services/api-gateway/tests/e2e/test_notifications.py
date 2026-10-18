@@ -143,7 +143,7 @@ def raise_alert(client, auth, severity="high", tags=(), **raw):
 def test_preferences_have_safe_defaults_and_can_change(client, mailbox):
     auth, address = person(client)
     prefs = client.get(f"{API}/notifications/preferences", headers=auth).json()
-    assert prefs == {"email": True, "new_cases": "high", "approvals": True, "actions": "failed", "email_configured": True, "address": address}
+    assert prefs == {"email": True, "new_cases": "high", "approvals": True, "actions": "failed", "reports": True, "email_configured": True, "address": address}
     changed = client.patch(f"{API}/notifications/preferences", json={"new_cases": "off", "actions": "all"}, headers=auth).json()
     assert (changed["new_cases"], changed["actions"], changed["approvals"]) == ("off", "all", True)
     assert client.patch(f"{API}/notifications/preferences", json={"new_cases": "sometimes"}, headers=auth).status_code == 422

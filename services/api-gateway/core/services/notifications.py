@@ -10,7 +10,8 @@ Each person chooses (per-user preferences, `notify` on their user record):
 - email: whether to get email at all;
 - new_cases: the lowest priority of new case to hear about, or "off";
 - approvals: actions waiting for a decision they can make;
-- actions: actions that ran: "all", "failed" only, or "off".
+- actions: actions that ran: "all", "failed" only, or "off";
+- reports: the monthly report, when it is ready (administrators only).
 Nobody is sent more than NOTIFY_MAX_PER_USER_PER_HOUR emails in an hour.
 """
 import asyncio
@@ -34,7 +35,7 @@ from utils.time import utcnow
 logger = get_logger(__name__)
 
 COLLECTION = "notifications"
-DEFAULTS: Dict[str, Any] = {"email": True, "new_cases": "high", "approvals": True, "actions": "failed"}
+DEFAULTS: Dict[str, Any] = {"email": True, "new_cases": "high", "approvals": True, "actions": "failed", "reports": True}
 RETRY_AFTER = [timedelta(seconds=30), timedelta(minutes=2), timedelta(minutes=10), timedelta(hours=1)]
 MAX_ATTEMPTS = len(RETRY_AFTER) + 1
 SEND_LEASE = timedelta(minutes=2)  # a send that takes longer is assumed lost, and retried
@@ -193,6 +194,21 @@ async def _action_finished(action: Dict[str, Any]) -> None:
         f"{label}, for {_target(action)}: {outcome}.\n\nStarted by {who}.",
         _link(f"/cases/{action['case_id']}" if action.get("case_id") else "/response"), {"type": "action", "id": str(action["_id"])},
     )
+
+
+async def report_ready(report: Dict[str, Any]) -> None:
+    await _safely(_report_ready(report))
+
+
+async def _report_ready(report: Dict[str, Any]) -> None:
+    wanted = [u for u in await _people(role="admin") if preferences_of(u)["email"] and preferences_of(u)["reports"]]
+    if not wanted:
+        return
+    data = report["data"]
+    recommendations = "\n".join(f"  - {line}" for line in data["recommendations"])
+    text = f"Your UTDRS report for {data['title']} is ready.\n\n" + " ".join(data["headline"]) + f"\n\nWhat to do next:\n{recommendations}\n\nRead it, or download it as a PDF:"
+    await _enqueue("report_ready", wanted, f"[UTDRS] Your security report for {data['title']}", text,
+                   _link(f"/reports/{report['_id']}"), {"type": "report", "id": str(report["_id"])})
 
 
 # ---------------------------------------------------------------------------

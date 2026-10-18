@@ -20,6 +20,8 @@ import { EventDetailPage } from "@/pages/events/EventDetailPage"
 import { EventsPage } from "@/pages/events/EventsPage"
 import { OverviewPage } from "@/pages/overview/OverviewPage"
 import { ProfilePage } from "@/pages/profile/ProfilePage"
+import { ReportPage } from "@/pages/reports/ReportPage"
+import { ReportsPage } from "@/pages/reports/ReportsPage"
 import { PlaybooksPage } from "@/pages/response/PlaybooksPage"
 import { ResponsePage } from "@/pages/response/ResponsePage"
 import { RuleDetailPage } from "@/pages/rules/RuleDetailPage"
@@ -49,6 +51,8 @@ export const routes: RouteObject[] = [
               { path: "cases/:caseId", element: <CaseDetailPage /> },
               { path: "response", element: <ResponsePage /> },
               { path: "playbooks", element: <PlaybooksPage /> },
+              { path: "reports", element: <ReportsPage /> },
+              { path: "reports/:reportId", element: <ReportPage /> },
               { path: "alerts", element: <AlertsPage /> },
               { path: "alerts/:alertId", element: <AlertDetailPage /> },
               { path: "events", element: <EventsPage /> },

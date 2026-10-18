@@ -1585,6 +1585,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Reports
+         * @description Your organisation's reports, newest month first.
+         */
+        get: operations["list_reports_api_v1_reports__get"];
+        put?: never;
+        /**
+         * Make Report
+         * @description Make the report for a month (by default the last full month), or make it again with
+         *     today's figures for what is still open. The month must have started.
+         */
+        post: operations["make_report_api_v1_reports__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{report_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Report */
+        get: operations["get_report_api_v1_reports__report_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{report_id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report As Pdf
+         * @description The report as a PDF.
+         */
+        get: operations["report_as_pdf_api_v1_reports__report_id__pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications/preferences": {
         parameters: {
             query?: never;
@@ -1808,7 +1870,7 @@ export interface components {
             action: string;
             /** Label */
             label: string;
-            target: components["schemas"]["Target"];
+            target: components["schemas"]["core__models__response__Target"];
             /**
              * Params
              * @default {}
@@ -1874,6 +1936,13 @@ export interface components {
             /** Undone By */
             undone_by?: string | null;
         };
+        /** ActionCount */
+        ActionCount: {
+            /** Label */
+            label: string;
+            /** Count */
+            count: number;
+        };
         /** ActionDecision */
         ActionDecision: {
             /** Reason */
@@ -1883,7 +1952,7 @@ export interface components {
         ActionRequest: {
             /** Action */
             action: string;
-            target: components["schemas"]["Target"];
+            target: components["schemas"]["Target-Input"];
             /**
              * Params
              * @default {}
@@ -1893,6 +1962,23 @@ export interface components {
             };
             /** Case Id */
             case_id?: string | null;
+        };
+        /** ActionSummary */
+        ActionSummary: {
+            /** Taken */
+            taken: number;
+            /** Automatic */
+            automatic: number;
+            /** Approved */
+            approved: number;
+            /** Undone */
+            undone: number;
+            /** Failed */
+            failed: number;
+            /** Rejected */
+            rejected: number;
+            /** By Action */
+            by_action: components["schemas"]["ActionCount"][];
         };
         /** ActionType */
         ActionType: {
@@ -2781,6 +2867,13 @@ export interface components {
             /** Next Steps */
             next_steps: string[];
         };
+        /** Figure */
+        Figure: {
+            /** Value */
+            value?: number | null;
+            /** Previous */
+            previous?: number | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -2841,6 +2934,11 @@ export interface components {
              */
             actions: "all" | "failed" | "off";
             /**
+             * Reports
+             * @default true
+             */
+            reports: boolean;
+            /**
              * Email Configured
              * @default false
              */
@@ -2858,6 +2956,39 @@ export interface components {
             approvals?: boolean | null;
             /** Actions */
             actions?: ("all" | "failed" | "off") | null;
+            /** Reports */
+            reports?: boolean | null;
+        };
+        /** OpenCase */
+        OpenCase: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Priority */
+            priority: string;
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /** Overdue */
+            overdue: boolean;
+        };
+        /** Outstanding */
+        Outstanding: {
+            /** Open Cases */
+            open_cases: number;
+            /** Overdue */
+            overdue: number;
+            /** By Priority */
+            by_priority: {
+                [key: string]: number;
+            };
+            /** Top */
+            top: components["schemas"]["OpenCase"][];
+            /** Awaiting Approval */
+            awaiting_approval: number;
         };
         /** PasswordChange */
         PasswordChange: {
@@ -3033,6 +3164,83 @@ export interface components {
             password: string;
             /** Organisation */
             organisation?: string | null;
+        };
+        /** Report */
+        Report: {
+            /** Id */
+            id: string;
+            /** Period */
+            period: string;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Generated By */
+            generated_by: {
+                [key: string]: unknown;
+            };
+            data: components["schemas"]["ReportData"];
+        };
+        /** ReportData */
+        ReportData: {
+            /** Period */
+            period: string;
+            /** Title */
+            title: string;
+            /** Organisation */
+            organisation: string;
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /** Headline */
+            headline: string[];
+            /** Figures */
+            figures: {
+                [key: string]: components["schemas"]["Figure"];
+            };
+            /** Alerts By Severity */
+            alerts_by_severity: {
+                [key: string]: number;
+            };
+            /** Weekly Alerts */
+            weekly_alerts: components["schemas"]["Week"][];
+            /** Top Threats */
+            top_threats: components["schemas"]["Threat"][];
+            /** Most Targeted */
+            most_targeted: components["schemas"]["core__models__report__Target"][];
+            actions: components["schemas"]["ActionSummary"];
+            outstanding: components["schemas"]["Outstanding"];
+            /** Recommendations */
+            recommendations: string[];
+        };
+        /** ReportRequest */
+        ReportRequest: {
+            /** Period */
+            period?: string | null;
+        };
+        /** ReportSummary */
+        ReportSummary: {
+            /** Id */
+            id: string;
+            /** Period */
+            period: string;
+            /** Title */
+            title: string;
+            /** Headline */
+            headline: string[];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
         };
         /**
          * ResponseSettings
@@ -3304,7 +3512,7 @@ export interface components {
             notes?: string | null;
         };
         /** Target */
-        Target: {
+        "Target-Input": {
             /** Type */
             type: string;
             /** Value */
@@ -3345,6 +3553,13 @@ export interface components {
             sent: boolean;
             /** Error */
             error?: string | null;
+        };
+        /** Threat */
+        Threat: {
+            /** Name */
+            name: string;
+            /** Count */
+            count: number;
         };
         /** TimelineEntry */
         TimelineEntry: {
@@ -3489,6 +3704,37 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** Week */
+        Week: {
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /** Count */
+            count: number;
+        };
+        /** Target */
+        core__models__report__Target: {
+            /** Type */
+            type: string;
+            /** Name */
+            name: string;
+            /** Cases */
+            cases: number;
+        };
+        /** Target */
+        core__models__response__Target: {
+            /** Type */
+            type: string;
+            /** Value */
+            value: string;
         };
     };
     responses: never;
@@ -6404,6 +6650,121 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Simulation"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_reports_api_v1_reports__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportSummary"][];
+                };
+            };
+        };
+    };
+    make_report_api_v1_reports__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Report"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_report_api_v1_reports__report_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Report"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    report_as_pdf_api_v1_reports__report_id__pdf_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": unknown;
                 };
             };
             /** @description Validation Error */
