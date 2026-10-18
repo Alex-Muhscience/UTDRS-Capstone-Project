@@ -47,6 +47,8 @@ All routes are under `/api/v1`. Interactive documentation is served at `/api/v1/
 | Alerts | `GET /alerts/` (`status` and `severity` filters combine), `GET /alerts/summary`, `POST /alerts/`, `GET`/`PUT /alerts/{id}`, `PATCH /alerts/{id}/status` (`status`, optional `notes`), `PATCH /alerts/{id}/assign`, `PATCH /alerts/{id}/events/{event_id}`, `POST`/`DELETE /alerts/{id}/tags/{tag}`, `GET /alerts/assigned/{user_id}`, `GET /alerts/search/` |
 | Events | `GET /events/` (filters: `event_type`, `asset_id`, `user_id`, `ip_address`), `POST /events/`, `GET`/`PUT /events/{id}`, `GET /events/recent/`, `GET /events/timerange/`, `PATCH /events/{id}/severity`, tags, `GET /events/search/` |
 | Assets | `GET /assets/` (filters: `asset_type`, `status`, `criticality`, `department`), `POST /assets/`, `GET`/`PUT /assets/{id}`, lookup by `name`, `ip` or `mac`, `PATCH /assets/{id}/vulnerabilities/add` and `/remove`, `PATCH /assets/{id}/lastseen`, tags, search |
+| Response | `GET /response/actions/types` (with whether each needs a service that is connected), `GET /response/actions` (`status`, `case_id`), `POST /response/actions`, `GET /response/actions/{id}`, `POST /response/actions/{id}/approve`, `/reject`, `/undo`, `GET`/`PATCH /response/settings` (changes by administrators) |
+| Playbooks | `GET /playbooks/`, `POST /playbooks/`, `GET`/`PATCH`/`DELETE /playbooks/{id}` (changes by administrators), `POST /playbooks/{id}/run` (`case_id`) |
 | Cases | `GET /cases/` (filters: `status`, one or more; `priority`; `owner_id`, or `none`; `open_only`), `GET /cases/{id}` (with its timeline and an explanation), `PATCH /cases/{id}` (`status`, `priority`, `owner_id`, `title`), `POST /cases/{id}/notes`, `GET /cases/{id}/evidence` |
 | Organisations | `GET /tenants/current`; admins only: `PATCH /tenants/current` (rename) |
 | API keys | Admins only: `GET /api-keys/`, `GET /api-keys/scopes`, `POST /api-keys/` (returns the key once), `DELETE /api-keys/{id}` (revoke) |
@@ -108,6 +110,18 @@ Every alert belongs to a case, so related alerts are worked once (`core/services
 - **Evidence.** `GET /cases/{id}/evidence` returns its alerts and the events behind them, oldest first.
 - Owners must be colleagues. API keys need the `cases` scopes. Changes are audited.
 - Open alerts from before cases are put into cases at start-up.
+
+## Response and playbooks
+
+UTDRS can act on a threat, not only report it (`core/services/response_actions.py`, `core/services/playbooks.py`).
+
+- **Actions.** Each acts on one entity through a connector: through Microsoft 365, sign a user out everywhere, disable or enable their account, require a new password, remove an inbox rule, and remove an email from every recipient's mailbox; in UTDRS, raise a case's priority. An action is a record: proposed, approved or rejected, run (with its result or error) and undone, each step in the audit log and on its case's timeline.
+- **Undo.** Disabling an account, removing an inbox rule (the rule is saved), removing an email (it goes to recoverable items, and where it was is saved) and raising a priority can be undone; the undo is an action of its own, linked both ways.
+- **Connectors.** Actions reach Microsoft 365 through `core/services/connectors.py`, which hands them a client for the current organisation, so they never handle credentials. The Microsoft 365 connector registers itself there; until an organisation connects it, its actions answer 409 and playbooks skip those steps, saying why on the case.
+- **Playbooks.** A trigger (a minimum severity, and tags or ATT&CK techniques), a mode and ordered steps, each acting on the case's users, its email or the case itself. When an alert is put in a case, every enabled playbook it matches runs once for that case, in the background. Every organisation starts with three built in, in approval mode: account takeover (sign out everywhere, require a new password), phishing email (remove it from every mailbox) and ransomware (make the case critical). Built-in playbooks can be changed and turned off, not deleted. A person can also run any playbook against a case.
+- **Who decides.** A person's own request runs at once. A playbook acting on its own follows the more cautious of its mode and the organisation's: `automatic`, `approval` (the default) or `notify` (only suggest). Actions waiting for a decision are approved or rejected by a person; API keys can request actions (with the `response` scopes) but those always wait for a person, and keys cannot approve, reject or undo.
+- **Safety limits.** At most `max_actions_per_hour` actions (default 20) run automatically per organisation in an hour; beyond that they wait. Protected accounts (listed by an administrator, plus the organisation's UTDRS administrators) are never disrupted automatically, and only an administrator can approve disrupting one. Disabling the last enabled Microsoft 365 Global Administrator is refused.
+- Not yet: blocking a sender or domain (Microsoft Graph has no API for the tenant block list; it needs Exchange Online or Defender), and notifying people when an action waits (with notifications).
 
 ## Organisations
 
@@ -186,12 +200,13 @@ docker run -d --name utdrs-mongo -p 27017:27017 mongo:7      # once
 MONGODB_URI=mongodb://localhost:27017 python -m pytest
 ```
 
-123 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
+137 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
 
 - `tests/e2e/test_flows.py`: registration and sign-in, events, alerts (filters, ordering, summary, status errors), assets, rules, role and password rules, response headers. Against a real MongoDB, with no mocks.
 - `tests/e2e/test_users.py`: role checks on rules and simulations, the team directory, account administration (create, role changes, deactivation, password resets), self-lockout protection, closed registration and the startup administrator.
 - `tests/e2e/test_detection_pipeline.py`: the event-to-alert pipeline against a fake engine (`httpx.MockTransport`), including an unreachable engine and the detection status.
 - `tests/e2e/test_cases.py`: grouping by user, address and device and not by destination; old cases not reopened; priority and deadline; working a case (status, owner, notes, closing its alerts); owners must be colleagues; overdue cases; explanations; evidence; cases kept within an organisation; the `cases` scope; open alerts from before cases grouped at start-up.
+- `tests/e2e/test_response.py`: against a stand-in for Microsoft Graph: actions that run, fail and are undone; the last Global Administrator; playbooks proposing, people approving and rejecting, and running once per case; the organisation's mode capping a playbook's; the hourly limit; protected accounts and administrators; steps skipped without their connector; removing an email from every mailbox and putting it back; removing and restoring an inbox rule; running a playbook yourself; API keys asking and people deciding; writing playbooks; disabled playbooks; response kept within an organisation.
 - `tests/e2e/test_tenancy.py`: two organisations: lists, search, counts, reads and changes of another organisation's users, events, alerts, assets, rules, simulations and API keys refused; names unique per organisation; API keys confined to their organisation; separate audit chains; rules and events sent to the engine per organisation; organisation registration; scoped collections failing closed.
 - `tests/e2e/test_api_keys_audit.py`: API keys shown once and stored as hashes; scopes allowing and refusing; keys never acting as administrators; revoked, expired and unknown keys refused; sign-ins and changes audited with who made them (people and keys) and refused attempts recorded; no secrets in the log; tampering found by the chain; concurrent entries forming one chain.
 - `tests/e2e/test_hardening.py`: sign-in throttling per account and address and per address, a correct password clearing the count, identical answers for unknown and wrong passwords, client addresses behind trusted proxies, and unique asset names under concurrent scans.

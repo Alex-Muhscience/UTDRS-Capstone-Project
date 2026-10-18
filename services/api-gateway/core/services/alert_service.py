@@ -7,7 +7,7 @@ from core.database.repositories.alert_repository import AlertRepository
 from core.database.repositories.asset_repository import AssetRepository
 from core.database.repositories.event_repository import EventRepository
 from core.models.alert import Alert, AlertCreate, AlertUpdate
-from core.services import case_service
+from core.services import case_service, playbooks
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -62,6 +62,8 @@ class AlertService:
                 await case_service.attach_alert(alert_id)
             except Exception as e:
                 logger.error(f"Could not put alert {alert_id} in a case: {e}")
+            else:
+                playbooks.start(alert_id)
             return alert_id
         except Exception as e:
             logger.error(f"Error creating alert: {str(e)}")

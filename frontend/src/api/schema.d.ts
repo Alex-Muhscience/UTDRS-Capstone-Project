@@ -519,6 +519,224 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/response/actions/types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Action Types
+         * @description The actions UTDRS can take, and whether the service each needs is connected.
+         */
+        get: operations["action_types_api_v1_response_actions_types_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/response/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Actions
+         * @description Actions, newest first: `status=pending` for those waiting for a decision.
+         */
+        get: operations["list_actions_api_v1_response_actions_get"];
+        put?: never;
+        /**
+         * Request Action
+         * @description Take an action now. A person's request runs at once, except on a protected account,
+         *     which needs an administrator; a request through an API key waits for a person's
+         *     approval. The response says what happened (`status`).
+         */
+        post: operations["request_action_api_v1_response_actions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/response/actions/{action_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Action */
+        get: operations["get_action_api_v1_response_actions__action_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/response/actions/{action_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Action
+         * @description Approve an action waiting for a decision; it runs at once.
+         */
+        post: operations["approve_action_api_v1_response_actions__action_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/response/actions/{action_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject Action
+         * @description Decide not to take an action waiting for a decision.
+         */
+        post: operations["reject_action_api_v1_response_actions__action_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/response/actions/{action_id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo Action
+         * @description Undo an action that ran, where it can be undone. Returns the action that undid it.
+         */
+        post: operations["undo_action_api_v1_response_actions__action_id__undo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/response/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Settings
+         * @description How far playbooks may act on their own in your organisation.
+         */
+        get: operations["get_settings_api_v1_response_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Settings
+         * @description Change the response mode, the hourly limit or the protected accounts (administrators only).
+         */
+        patch: operations["update_settings_api_v1_response_settings_patch"];
+        trace?: never;
+    };
+    "/api/v1/playbooks/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Playbooks
+         * @description Your organisation's playbooks, built-in ones first.
+         */
+        get: operations["list_playbooks_api_v1_playbooks__get"];
+        put?: never;
+        /**
+         * Create Playbook
+         * @description Add a playbook (administrators only).
+         */
+        post: operations["create_playbook_api_v1_playbooks__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/playbooks/{playbook_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Playbook */
+        get: operations["get_playbook_api_v1_playbooks__playbook_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Playbook
+         * @description Delete a playbook of your own (administrators only). Built-in playbooks can be turned off instead.
+         */
+        delete: operations["delete_playbook_api_v1_playbooks__playbook_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Playbook
+         * @description Change a playbook, or turn it on or off (administrators only).
+         */
+        patch: operations["update_playbook_api_v1_playbooks__playbook_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/playbooks/{playbook_id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Playbook
+         * @description Run a playbook against a case now. Running it yourself is your decision, so its
+         *     actions run at once (an API key's wait for approval, as do actions on protected
+         *     accounts unless you are an administrator).
+         */
+        post: operations["run_playbook_api_v1_playbooks__playbook_id__run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/events/": {
         parameters: {
             query?: never;
@@ -1518,6 +1736,123 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Action */
+        Action: {
+            /** Id */
+            id: string;
+            /** Action */
+            action: string;
+            /** Label */
+            label: string;
+            target: components["schemas"]["Target"];
+            /**
+             * Params
+             * @default {}
+             */
+            params: {
+                [key: string]: unknown;
+            };
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "succeeded" | "failed" | "rejected" | "undoing" | "undone";
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "automatic" | "approval" | "notify";
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Protected
+             * @default false
+             */
+            protected: boolean;
+            /** Case Id */
+            case_id?: string | null;
+            /** Alert Id */
+            alert_id?: string | null;
+            /** Playbook */
+            playbook?: {
+                [key: string]: unknown;
+            } | null;
+            /** Requested By */
+            requested_by: {
+                [key: string]: unknown;
+            };
+            /** Decided By */
+            decided_by?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Result */
+            result?: {
+                [key: string]: unknown;
+            } | null;
+            /** Error */
+            error?: string | null;
+            /**
+             * Can Undo
+             * @default false
+             */
+            can_undo: boolean;
+            /** Undoes */
+            undoes?: string | null;
+            /** Undone By */
+            undone_by?: string | null;
+        };
+        /** ActionDecision */
+        ActionDecision: {
+            /** Reason */
+            reason?: string | null;
+        };
+        /** ActionRequest */
+        ActionRequest: {
+            /** Action */
+            action: string;
+            target: components["schemas"]["Target"];
+            /**
+             * Params
+             * @default {}
+             */
+            params: {
+                [key: string]: unknown;
+            };
+            /** Case Id */
+            case_id?: string | null;
+        };
+        /** ActionType */
+        ActionType: {
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /** Description */
+            description: string;
+            /** Connector */
+            connector: string;
+            /** Connector Name */
+            connector_name: string;
+            /** Target */
+            target: string;
+            /** Params */
+            params: string[];
+            /** Can Undo */
+            can_undo: boolean;
+            /** Disruptive */
+            disruptive: boolean;
+            /** Connected */
+            connected: boolean;
+        };
         /**
          * AdminUserCreate
          * @description An account created by an administrator; the password is generated.
@@ -2394,6 +2729,146 @@ export interface components {
             /** New Password */
             new_password: string;
         };
+        /** Playbook */
+        Playbook: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Mode
+             * @default approval
+             * @enum {string}
+             */
+            mode: "automatic" | "approval" | "notify";
+            /**
+             * @default {
+             *       "min_severity": "medium",
+             *       "tags": [],
+             *       "techniques": []
+             *     }
+             */
+            trigger: components["schemas"]["PlaybookTrigger"];
+            /** Steps */
+            steps: components["schemas"]["PlaybookStep"][];
+            /** Id */
+            id: string;
+            /** Built In */
+            built_in?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Last Run At */
+            last_run_at?: string | null;
+        };
+        /** PlaybookCreate */
+        PlaybookCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Mode
+             * @default approval
+             * @enum {string}
+             */
+            mode: "automatic" | "approval" | "notify";
+            /**
+             * @default {
+             *       "min_severity": "medium",
+             *       "tags": [],
+             *       "techniques": []
+             *     }
+             */
+            trigger: components["schemas"]["PlaybookTrigger"];
+            /** Steps */
+            steps: components["schemas"]["PlaybookStep"][];
+        };
+        /** PlaybookRun */
+        PlaybookRun: {
+            /** Case Id */
+            case_id: string;
+        };
+        /** PlaybookRunResult */
+        PlaybookRunResult: {
+            /** Actions */
+            actions: components["schemas"]["Action"][];
+            /** Skipped */
+            skipped: string[];
+        };
+        /** PlaybookStep */
+        PlaybookStep: {
+            /** Action */
+            action: string;
+            /** Target */
+            target: string;
+            /**
+             * Params
+             * @default {}
+             */
+            params: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * PlaybookTrigger
+         * @description Which alerts start the playbook: at least this severe, with any of these tags or techniques (or any, when neither is given).
+         */
+        PlaybookTrigger: {
+            /**
+             * Min Severity
+             * @default medium
+             * @enum {string}
+             */
+            min_severity: "critical" | "high" | "medium" | "low" | "info";
+            /**
+             * Tags
+             * @default []
+             */
+            tags: string[];
+            /**
+             * Techniques
+             * @default []
+             */
+            techniques: string[];
+        };
+        /** PlaybookUpdate */
+        PlaybookUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Mode */
+            mode?: ("automatic" | "approval" | "notify") | null;
+            trigger?: components["schemas"]["PlaybookTrigger"] | null;
+            /** Steps */
+            steps?: components["schemas"]["PlaybookStep"][] | null;
+        };
         /** Registration */
         Registration: {
             /** Username */
@@ -2421,6 +2896,30 @@ export interface components {
             password: string;
             /** Organisation */
             organisation?: string | null;
+        };
+        /**
+         * ResponseSettings
+         * @description How far playbooks may act on their own in this organisation.
+         */
+        ResponseSettings: {
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "automatic" | "approval" | "notify";
+            /** Max Actions Per Hour */
+            max_actions_per_hour: number;
+            /** Protected Accounts */
+            protected_accounts: string[];
+        };
+        /** ResponseSettingsUpdate */
+        ResponseSettingsUpdate: {
+            /** Mode */
+            mode?: ("automatic" | "approval" | "notify") | null;
+            /** Max Actions Per Hour */
+            max_actions_per_hour?: number | null;
+            /** Protected Accounts */
+            protected_accounts?: string[] | null;
         };
         /** RuleEngineStatus */
         RuleEngineStatus: {
@@ -2666,6 +3165,13 @@ export interface components {
             scheduled_end?: string | null;
             /** Notes */
             notes?: string | null;
+        };
+        /** Target */
+        Target: {
+            /** Type */
+            type: string;
+            /** Value */
+            value: string;
         };
         /**
          * Tenant
@@ -3766,6 +4272,457 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CaseEvidence"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    action_types_api_v1_response_actions_types_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionType"][];
+                };
+            };
+        };
+    };
+    list_actions_api_v1_response_actions_get: {
+        parameters: {
+            query?: {
+                status?: ("pending" | "running" | "succeeded" | "failed" | "rejected" | "undoing" | "undone")[] | null;
+                case_id?: string | null;
+                limit?: number;
+                skip?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Action"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_action_api_v1_response_actions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Action"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_action_api_v1_response_actions__action_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Action"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_action_api_v1_response_actions__action_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Action"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_action_api_v1_response_actions__action_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ActionDecision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Action"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undo_action_api_v1_response_actions__action_id__undo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Action"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_settings_api_v1_response_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResponseSettings"];
+                };
+            };
+        };
+    };
+    update_settings_api_v1_response_settings_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResponseSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResponseSettings"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_playbooks_api_v1_playbooks__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Playbook"][];
+                };
+            };
+        };
+    };
+    create_playbook_api_v1_playbooks__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaybookCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Playbook"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_playbook_api_v1_playbooks__playbook_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playbook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Playbook"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_playbook_api_v1_playbooks__playbook_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playbook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_playbook_api_v1_playbooks__playbook_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playbook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaybookUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Playbook"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_playbook_api_v1_playbooks__playbook_id__run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playbook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaybookRun"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaybookRunResult"];
                 };
             };
             /** @description Validation Error */

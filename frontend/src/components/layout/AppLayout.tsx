@@ -1,5 +1,6 @@
 import {
   Activity,
+  BookOpen,
   Briefcase,
   FlaskConical,
   KeyRound,
@@ -13,11 +14,12 @@ import {
   UserRound,
   Users,
   X,
+  Zap,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Link, NavLink, Outlet, useLocation } from "react-router"
 
-import { useAlertSummary, useCurrentTenant } from "@/api/queries"
+import { useActions, useAlertSummary, useCurrentTenant } from "@/api/queries"
 import { useAuth, useIsAdmin, useUser } from "@/auth/context"
 import { cx } from "@/lib/cx"
 import { humanize } from "@/lib/format"
@@ -29,6 +31,8 @@ import { ThemeSwitcher } from "./ThemeSwitcher"
 const NAVIGATION = [
   { to: "/", label: "Overview", icon: LayoutDashboard, end: true },
   { to: "/cases", label: "Cases", icon: Briefcase },
+  { to: "/response", label: "Response", icon: Zap },
+  { to: "/playbooks", label: "Playbooks", icon: BookOpen },
   { to: "/alerts", label: "Alerts", icon: ShieldAlert },
   { to: "/events", label: "Events", icon: Activity },
   { to: "/assets", label: "Assets", icon: Server },
@@ -50,6 +54,18 @@ function OpenAlertCount() {
     <span className="ml-auto rounded-full bg-danger/15 px-1.5 py-0.5 text-[11px] font-semibold text-danger tabular-nums">
       {count > 99 ? "99+" : count}
       <span className="sr-only"> open</span>
+    </span>
+  )
+}
+
+function PendingActionCount() {
+  const { data } = useActions({ status: ["pending"] })
+  const count = data?.rows.length ?? 0
+  if (!count) return null
+  return (
+    <span className="ml-auto rounded-full bg-warning/15 px-1.5 py-0.5 text-[11px] font-semibold text-warning tabular-nums">
+      {data?.hasMore ? `${count}+` : count}
+      <span className="sr-only"> waiting for a decision</span>
     </span>
   )
 }
@@ -77,6 +93,7 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
               <Icon className={cx("size-4", isActive ? "text-accent" : "text-subtle")} aria-hidden />
               {label}
               {to === "/alerts" && <OpenAlertCount />}
+              {to === "/response" && <PendingActionCount />}
             </>
           )}
         </NavLink>

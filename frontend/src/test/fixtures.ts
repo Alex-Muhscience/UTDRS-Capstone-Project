@@ -102,6 +102,7 @@ export function shellRoutes(me: User = user) {
     "GET /api/v1/tenants/current": tenant,
     "GET /api/v1/users/": [user, admin, colleague],
     "GET /api/v1/alerts/summary": { total: 1, by_status: { open: 1 }, open_by_severity: { critical: 1 } },
+    "GET /api/v1/response/actions": [],
     "GET /api/v1/detection/": {
       status: "active",
       total_rules: 13,

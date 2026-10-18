@@ -13,11 +13,14 @@ from api.middleware.security import (
     SecurityMiddleware,
     rate_limit_handler,
 )
-from api.routes import alerts, api_keys, assets, audit, auth, cases, detection, events, health, scans, simulation, tenants as tenant_routes, users
+from api.routes import (
+    alerts, api_keys, assets, audit, auth, cases, detection, events, health, playbooks, response, scans, simulation,
+    tenants as tenant_routes, users,
+)
 from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
 from core.database.indexes import ensure_indexes
-from core.services import case_service, tenants
+from core.services import case_service, playbooks as playbook_service, tenants
 from core.services.bootstrap import ensure_admin
 from core.services.startup_lock import startup_lock
 from core.tenancy import tenant_context
@@ -49,6 +52,7 @@ async def lifespan(app: FastAPI):
     rule_sync = asyncio.create_task(sync_periodically())
     yield
     rule_sync.cancel()
+    await playbook_service.idle()
     with suppress(asyncio.CancelledError):
         await rule_sync
     await close_mongo_connection()
@@ -95,6 +99,8 @@ app.include_router(auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["aut
 app.include_router(users.router, prefix=f"{settings.API_PREFIX}/users", tags=["users"], dependencies=scoped("users"))
 app.include_router(alerts.router, prefix=f"{settings.API_PREFIX}/alerts", tags=["alerts"], dependencies=scoped("alerts"))
 app.include_router(cases.router, prefix=f"{settings.API_PREFIX}/cases", tags=["cases"], dependencies=scoped("cases"))
+app.include_router(response.router, prefix=f"{settings.API_PREFIX}/response", tags=["response"], dependencies=scoped("response"))
+app.include_router(playbooks.router, prefix=f"{settings.API_PREFIX}/playbooks", tags=["playbooks"], dependencies=scoped("playbooks"))
 # Events are ingested in volume and are their own record, so they are not audited.
 app.include_router(
     events.router, prefix=f"{settings.API_PREFIX}/events", tags=["events"], dependencies=[Depends(require_scope("events"))]

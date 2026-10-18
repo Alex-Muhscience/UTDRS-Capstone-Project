@@ -69,6 +69,8 @@ The gateway's catalogue is the source of truth. After every change to a rule, an
 
 Every alert is put in a case: an open one from the last day about the same user, device, source address, sender or file, or a new one. Analysts work cases (owner, deadline from priority, timeline, notes), and closing a case closes its open alerts.
 
+When an alert is put in a case, the gateway runs the playbooks it matches, once per case, in the background. Their actions act through connectors (Microsoft 365 through Microsoft Graph) or on UTDRS itself; each runs at once or waits for a person's approval, as the playbook's mode, the organisation's mode and the safety limits say, and each is recorded in the audit log and on the case's timeline, with an undo where one exists.
+
 The engine's verdict priority, from the most specific evidence to the least, is signature, YARA, correlation, threat intelligence, ML, anomaly. One event produces at most one alert.
 
 ### A device scan, from the agent to an asset
