@@ -236,7 +236,7 @@ function Verdict({ alert }: { alert: Alert }) {
             </Button>
           ))}
         </div>
-        <Input aria-label="Verdict note" value={note} onChange={(event) => setNote(event.target.value)} placeholder="Why (optional)" maxLength={1000} />
+        <Input aria-label="Reason for the verdict" value={note} onChange={(event) => setNote(event.target.value)} placeholder="Why (optional)" maxLength={1000} />
         {alert.feedback && (
           <p className="text-xs text-subtle">
             {VERDICTS.find((v) => v.verdict === current)?.done ?? current} by {String(alert.feedback.by.name ?? "someone")} {formatRelative(alert.feedback.at)}
