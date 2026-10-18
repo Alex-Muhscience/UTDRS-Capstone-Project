@@ -15,6 +15,7 @@ UTDRS was a **Top 5 finalist in the Mozilla Responsible Computing Challenge**.
 | **Dashboard**: getting started, overview, cases, response and playbooks, connectors, detection tuning, monthly reports, email notifications, alert triage, events with the engine's verdict, assets, detection rules, simulations, and administration | [`frontend/`](frontend) | Working. React 19, TypeScript, Vite, Tailwind CSS; typed against the gateway's API schema. |
 | **API gateway**: authentication, events, alerts, assets, rules, simulations, API keys, audit log; sends every event to the engine, and turns device scans into assets and events. Each organisation's data is kept apart | [`services/api-gateway/`](services/api-gateway) | Working. Python 3.12, FastAPI, MongoDB. |
 | **Core engine**: six detectors, MITRE ATT&CK mapping, risk scoring | [`services/core-engine/`](services/core-engine) | Working. The ML detector classifies emails and network flows with trained models, and uses hand-written indicators for everything else. |
+| **MCP server**: AI assistants (Claude and other MCP clients) investigate and act through UTDRS's API with an API key | [`services/mcp-server/`](services/mcp-server) | Working. Python 3.12, the official MCP SDK; Streamable HTTP and stdio. |
 | **Data processor**: batch worker that delivers the scanner's scans to the gateway, with retries and a dead-letter collection | [`services/data-processor/`](services/data-processor) | Working. Python 3.12, PyMongo. |
 | **Device scanner**: inventory agent and collection server over mutual TLS | [`scanner/`](scanner) | Working on Linux. C, OpenSSL. Windows code paths are not built or tested in CI. |
 | **Research models**: the original capstone's models, and the scripts that train the versions the engine runs | [`research/capstone/models/`](research/capstone/models) | Both models are retrained from public datasets (phishing emails; UNSW-NB15 network flows) because the originals' preprocessing was not kept. |
@@ -146,6 +147,7 @@ Next:
 - [x] Response actions and playbooks: approval, automatic and notify modes, undo, safety limits and built-in playbooks (Microsoft 365 actions run once its connector is connected)
 - [x] Email notifications: new cases, approvals needed and actions taken, per-person preferences, retried delivery and a delivery log
 - [x] Data retention: per-organisation periods for each kind of data, deleted hourly, never open work
+- [x] MCP server: AI assistants investigate cases and alerts, give verdicts and propose response actions through UTDRS, with an API key's permissions and audit trail
 - [x] Webhooks: signed events for alerts, cases, response actions, reports and connectors, retried for a day, with a delivery log
 - [x] Multi-factor authentication: authenticator codes and recovery codes, enforceable per organisation
 - [x] Onboarding: a checklist from sign-up to first results the same day, worked out from the organisation's state
