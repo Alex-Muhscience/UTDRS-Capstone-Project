@@ -27,6 +27,7 @@ import { ResponsePage } from "@/pages/response/ResponsePage"
 import { RuleDetailPage } from "@/pages/rules/RuleDetailPage"
 import { RulesPage } from "@/pages/rules/RulesPage"
 import { SimulationsPage } from "@/pages/simulations/SimulationsPage"
+import { TuningPage } from "@/pages/tuning/TuningPage"
 import { UsersPage } from "@/pages/users/UsersPage"
 
 export const routes: RouteObject[] = [
@@ -62,6 +63,7 @@ export const routes: RouteObject[] = [
               { path: "rules", element: <RulesPage /> },
               { path: "rules/:ruleId", element: <RuleDetailPage /> },
               { path: "simulations", element: <SimulationsPage /> },
+              { path: "tuning", element: <TuningPage /> },
               { path: "profile", element: <ProfilePage /> },
               {
                 element: <RequireAdmin />,

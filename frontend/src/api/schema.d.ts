@@ -433,6 +433,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/alerts/{alert_id}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give Feedback
+         * @description Say whether the alert was a real threat (`true_positive`), a mistake
+         *     (`false_positive`) or real but expected activity (`benign`). A false positive is
+         *     marked so, and a benign alert closed. The verdict tunes detection: it counts towards
+         *     the detector's quality and is kept as a label for retraining. For anything but a real
+         *     threat, the answer suggests a suppression for alerts like it, applied only if created.
+         */
+        post: operations["give_feedback_api_v1_alerts__alert_id__feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cases/": {
         parameters: {
             query?: never;
@@ -1585,6 +1609,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tuning/suppressions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Suppressions
+         * @description Every suppression, newest first, with how many alerts each has suppressed.
+         */
+        get: operations["list_suppressions_api_v1_tuning_suppressions_get"];
+        put?: never;
+        /**
+         * Create Suppression
+         * @description Suppress alerts like these from now on. Critical alerts get through unless
+         *     `max_severity` is critical, and it expires after `expires_in_days` (90 by default);
+         *     only administrators can lift either limit.
+         */
+        post: operations["create_suppression_api_v1_tuning_suppressions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tuning/suppressions/{suppression_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Suppression
+         * @description Delete a suppression. Alerts it suppressed stay as they are.
+         */
+        delete: operations["delete_suppression_api_v1_tuning_suppressions__suppression_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Suppression
+         * @description Change a suppression, or turn it off (`enabled`). `expires_in_days` 0 makes it permanent.
+         */
+        patch: operations["update_suppression_api_v1_tuning_suppressions__suppression_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/tuning/quality": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Detector Quality
+         * @description How good each detector has been: noisy ones first, then by number of alerts.
+         */
+        get: operations["detector_quality_api_v1_tuning_quality_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tuning/labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Labels
+         * @description Every verdict, as JSON Lines, oldest first: the alert, its detector, the engine's
+         *     findings and the events behind it. For retraining the detection models.
+         */
+        get: operations["export_labels_api_v1_tuning_labels_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports/": {
         parameters: {
             query?: never;
@@ -2093,6 +2208,9 @@ export interface components {
             id: string;
             /** Case Id */
             case_id?: string | null;
+            feedback?: components["schemas"]["Feedback"] | null;
+            /** Suppressed By */
+            suppressed_by?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -2711,6 +2829,27 @@ export interface components {
              */
             last_updated: string;
         };
+        /** DetectorQuality */
+        DetectorQuality: {
+            /** Detector */
+            detector: string;
+            /** Name */
+            name: string;
+            /** Alerts */
+            alerts: number;
+            /** Suppressed */
+            suppressed: number;
+            /** True Positive */
+            true_positive: number;
+            /** False Positive */
+            false_positive: number;
+            /** Benign */
+            benign: number;
+            /** Precision */
+            precision?: number | null;
+            /** Noisy */
+            noisy: boolean;
+        };
         /** Entity */
         Entity: {
             /** Type */
@@ -2866,6 +3005,25 @@ export interface components {
             why_it_matters: string;
             /** Next Steps */
             next_steps: string[];
+        };
+        /**
+         * Feedback
+         * @description An analyst's verdict on an alert.
+         */
+        Feedback: {
+            /** Verdict */
+            verdict: string;
+            /** Note */
+            note?: string | null;
+            /** By */
+            by: {
+                [key: string]: unknown;
+            };
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
         };
         /** Figure */
         Figure: {
@@ -3511,6 +3669,108 @@ export interface components {
             /** Notes */
             notes?: string | null;
         };
+        /** Suppression */
+        Suppression: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Reason */
+            reason: string;
+            /** Title Contains */
+            title_contains?: string | null;
+            /** Detector */
+            detector?: string | null;
+            entity?: components["schemas"]["SuppressionEntity"] | null;
+            /**
+             * Max Severity
+             * @enum {string}
+             */
+            max_severity: "critical" | "high" | "medium" | "low" | "info";
+            /** Enabled */
+            enabled: boolean;
+            /** Expires At */
+            expires_at?: string | null;
+            /** Hits */
+            hits: number;
+            /** Last Hit At */
+            last_hit_at?: string | null;
+            /** Created By */
+            created_by: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * SuppressionCreate
+         * @description Alerts matching every condition given (at least one) and no more severe than
+         *     `max_severity` are suppressed. With only an entity, it is an allow-list entry.
+         */
+        SuppressionCreate: {
+            /** Name */
+            name: string;
+            /** Reason */
+            reason: string;
+            /** Title Contains */
+            title_contains?: string | null;
+            /** Detector */
+            detector?: string | null;
+            entity?: components["schemas"]["SuppressionEntity"] | null;
+            /**
+             * Max Severity
+             * @default high
+             * @enum {string}
+             */
+            max_severity: "critical" | "high" | "medium" | "low" | "info";
+            /**
+             * Expires In Days
+             * @default 90
+             */
+            expires_in_days: number | null;
+        };
+        /** SuppressionEntity */
+        SuppressionEntity: {
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "user" | "host" | "asset" | "ip" | "sender" | "file_hash" | "message";
+            /** Value */
+            value: string;
+        };
+        /** SuppressionSuggestion */
+        SuppressionSuggestion: {
+            /** Name */
+            name: string;
+            /** Detector */
+            detector: string;
+            entity?: components["schemas"]["SuppressionEntity"] | null;
+            /**
+             * Max Severity
+             * @enum {string}
+             */
+            max_severity: "critical" | "high" | "medium" | "low" | "info";
+        };
+        /** SuppressionUpdate */
+        SuppressionUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Max Severity */
+            max_severity?: ("critical" | "high" | "medium" | "low" | "info") | null;
+            /**
+             * Expires In Days
+             * @description 0 for never
+             */
+            expires_in_days?: number | null;
+        };
         /** Target */
         "Target-Input": {
             /** Type */
@@ -3704,6 +3964,21 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** VerdictRequest */
+        VerdictRequest: {
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "true_positive" | "false_positive" | "benign";
+            /** Note */
+            note?: string | null;
+        };
+        /** VerdictResult */
+        VerdictResult: {
+            alert: components["schemas"]["Alert"];
+            suggestion?: components["schemas"]["SuppressionSuggestion"] | null;
         };
         /** Week */
         Week: {
@@ -4491,6 +4766,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Alert"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    give_feedback_api_v1_alerts__alert_id__feedback_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                alert_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerdictRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerdictResult"];
                 };
             };
             /** @description Validation Error */
@@ -6650,6 +6960,185 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Simulation"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_suppressions_api_v1_tuning_suppressions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Suppression"][];
+                };
+            };
+        };
+    };
+    create_suppression_api_v1_tuning_suppressions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SuppressionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Suppression"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_suppression_api_v1_tuning_suppressions__suppression_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                suppression_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_suppression_api_v1_tuning_suppressions__suppression_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                suppression_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SuppressionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Suppression"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    detector_quality_api_v1_tuning_quality_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetectorQuality"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_labels_api_v1_tuning_labels_get: {
+        parameters: {
+            query?: {
+                since?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/x-ndjson": unknown;
                 };
             };
             /** @description Validation Error */

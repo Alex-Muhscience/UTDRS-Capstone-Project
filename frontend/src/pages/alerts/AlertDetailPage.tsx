@@ -3,21 +3,22 @@ import { useState } from "react"
 import { Link, useParams } from "react-router"
 import { toast } from "sonner"
 
-import type { Alert } from "@/api/client"
-import { analysisOf, displayName, useAlert, useAlertTag, useAssignAlert, useEventsById, useUpdateAlertStatus, useUsers } from "@/api/queries"
+import type { Alert, SuppressionSuggestion } from "@/api/client"
+import { analysisOf, displayName, useAlert, useAlertTag, useAssignAlert, useEventsById, useGiveFeedback, useUpdateAlertStatus, useUsers } from "@/api/queries"
 import { useUser } from "@/auth/context"
 import { Badge, SeverityBadge, StatusBadge } from "@/components/ui/Badge"
 import { BackLink } from "@/components/ui/BackLink"
 import { Button } from "@/components/ui/Button"
 import { Card } from "@/components/ui/Card"
 import { DescriptionList } from "@/components/ui/DescriptionList"
-import { Field, Select, Textarea } from "@/components/ui/Field"
+import { Field, Input, Select, Textarea } from "@/components/ui/Field"
 import { JsonBlock } from "@/components/ui/JsonBlock"
 import { PageHeader } from "@/components/ui/PageHeader"
 import { EmptyState, ErrorState, SkeletonRows } from "@/components/ui/States"
 import { TagEditor } from "@/components/ui/TagEditor"
 import type { AlertStatus } from "@/lib/constants"
 import { formatDateTime, formatRelative, humanize } from "@/lib/format"
+import { SuppressionDialog } from "@/pages/tuning/SuppressionDialog"
 
 type Transition = { status: AlertStatus; label: string; primary?: boolean }
 
@@ -26,11 +27,9 @@ const TRANSITIONS: Record<string, Transition[]> = {
   open: [
     { status: "in_progress", label: "Start investigating", primary: true },
     { status: "resolved", label: "Resolve" },
-    { status: "false_positive", label: "Mark false positive" },
   ],
   in_progress: [
     { status: "resolved", label: "Resolve", primary: true },
-    { status: "false_positive", label: "Mark false positive" },
     { status: "closed", label: "Close" },
   ],
   resolved: [
@@ -42,7 +41,9 @@ const TRANSITIONS: Record<string, Transition[]> = {
     { status: "open", label: "Reopen" },
   ],
   closed: [{ status: "open", label: "Reopen" }],
+  suppressed: [{ status: "open", label: "Reopen" }],
 }
+// A false positive is a verdict ("Was it real?"), which also tunes detection.
 
 type EngineDetails = {
   mitre_techniques?: string[]
@@ -195,6 +196,64 @@ function LinkedEvents({ eventIds }: { eventIds: string[] }) {
   )
 }
 
+const VERDICTS = [
+  { verdict: "true_positive", label: "Real threat", done: "Marked a real threat" },
+  { verdict: "false_positive", label: "False positive", done: "Marked a false positive" },
+  { verdict: "benign", label: "Expected activity", done: "Marked expected activity" },
+] as const
+
+function Verdict({ alert }: { alert: Alert }) {
+  const feedback = useGiveFeedback(alert.id)
+  const [note, setNote] = useState("")
+  const [suggestion, setSuggestion] = useState<SuppressionSuggestion | null>(null)
+  const current = alert.feedback?.verdict
+
+  return (
+    <Card title="Was it real?" description="Your verdict tunes detection: it shows which detectors are noisy, and is kept to retrain the models.">
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-2">
+          {VERDICTS.map(({ verdict, label, done }) => (
+            <Button
+              key={verdict}
+              size="sm"
+              variant={current === verdict ? "primary" : "secondary"}
+              aria-pressed={current === verdict}
+              disabled={feedback.isPending}
+              onClick={() =>
+                feedback.mutate(
+                  { verdict, note: note.trim() || null },
+                  {
+                    onSuccess: (result) => {
+                      toast.success(done)
+                      setSuggestion(result.suggestion ?? null)
+                    },
+                    onError: (error) => toast.error(error.message),
+                  },
+                )
+              }
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+        <Input aria-label="Reason for the verdict" value={note} onChange={(event) => setNote(event.target.value)} placeholder="Why (optional)" maxLength={1000} />
+        {alert.feedback && (
+          <p className="text-xs text-subtle">
+            {VERDICTS.find((v) => v.verdict === current)?.done ?? current} by {String(alert.feedback.by.name ?? "someone")} {formatRelative(alert.feedback.at)}
+            {alert.feedback.note ? `: ${alert.feedback.note}` : ""}
+          </p>
+        )}
+        {(current === "false_positive" || current === "benign") && (
+          <Button size="sm" onClick={() => setSuggestion(suggestion ?? { name: alert.title.slice(0, 100), detector: "", entity: null, max_severity: "high" })}>
+            Suppress alerts like this
+          </Button>
+        )}
+      </div>
+      {suggestion && <SuppressionDialog open suggestion={suggestion} onClose={() => setSuggestion(null)} />}
+    </Card>
+  )
+}
+
 export function AlertDetailPage() {
   const { alertId = "" } = useParams()
   const alert = useAlert(alertId)
@@ -226,6 +285,11 @@ export function AlertDetailPage() {
             <span className="text-subtle">
               Raised {formatRelative(data.created_at)} by {data.source}
             </span>
+            {data.status === "suppressed" && (
+              <Link to="/tuning" className="text-accent hover:underline">
+                Suppressed
+              </Link>
+            )}
             {data.case_id && (
               <Link to={`/cases/${data.case_id}`} className="text-accent hover:underline">
                 Part of a case
@@ -300,6 +364,7 @@ export function AlertDetailPage() {
 
         <div className="space-y-4">
           <Triage alert={data} />
+          <Verdict alert={data} />
           <Card title="Details">
             <DescriptionList
               items={[
