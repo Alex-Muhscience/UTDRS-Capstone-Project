@@ -5303,6 +5303,78 @@
         }
       }
     },
+    "/api/v1/onboarding/": {
+      "get": {
+        "tags": [
+          "onboarding"
+        ],
+        "summary": "Get Onboarding",
+        "description": "What is set up, what is left, and the first results. Worked out from the organisation's state.",
+        "operationId": "get_onboarding_api_v1_onboarding__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Onboarding"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "onboarding"
+        ],
+        "summary": "Update Onboarding",
+        "description": "Put the checklist away (or bring it back). Administrators only.",
+        "operationId": "update_onboarding_api_v1_onboarding__patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnboardingUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Onboarding"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/connectors/microsoft-365": {
       "get": {
         "tags": [
@@ -9862,6 +9934,63 @@
         "type": "object",
         "title": "NotificationPreferencesUpdate"
       },
+      "Onboarding": {
+        "properties": {
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/Step"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "done": {
+            "type": "integer",
+            "title": "Done"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "complete": {
+            "type": "boolean",
+            "title": "Complete"
+          },
+          "dismissed": {
+            "type": "boolean",
+            "title": "Dismissed"
+          },
+          "results": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "steps",
+          "done",
+          "total",
+          "complete",
+          "dismissed",
+          "results"
+        ],
+        "title": "Onboarding"
+      },
+      "OnboardingUpdate": {
+        "properties": {
+          "dismissed": {
+            "type": "boolean",
+            "title": "Dismissed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dismissed"
+        ],
+        "title": "OnboardingUpdate"
+      },
       "OpenCase": {
         "properties": {
           "id": {
@@ -11353,6 +11482,44 @@
         },
         "type": "object",
         "title": "SimulationUpdate"
+      },
+      "Step": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "done": {
+            "type": "boolean",
+            "title": "Done"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "optional": {
+            "type": "boolean",
+            "title": "Optional",
+            "default": false
+          },
+          "attention": {
+            "type": "boolean",
+            "title": "Attention",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "title",
+          "done",
+          "detail"
+        ],
+        "title": "Step"
       },
       "Suppression": {
         "properties": {

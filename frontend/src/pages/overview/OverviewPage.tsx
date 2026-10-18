@@ -18,6 +18,7 @@ import { PageHeader } from "@/components/ui/PageHeader"
 import { EmptyState, ErrorState, SkeletonRows } from "@/components/ui/States"
 import { cx } from "@/lib/cx"
 import { formatNumber, formatRelative } from "@/lib/format"
+import { SetupBanner } from "@/pages/onboarding/SetupBanner"
 
 const RECENT_EVENT_SAMPLE = 500
 
@@ -92,6 +93,7 @@ export function OverviewPage() {
         title={`Welcome back${user.firstName ? `, ${user.firstName}` : ""}`}
         description="What needs attention now, and whether detection is running."
       />
+      <SetupBanner />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metric

@@ -346,6 +346,22 @@ async def poll() -> Optional[Dict[str, Any]]:
     return {"counts": counts, "errors": errors}
 
 
+_first_polls: set = set()
+
+
+def start_first_poll() -> None:
+    """Fetch the last day now, in the background, so a newly connected organisation sees results in minutes."""
+    task = asyncio.create_task(poll())  # copies the current organisation with the context
+    _first_polls.add(task)
+    task.add_done_callback(_first_polls.discard)
+
+
+async def idle() -> None:
+    """Wait for first polls in progress (for tests and shutdown)."""
+    while _first_polls:
+        await asyncio.gather(*list(_first_polls), return_exceptions=True)
+
+
 async def poll_all() -> None:
     for tenant_id in await tenants.all_ids():
         with tenant_context(tenant_id):

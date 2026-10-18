@@ -1609,6 +1609,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/onboarding/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Onboarding
+         * @description What is set up, what is left, and the first results. Worked out from the organisation's state.
+         */
+        get: operations["get_onboarding_api_v1_onboarding__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Onboarding
+         * @description Put the checklist away (or bring it back). Administrators only.
+         */
+        patch: operations["update_onboarding_api_v1_onboarding__patch"];
+        trace?: never;
+    };
     "/api/v1/connectors/microsoft-365": {
         parameters: {
             query?: never;
@@ -3308,6 +3332,28 @@ export interface components {
             /** Reports */
             reports?: boolean | null;
         };
+        /** Onboarding */
+        Onboarding: {
+            /** Steps */
+            steps: components["schemas"]["Step"][];
+            /** Done */
+            done: number;
+            /** Total */
+            total: number;
+            /** Complete */
+            complete: boolean;
+            /** Dismissed */
+            dismissed: boolean;
+            /** Results */
+            results: {
+                [key: string]: number;
+            };
+        };
+        /** OnboardingUpdate */
+        OnboardingUpdate: {
+            /** Dismissed */
+            dismissed: boolean;
+        };
         /** OpenCase */
         OpenCase: {
             /** Id */
@@ -3886,6 +3932,27 @@ export interface components {
             scheduled_end?: string | null;
             /** Notes */
             notes?: string | null;
+        };
+        /** Step */
+        Step: {
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
+            /** Done */
+            done: boolean;
+            /** Detail */
+            detail: string;
+            /**
+             * Optional
+             * @default false
+             */
+            optional: boolean;
+            /**
+             * Attention
+             * @default false
+             */
+            attention: boolean;
         };
         /** Suppression */
         Suppression: {
@@ -7178,6 +7245,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Simulation"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_onboarding_api_v1_onboarding__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Onboarding"];
+                };
+            };
+        };
+    };
+    update_onboarding_api_v1_onboarding__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OnboardingUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Onboarding"];
                 };
             };
             /** @description Validation Error */
