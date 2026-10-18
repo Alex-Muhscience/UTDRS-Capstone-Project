@@ -10,6 +10,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 
 import { PAGE_SIZE, POLL_INTERVAL_MS, type CaseStatus } from "@/lib/constants"
 
+import type { paths } from "./schema"
+
 import {
   api,
   unwrap,
@@ -22,6 +24,7 @@ import {
   type DetectionRuleCreate,
   type Event,
   type EventCreate,
+  type NotificationPreferences,
   type Playbook,
   type ResponseSettings,
   type Simulation,
@@ -244,6 +247,43 @@ export function useRunPlaybook(caseId: string) {
       void queryClient.invalidateQueries({ queryKey: ["actions"] })
       void queryClient.invalidateQueries({ queryKey: ["cases", "detail", caseId] })
     },
+  })
+}
+
+// ---------------------------------------------------------------------------- Notifications
+
+export function useNotificationPreferences() {
+  return useQuery({ queryKey: ["notifications", "preferences"], queryFn: () => unwrap(api.GET("/api/v1/notifications/preferences")) })
+}
+
+export function useUpdateNotificationPreferences() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: Partial<Omit<NotificationPreferences, "email_configured" | "address">>) =>
+      unwrap(api.PATCH("/api/v1/notifications/preferences", { body })),
+    onSuccess: (updated) => queryClient.setQueryData(["notifications", "preferences"], updated),
+  })
+}
+
+export function useSendTestEmail() {
+  return useMutation({ mutationFn: () => unwrap(api.POST("/api/v1/notifications/test")) })
+}
+
+type DeliveryStatus = NonNullable<NonNullable<paths["/api/v1/notifications/"]["get"]["parameters"]["query"]>["status"]>
+
+export function useNotificationLog({ status, page }: { status?: DeliveryStatus; page: number }) {
+  return useQuery({
+    queryKey: ["notifications", "log", { status, page }],
+    queryFn: async () =>
+      toPage(
+        await unwrap(
+          api.GET("/api/v1/notifications/", {
+            params: { query: { status, ...pageQuery(page) } },
+          }),
+        ),
+      ),
+    placeholderData: keepPreviousData,
+    refetchInterval: POLL_INTERVAL_MS,
   })
 }
 

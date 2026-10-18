@@ -28,7 +28,7 @@ from bson import ObjectId
 from pymongo import ReturnDocument
 
 from core.database.connection import get_database
-from core.services import audit, case_service, connectors, tenants
+from core.services import audit, case_service, connectors, notifications, tenants
 from core.tenancy import current_tenant, scoped
 from utils.logger import get_logger
 from utils.time import utcnow
@@ -355,6 +355,7 @@ async def request(
     if mode == "automatic":
         return await _run(doc)
     await _note(doc, f"{kind.label}: {'suggested' if mode == 'notify' else 'waiting for approval'}", actor)
+    await notifications.approval_needed(doc)
     await audit.record("response.action_proposed", actor=actor, target=_audit_target(doc),
                        details={"action": action, "action_id": str(doc["_id"]), "mode": mode, "reason": doc["reason"]})
     return present(doc)
@@ -399,6 +400,7 @@ async def _run(doc: Dict[str, Any]) -> Dict[str, Any]:
         details={"action": doc["action"], "action_id": str(doc["_id"]), "case_id": doc.get("case_id"),
                  "playbook": (doc.get("playbook") or {}).get("name"), "result": result, "error": error},
     )
+    await notifications.action_finished(updated)
     return present(updated)
 
 

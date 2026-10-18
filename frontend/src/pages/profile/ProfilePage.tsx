@@ -11,6 +11,8 @@ import { Field, Input } from "@/components/ui/Field"
 import { PageHeader } from "@/components/ui/PageHeader"
 import { formatDateTime, humanize } from "@/lib/format"
 
+import { NotificationsCard } from "./NotificationsCard"
+
 function OrganisationCard() {
   const tenant = useCurrentTenant()
   const rename = useRenameTenant()
@@ -141,6 +143,8 @@ export function ProfilePage() {
             </Button>
           </form>
         </Card>
+
+        <NotificationsCard />
       </div>
     </>
   )
