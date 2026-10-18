@@ -47,4 +47,10 @@ export const STATUS_TONES: Record<string, Tone> = {
   running: "accent",
   completed: "success",
   failed: "danger",
+  // Response actions (running and failed as above)
+  pending: "warning",
+  succeeded: "success",
+  rejected: "neutral",
+  undoing: "accent",
+  undone: "neutral",
 }

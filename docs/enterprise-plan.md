@@ -287,14 +287,14 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 
 | ID | Requirement | Priority | Phase |
 |---|---|---|---|
-| FR-RSP-01 | Response actions through connectors: quarantine or delete an email for all recipients, revoke a user's sessions, force password reset, disable an account, remove an inbox rule, block a sender or domain | P0 | 1 |
-| FR-RSP-02 | Playbooks: triggers (detection, severity, entity), conditions, ordered actions, approval steps, notifications; built-in playbooks for the top threats | P0 | 1 |
-| FR-RSP-03 | Response modes per tenant and per playbook: automatic, needs approval, notify only | P0 | 1 |
-| FR-RSP-04 | Every action recorded in the audit log with its result; every action that can be undone has an undo | P0 | 1 |
+| FR-RSP-01 | Response actions through connectors: quarantine or delete an email for all recipients, revoke a user's sessions, force password reset, disable an account, remove an inbox rule, block a sender or domain **Done (#21) except blocking a sender or domain, which needs Exchange Online or Defender rather than Graph; the actions run once the Microsoft 365 connector is connected.** | P0 | 1 |
+| FR-RSP-02 | Playbooks: triggers (detection, severity, entity), conditions, ordered actions, approval steps, notifications; built-in playbooks for the top threats **Done (#21) except notifications, which come with FR-NTF-01.** | P0 | 1 |
+| FR-RSP-03 | Response modes per tenant and per playbook: automatic, needs approval, notify only **Done (#21).** | P0 | 1 |
+| FR-RSP-04 | Every action recorded in the audit log with its result; every action that can be undone has an undo **Done (#21).** | P0 | 1 |
 | FR-RSP-05 | Endpoint actions through the agent (isolate, kill, quarantine file) | P2 | 3 |
 | FR-RSP-06 | Network actions: block an IP or domain at supported firewalls (via their APIs) and DNS filters | P2 | 3 |
 | FR-RSP-07 | Visual playbook editor | P2 | 3 |
-| FR-RSP-08 | Safety limits: maximum actions per hour per tenant, never disable the last administrator, protected accounts list | P0 | 1 |
+| FR-RSP-08 | Safety limits: maximum actions per hour per tenant, never disable the last administrator, protected accounts list **Done (#21).** | P0 | 1 |
 
 ### 5.7 Notifications (NTF)
 
@@ -553,7 +553,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 | ID | Gap | Blocks | Priority |
 |---|---|---|---|
 | GAP-WEB-01 | Single-organisation UI; no tenant switcher or MSP views | FR-TEN-03 | P1 |
-| GAP-WEB-02 | No cases, investigation graph, search, playbooks, connectors, response approvals, reports or settings pages | Sections 5.5 to 5.8 | P0/P1 |
+| GAP-WEB-02 | No cases, investigation graph, search, playbooks, connectors, response approvals, reports or settings pages **Cases (#20), playbooks and response approvals (#21) done.** | Sections 5.5 to 5.8 | P0/P1 |
 | GAP-WEB-03 | No onboarding flow | FR-PLT-03 | P0 |
 | GAP-WEB-04 | No MFA, SSO or API-key management screens | FR-TEN-05, FR-TEN-06, FR-API-02 | P0 |
 | GAP-WEB-05 | Polling rather than push; no notifications centre | GAP-ARC-06 | P1 |

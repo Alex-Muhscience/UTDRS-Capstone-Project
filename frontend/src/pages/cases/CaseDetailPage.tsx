@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router"
 import { toast } from "sonner"
 
 import type { Case } from "@/api/client"
-import { displayName, useAddCaseNote, useCase, useCaseEvidence, useUpdateCase, useUsers } from "@/api/queries"
+import { displayName, useActions, useAddCaseNote, useCase, useCaseEvidence, usePlaybooks, useRunPlaybook, useUpdateCase, useUsers } from "@/api/queries"
 import { useUser } from "@/auth/context"
 import { Badge, SeverityBadge, StatusBadge } from "@/components/ui/Badge"
 import { BackLink } from "@/components/ui/BackLink"
@@ -13,6 +13,7 @@ import { DescriptionList } from "@/components/ui/DescriptionList"
 import { Field, Select, Textarea } from "@/components/ui/Field"
 import { PageHeader } from "@/components/ui/PageHeader"
 import { ErrorState, SkeletonRows } from "@/components/ui/States"
+import { ActionList } from "@/pages/response/ActionList"
 import type { CaseStatus } from "@/lib/constants"
 import { formatDateTime, formatRelative, humanize } from "@/lib/format"
 
@@ -63,6 +64,8 @@ function describe(entry: Case["timeline"][number], name: (id: string | null | un
     case "title_changed":
       return `Renamed to "${data.after ?? ""}"`
     case "note":
+    case "action":
+    case "playbook":
       return entry.text ?? ""
     default:
       return entry.text ?? humanize(entry.kind)
@@ -143,6 +146,45 @@ function Workflow({ item }: { item: Case }) {
           </Button>
         </form>
       </div>
+    </Card>
+  )
+}
+
+function Response({ caseId }: { caseId: string }) {
+  const actions = useActions({ caseId })
+  const playbooks = usePlaybooks()
+  const run = useRunPlaybook(caseId)
+  const [chosen, setChosen] = useState("")
+
+  return (
+    <Card title="Response" description="Actions taken or suggested for this case." bodyClassName="p-0">
+      {actions.data?.rows.length ? <ActionList actions={actions.data.rows} /> : <p className="px-5 py-4 text-sm text-muted">No actions yet.</p>}
+      <form
+        className="flex gap-2 border-t border-border px-5 py-4"
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (!chosen) return
+          run.mutate(chosen, {
+            onSuccess: (result) => {
+              const ran = result.actions.length
+              toast.success(`${ran} action${ran === 1 ? "" : "s"}${result.skipped.length ? `, ${result.skipped.length} skipped` : ""}`)
+              result.skipped.forEach((reason) => toast.warning(reason))
+            },
+            onError: (error) => toast.error(error.message),
+          })
+        }}
+      >
+        <Select
+          aria-label="Playbook"
+          value={chosen}
+          placeholder="Run a playbook…"
+          options={(playbooks.data ?? []).map((playbook) => ({ value: playbook.id, label: playbook.name }))}
+          onChange={(event) => setChosen(event.target.value)}
+        />
+        <Button type="submit" size="sm" loading={run.isPending} disabled={!chosen}>
+          Run
+        </Button>
+      </form>
     </Card>
   )
 }
@@ -242,6 +284,7 @@ export function CaseDetailPage() {
         </div>
         <div className="space-y-4">
           <Workflow item={data} />
+          <Response caseId={data.id} />
           <Card title="Details">
             <DescriptionList
               items={[
