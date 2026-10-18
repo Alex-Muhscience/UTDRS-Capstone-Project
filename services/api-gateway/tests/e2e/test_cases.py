@@ -108,7 +108,8 @@ def test_working_a_case(client, admin):
     assert client.get(f"{API}/alerts/{second['id']}", headers=admin).json()["status"] == "false_positive"
 
     kinds = [e["kind"] for e in case["timeline"]]
-    assert kinds[-5:] == ["status_changed", "owner_changed", "note", "status_changed", "alerts_updated"]
+    # Marking an alert a false positive is a verdict, which the case records too.
+    assert kinds[-6:] == ["status_changed", "owner_changed", "note", "feedback", "status_changed", "alerts_updated"]
     note = next(e for e in case["timeline"] if e["kind"] == "note")
     assert note["actor"]["name"] == me["username"] and note["text"].startswith("VPN logs")
     assert case["timeline"][-1]["text"] == "1 open alert set to resolved"

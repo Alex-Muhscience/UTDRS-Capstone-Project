@@ -6,6 +6,8 @@ from core.models.alert import Alert, AlertCreate, AlertSummary, AlertUpdate
 from core.models.user import User
 from core.database.repositories.user_repository import UserRepository
 from core.services.alert_service import AlertService
+from core.models.tuning import VerdictRequest, VerdictResult
+from core.services import tuning
 from core.services.audit import created
 from utils.security import get_current_active_user
 
@@ -106,6 +108,7 @@ async def update_alert(
 
 @router.patch("/{alert_id}/status", response_model=Alert)
 async def update_alert_status(
+    request: Request,
     new_status: str = Query(..., alias="status"),
     notes: Optional[str] = None,
     alert_id: str = Path(..., title="The ID of the alert to update"),
@@ -133,6 +136,10 @@ async def update_alert_status(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Alert with ID {alert_id} not found",
         )
+    # Marking a false positive is a verdict too, so it tunes detection however it is made.
+    if new_status == "false_positive" and not (await alert_service.get_alert_by_id(alert_id) or {}).get("feedback"):
+        principal = getattr(request.state, "principal", None) or {}
+        await tuning.give_verdict(alert_id, "false_positive", notes, {k: principal.get(k) for k in ("type", "id", "name") if principal.get(k)})
 
     updated_alert = await alert_service.get_alert_by_id(alert_id)
     return updated_alert
@@ -268,3 +275,22 @@ async def search_alerts(
     """
     alert_service = AlertService()
     return await alert_service.search_alerts(query, limit, skip)
+
+
+@router.post("/{alert_id}/feedback", response_model=VerdictResult)
+async def give_feedback(
+    body: VerdictRequest, request: Request, alert_id: str = Path(...), current_user: User = Depends(get_current_active_user)
+):
+    """
+    Say whether the alert was a real threat (`true_positive`), a mistake
+    (`false_positive`) or real but expected activity (`benign`). A false positive is
+    marked so, and a benign alert closed. The verdict tunes detection: it counts towards
+    the detector's quality and is kept as a label for retraining. For anything but a real
+    threat, the answer suggests a suppression for alerts like it, applied only if created.
+    """
+    principal = getattr(request.state, "principal", None) or {}
+    actor = {k: principal.get(k) for k in ("type", "id", "name") if principal.get(k)}
+    result = await tuning.give_verdict(alert_id, body.verdict, body.note, actor)
+    if not result:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Alert with ID {alert_id} not found")
+    return result

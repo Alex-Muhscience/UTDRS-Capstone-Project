@@ -13,6 +13,7 @@ import {
   ScrollText,
   Server,
   ShieldAlert,
+  SlidersHorizontal,
   UserRound,
   Users,
   X,
@@ -40,6 +41,7 @@ const NAVIGATION = [
   { to: "/events", label: "Events", icon: Activity },
   { to: "/assets", label: "Assets", icon: Server },
   { to: "/rules", label: "Detection rules", icon: ListChecks },
+  { to: "/tuning", label: "Tuning", icon: SlidersHorizontal },
   { to: "/simulations", label: "Simulations", icon: FlaskConical },
 ] as const
 
