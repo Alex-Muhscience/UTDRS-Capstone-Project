@@ -109,6 +109,48 @@
         }
       }
     },
+    "/api/v1/auth/login/mfa": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Login Mfa",
+        "description": "Finish signing in with a code from the authenticator app, or a recovery code, and the\nmfa_token the password step returned. Wrong codes count towards the same throttle as\nwrong passwords.",
+        "operationId": "login_mfa_api_v1_auth_login_mfa_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaLogin"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Token"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/register": {
       "post": {
         "tags": [
@@ -251,6 +293,194 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/mfa": {
+      "get": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Mfa Status",
+        "description": "Whether your account has multi-factor authentication, and whether your organisation requires it.",
+        "operationId": "mfa_status_api_v1_auth_mfa_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaStatus"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/mfa/setup": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Mfa Setup",
+        "description": "Start setting up MFA: a secret for your authenticator app. It is on once you confirm a code from the app.",
+        "operationId": "mfa_setup_api_v1_auth_mfa_setup_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaSetup"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/mfa/confirm": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Mfa Confirm",
+        "description": "Turn MFA on with a code from the app. Returns your recovery codes, shown only this once.",
+        "operationId": "mfa_confirm_api_v1_auth_mfa_confirm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaCode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryCodes"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/mfa/recovery-codes": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Mfa New Codes",
+        "description": "Replace your recovery codes (the old ones stop working), with a current code.",
+        "operationId": "mfa_new_codes_api_v1_auth_mfa_recovery_codes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaCode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryCodes"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/mfa/disable": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Mfa Disable",
+        "description": "Turn MFA off, with a current code. Not allowed when your organisation requires it.",
+        "operationId": "mfa_disable_api_v1_auth_mfa_disable_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaCode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -551,6 +781,54 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UserWithPassword"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/reset-mfa": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Reset Mfa",
+        "description": "Turn off someone's multi-factor authentication (admins only), for example when they\nhave lost their phone. If the organisation requires MFA, they set it up again when\nthey next sign in.",
+        "operationId": "reset_mfa_api_v1_users__user_id__reset_mfa_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
                 }
               }
             }
@@ -6822,6 +7100,53 @@
         ]
       }
     },
+    "/api/v1/tenants/current/security": {
+      "patch": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Update Security",
+        "description": "Require multi-factor authentication for everyone (administrators only). You must have\nit yourself first. People without it can only set it up until they do.",
+        "operationId": "update_security_api_v1_tenants_current_security_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantSecurity"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Tenant"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
     "/": {
       "get": {
         "summary": "Root",
@@ -9760,6 +10085,100 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "MfaCode": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 6,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "MfaCode"
+      },
+      "MfaLogin": {
+        "properties": {
+          "mfa_token": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Mfa Token"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 6,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mfa_token",
+          "code"
+        ],
+        "title": "MfaLogin"
+      },
+      "MfaSetup": {
+        "properties": {
+          "secret": {
+            "type": "string",
+            "title": "Secret"
+          },
+          "otpauth_uri": {
+            "type": "string",
+            "title": "Otpauth Uri"
+          }
+        },
+        "type": "object",
+        "required": [
+          "secret",
+          "otpauth_uri"
+        ],
+        "title": "MfaSetup"
+      },
+      "MfaStatus": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "enabled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled At"
+          },
+          "recovery_codes_left": {
+            "type": "integer",
+            "title": "Recovery Codes Left"
+          },
+          "required_by_organisation": {
+            "type": "boolean",
+            "title": "Required By Organisation"
+          },
+          "encryption_available": {
+            "type": "boolean",
+            "title": "Encryption Available"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "recovery_codes_left",
+          "required_by_organisation",
+          "encryption_available"
+        ],
+        "title": "MfaStatus"
+      },
       "Microsoft365": {
         "properties": {
           "connected": {
@@ -10686,6 +11105,23 @@
           "errors"
         ],
         "title": "PollResult"
+      },
+      "RecoveryCodes": {
+        "properties": {
+          "recovery_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recovery Codes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recovery_codes"
+        ],
+        "title": "RecoveryCodes",
+        "description": "Single-use codes for when the phone is not at hand. Shown once: keep them safe."
       },
       "Registration": {
         "properties": {
@@ -12288,6 +12724,11 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At"
+          },
+          "require_mfa": {
+            "type": "boolean",
+            "title": "Require Mfa",
+            "default": false
           }
         },
         "type": "object",
@@ -12301,6 +12742,19 @@
         ],
         "title": "Tenant",
         "description": "An organisation: the people, data and settings kept apart from every other."
+      },
+      "TenantSecurity": {
+        "properties": {
+          "require_mfa": {
+            "type": "boolean",
+            "title": "Require Mfa"
+          }
+        },
+        "type": "object",
+        "required": [
+          "require_mfa"
+        ],
+        "title": "TenantSecurity"
       },
       "TenantUpdate": {
         "properties": {
@@ -12410,24 +12864,57 @@
       "Token": {
         "properties": {
           "access_token": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Access Token"
           },
           "token_type": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Token Type"
           },
           "user": {
-            "$ref": "#/components/schemas/User"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/User"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mfa_required": {
+            "type": "boolean",
+            "title": "Mfa Required",
+            "default": false
+          },
+          "mfa_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mfa Token"
           }
         },
         "type": "object",
-        "required": [
-          "access_token",
-          "token_type",
-          "user"
-        ],
-        "title": "Token"
+        "title": "Token",
+        "description": "A session, or, when the account has MFA, what is needed to finish signing in."
       },
       "User": {
         "properties": {
@@ -12514,6 +13001,16 @@
             "type": "object",
             "title": "Preferences",
             "default": {}
+          },
+          "mfa_enabled": {
+            "type": "boolean",
+            "title": "Mfa Enabled",
+            "default": false
+          },
+          "mfa_setup_required": {
+            "type": "boolean",
+            "title": "Mfa Setup Required",
+            "default": false
           }
         },
         "type": "object",
