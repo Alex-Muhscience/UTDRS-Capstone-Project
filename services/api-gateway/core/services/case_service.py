@@ -36,6 +36,8 @@ ENTITY_FIELDS = {
     "ip": ["source_ip", "src_ip"],
     "sender": ["sender", "from", "sender_address"],
     "file_hash": ["sha256", "md5", "file_hash"],
+    # An email message, by its Internet message id, which is the same in every mailbox.
+    "message": ["internet_message_id", "message_id"],
 }
 
 # ATT&CK techniques, in words, for explanations.
@@ -278,6 +280,12 @@ async def update_case(case_id: str, changes: Dict[str, Any], actor: Dict[str, An
                 "alerts_updated", actor, text=f"{result.modified_count} open alert{'s' if result.modified_count != 1 else ''} set to {alert_status.replace('_', ' ')}",
                 status=alert_status, count=result.modified_count)}})
     return await get_case(case_id)
+
+
+async def add_entry(case_id: str, kind: str, actor: Optional[Dict[str, Any]], text: str, **data) -> None:
+    """Add something that happened, such as a response action, to a case's timeline."""
+    if ObjectId.is_valid(case_id):
+        await _cases().update_one({"_id": ObjectId(case_id)}, {"$push": {"timeline": _entry(kind, actor, text, **data)}, "$set": {"updated_at": utcnow()}})
 
 
 async def add_note(case_id: str, text: str, actor: Dict[str, Any]) -> Optional[Dict[str, Any]]:

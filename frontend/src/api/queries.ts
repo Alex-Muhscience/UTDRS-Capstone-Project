@@ -13,6 +13,7 @@ import { PAGE_SIZE, POLL_INTERVAL_MS, type CaseStatus } from "@/lib/constants"
 import {
   api,
   unwrap,
+  type Action,
   type Alert,
   type Asset,
   type Case,
@@ -21,6 +22,8 @@ import {
   type DetectionRuleCreate,
   type Event,
   type EventCreate,
+  type Playbook,
+  type ResponseSettings,
   type Simulation,
   type SimulationCreate,
   type User,
@@ -169,6 +172,78 @@ export function useAddCaseNote(caseId: string) {
   return useMutation({
     mutationFn: (text: string) => unwrap(api.POST("/api/v1/cases/{case_id}/notes", { params: { path: { case_id: caseId } }, body: { text } })),
     onSuccess: (updated) => queryClient.setQueryData(["cases", "detail", caseId], updated),
+  })
+}
+
+// ---------------------------------------------------------------------------- Response
+
+type ActionStatus = Action["status"]
+
+export function useActions({ status, caseId, page = 0 }: { status?: ActionStatus[]; caseId?: string; page?: number }) {
+  return useQuery({
+    queryKey: ["actions", "list", { status, caseId, page }],
+    queryFn: async () =>
+      toPage(await unwrap(api.GET("/api/v1/response/actions", { params: { query: { status, case_id: caseId, ...pageQuery(page) } } }))),
+    placeholderData: keepPreviousData,
+    refetchInterval: POLL_INTERVAL_MS,
+  })
+}
+
+export function useActionTypes() {
+  return useQuery({ queryKey: ["actions", "types"], queryFn: () => unwrap(api.GET("/api/v1/response/actions/types")) })
+}
+
+/** Approve, reject or undo an action. */
+export function useDecideAction() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ actionId, decision, reason }: { actionId: string; decision: "approve" | "reject" | "undo"; reason?: string }) => {
+      const params = { params: { path: { action_id: actionId } } }
+      if (decision === "approve") return unwrap(api.POST("/api/v1/response/actions/{action_id}/approve", params))
+      if (decision === "undo") return unwrap(api.POST("/api/v1/response/actions/{action_id}/undo", params))
+      return unwrap(api.POST("/api/v1/response/actions/{action_id}/reject", { ...params, body: { reason: reason || null } }))
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["actions"] })
+      void queryClient.invalidateQueries({ queryKey: ["cases"] })
+    },
+  })
+}
+
+export function useResponseSettings() {
+  return useQuery({ queryKey: ["response", "settings"], queryFn: () => unwrap(api.GET("/api/v1/response/settings")) })
+}
+
+export function useUpdateResponseSettings() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: Partial<ResponseSettings>) => unwrap(api.PATCH("/api/v1/response/settings", { body })),
+    onSuccess: (updated) => queryClient.setQueryData(["response", "settings"], updated),
+  })
+}
+
+export function usePlaybooks() {
+  return useQuery({ queryKey: ["playbooks"], queryFn: () => unwrap(api.GET("/api/v1/playbooks/")) })
+}
+
+export function useUpdatePlaybook() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ playbookId, ...body }: { playbookId: string; enabled?: boolean; mode?: Playbook["mode"] }) =>
+      unwrap(api.PATCH("/api/v1/playbooks/{playbook_id}", { params: { path: { playbook_id: playbookId } }, body })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["playbooks"] }),
+  })
+}
+
+export function useRunPlaybook(caseId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (playbookId: string) =>
+      unwrap(api.POST("/api/v1/playbooks/{playbook_id}/run", { params: { path: { playbook_id: playbookId } }, body: { case_id: caseId } })),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["actions"] })
+      void queryClient.invalidateQueries({ queryKey: ["cases", "detail", caseId] })
+    },
   })
 }
 
