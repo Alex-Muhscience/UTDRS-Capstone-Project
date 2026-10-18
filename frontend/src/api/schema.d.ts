@@ -936,6 +936,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/email/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Email
+         * @description Check a delivered email for phishing: UTDRS reads its headers, sender, links and
+         *     attachments from the recipient's mailbox, and the engine judges it. The result is an
+         *     `email` event, and an alert if it looks malicious; the body is not kept.
+         */
+        post: operations["check_email_api_v1_email_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assets/": {
         parameters: {
             query?: never;
@@ -3061,6 +3083,22 @@ export interface components {
             precision?: number | null;
             /** Noisy */
             noisy: boolean;
+        };
+        /** EmailCheck */
+        EmailCheck: {
+            /** Recipient */
+            recipient: string;
+            /** Internet Message Id */
+            internet_message_id: string;
+        };
+        /** EmailCheckResult */
+        EmailCheckResult: {
+            /** Event Id */
+            event_id: string;
+            /** Alert Id */
+            alert_id?: string | null;
+            /** Already Checked */
+            already_checked: boolean;
         };
         /** Entity */
         Entity: {
@@ -6135,6 +6173,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Event"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_email_api_v1_email_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailCheck"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailCheckResult"];
                 };
             };
             /** @description Validation Error */

@@ -14,9 +14,9 @@ from api.middleware.security import (
     rate_limit_handler,
 )
 from api.routes import (
-    alerts, api_keys, assets, audit, auth, cases, connectors as connector_routes, detection, events, health, notifications,
-    onboarding, playbooks, reports, response, retention as retention_routes, scans, simulation, tenants as tenant_routes,
-    tuning, users,
+    alerts, api_keys, assets, audit, auth, cases, connectors as connector_routes, detection, email, events, health,
+    notifications, onboarding, playbooks, reports, response, retention as retention_routes, scans, simulation,
+    tenants as tenant_routes, tuning, users,
 )
 from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
@@ -118,6 +118,7 @@ app.include_router(playbooks.router, prefix=f"{settings.API_PREFIX}/playbooks", 
 app.include_router(
     events.router, prefix=f"{settings.API_PREFIX}/events", tags=["events"], dependencies=[Depends(require_scope("events"))]
 )
+app.include_router(email.router, prefix=f"{settings.API_PREFIX}/email", tags=["email"], dependencies=scoped("email"))
 app.include_router(assets.router, prefix=f"{settings.API_PREFIX}/assets", tags=["assets"], dependencies=scoped("assets"))
 app.include_router(scans.router, prefix=f"{settings.API_PREFIX}/scans", tags=["scans"])
 app.include_router(detection.router, prefix=f"{settings.API_PREFIX}/detection", tags=["detection"], dependencies=scoped("rules"))

@@ -19,10 +19,42 @@
       "alertWebUrl": "https://security.microsoft.com/alerts/da637578995287051192_756343937",
       "createdDateTime": "2026-10-18T06:20:00Z",
       "lastUpdateDateTime": "2026-10-18T06:21:00Z",
-      "mitreTechniques": ["T1566.002"],
+      "mitreTechniques": [
+        "T1566.002"
+      ],
       "evidence": [
-        {"@odata.type": "#microsoft.graph.security.userEvidence", "roles": [], "userAccount": {"accountName": "ana", "domainName": "contoso.example", "userPrincipalName": "Ana@contoso.example", "displayName": "Ana Lopez"}},
-        {"@odata.type": "#microsoft.graph.security.ipEvidence", "ipAddress": "198.51.100.77"}
+        {
+          "@odata.type": "#microsoft.graph.security.userEvidence",
+          "roles": [],
+          "userAccount": {
+            "accountName": "ana",
+            "domainName": "contoso.example",
+            "userPrincipalName": "Ana@contoso.example",
+            "displayName": "Ana Lopez"
+          }
+        },
+        {
+          "@odata.type": "#microsoft.graph.security.ipEvidence",
+          "ipAddress": "198.51.100.77"
+        },
+        {
+          "@odata.type": "#microsoft.graph.security.analyzedMessageEvidence",
+          "roles": [],
+          "verdict": "malicious",
+          "internetMessageId": "<phish-001@mail.evil.example>",
+          "networkMessageId": "4c1f6c52-6b0e-4c1d-8e27-08dcd1a2b3c4",
+          "recipientEmailAddress": "Ana@contoso.example",
+          "subject": "Overdue invoice 4471: action required",
+          "senderIp": "198.51.100.77",
+          "p1Sender": {
+            "emailAddress": "billing@evil.example",
+            "displayName": "Accounts"
+          },
+          "deliveryAction": "delivered",
+          "deliveryLocation": "inbox",
+          "urlCount": 2,
+          "attachmentsCount": 1
+        }
       ]
     }
   ]
