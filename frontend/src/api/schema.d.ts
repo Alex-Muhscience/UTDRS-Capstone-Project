@@ -2232,6 +2232,8 @@ export interface components {
             type: string;
             /** Value */
             value: string;
+            /** Name */
+            name?: string | null;
         };
         /**
          * Event

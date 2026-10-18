@@ -13,6 +13,8 @@ class Entity(BaseModel):
     # user, asset, host, ip, sender, file_hash, domain
     type: str
     value: str
+    # For an asset, its name (value is its id).
+    name: Optional[str] = None
 
 
 class TimelineEntry(BaseModel):

@@ -60,8 +60,8 @@ def test_alerts_about_the_same_user_share_a_case(client, admin):
     assert first["case_id"] == second["case_id"] != other["case_id"]
     case = case_of(client, admin, second)
     assert case["alert_ids"] == [first["id"], second["id"]]
-    assert {"type": "user", "value": user.lower()} in case["entities"]
-    assert {"type": "ip", "value": "203.0.113.7"} in case["entities"]
+    assert {"type": "user", "value": user.lower(), "name": None} in case["entities"]
+    assert {"type": "ip", "value": "203.0.113.7", "name": None} in case["entities"]
     # The case takes its most serious alert's priority, and is due sooner for it.
     assert case["priority"] == "critical"
     assert datetime.fromisoformat(case["due_at"]) <= datetime.fromisoformat(case["created_at"]) + timedelta(hours=1, seconds=1)
@@ -199,3 +199,22 @@ def test_open_alerts_from_before_cases_are_put_in_cases(client, admin):
     # The case is dated from its alerts, not from when it was made.
     case = client.get(f"{API}/cases/{a['case_id']}", headers=admin).json()
     assert case["first_seen"] == a["created_at"]
+
+
+def test_a_case_names_its_devices(client, admin):
+    asset = client.post(f"{API}/assets/", json={"name": f"fin-ws-{uuid.uuid4().hex[:4]}", "asset_type": "workstation"}, headers=admin).json()
+    event = client.post(
+        f"{API}/events/",
+        json={"timestamp": datetime.now(timezone.utc).isoformat(), "event_type": "process", "source": "edr", "description": "x", "asset_id": asset["id"]},
+        headers=admin,
+    ).json()
+    alert = client.post(
+        f"{API}/alerts/",
+        json={"title": "Odd process", "description": "x", "severity": "low", "source": "x", "type": "x", "event_ids": [event["id"]]},
+        headers=admin,
+    ).json()
+    case = case_of(client, admin, client.get(f"{API}/alerts/{alert['id']}", headers=admin).json())
+    assert {"type": "asset", "value": asset["id"], "name": asset["name"]} in case["entities"]
+    assert asset["name"] in case["explanation"]["what_happened"] and asset["id"] not in case["explanation"]["what_happened"]
+    listed = next(c for c in client.get(f"{API}/cases/", params={"limit": 500}, headers=admin).json() if c["id"] == case["id"])
+    assert any(e.get("name") == asset["name"] for e in listed["entities"])

@@ -99,7 +99,7 @@ export function CasesPage() {
                     </Link>
                     <span className="block truncate text-xs text-subtle">
                       {item.alert_ids.length} alert{item.alert_ids.length === 1 ? "" : "s"}
-                      {item.entities.length > 0 && ` · ${item.entities.slice(0, 3).map((entity) => entity.value).join(", ")}`}
+                      {item.entities.length > 0 && ` · ${item.entities.slice(0, 3).map((entity) => entity.name ?? entity.value).join(", ")}`}
                     </span>
                   </Td>
                   <Td>
