@@ -5,6 +5,8 @@ import { GuestOnly, RequireAuth } from "@/auth/RequireAuth"
 import { AppLayout } from "@/components/layout/AppLayout"
 import { ApiKeysPage } from "@/pages/admin/ApiKeysPage"
 import { AuditLogPage } from "@/pages/admin/AuditLogPage"
+import { ConnectorsPage } from "@/pages/connectors/ConnectorsPage"
+import { ConsentedPage } from "@/pages/connectors/ConsentedPage"
 import { EmailLogPage } from "@/pages/admin/EmailLogPage"
 import { AlertDetailPage } from "@/pages/alerts/AlertDetailPage"
 import { AlertsPage } from "@/pages/alerts/AlertsPage"
@@ -72,6 +74,8 @@ export const routes: RouteObject[] = [
                   { path: "api-keys", element: <ApiKeysPage /> },
                   { path: "audit-log", element: <AuditLogPage /> },
                   { path: "email-log", element: <EmailLogPage /> },
+                  { path: "connectors", element: <ConnectorsPage /> },
+                  { path: "connectors/microsoft-365/consented", element: <ConsentedPage /> },
                 ],
               },
               { path: "*", element: <NotFoundPage /> },

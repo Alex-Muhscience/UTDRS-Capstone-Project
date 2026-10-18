@@ -227,7 +227,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 | ID | Requirement | Priority | Phase |
 |---|---|---|---|
 | FR-ING-01 | Common event schema (OCSF) with versioning; every source is normalised to it; raw event kept alongside | P0 | 1 |
-| FR-ING-02 | Microsoft 365 connector: Entra ID sign-ins and audit logs, Exchange Online message trace and mailbox audit, Defender alerts (Microsoft Graph and Office 365 Management Activity API), with OAuth admin consent | P0 | 1 |
+| FR-ING-02 | Microsoft 365 connector: Entra ID sign-ins and audit logs, Exchange Online message trace and mailbox audit, Defender alerts (Microsoft Graph and Office 365 Management Activity API), with OAuth admin consent **Partly (#25): admin consent or own app registration, Entra ID sign-ins and audit logs, and Defender alerts, built against Graph's documented formats; Exchange message trace and mailbox audit (Management Activity API) remain, and it has not yet run against a live tenant.** | P0 | 1 |
 | FR-ING-03 | Google Workspace connector: login, admin, Gmail and Drive audit (Reports API) | P1 | 2 |
 | FR-ING-04 | Email content access for phishing analysis: messages delivered to mailboxes, with headers, links and attachment hashes (Graph and Gmail APIs) | P0 | 1 |
 | FR-ING-05 | HTTP ingestion API with API keys, batching, compression and idempotency | P0 | 1 |
@@ -483,7 +483,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 | GAP-SEC-05 | No audit log of changes or actions **Done (#18): hash-chained audit log of sign-ins and every change through the gateway, searchable and verifiable by administrators.** | FR-TEN-08, FR-RSP-04 | P0 |
 | GAP-SEC-06 | Secrets come from environment variables and `.env` files; no vault, no rotation | NFR-07 | P1 |
 | GAP-SEC-07 | `ALLOWED_HOSTS` defaults to `["*"]` (`services/api-gateway/config.py`); the core engine accepts every request when `INTERNAL_API_TOKEN` is unset (`services/core-engine/api/security.py`) **Partly done (#16): the engine now refuses requests without a configured token; `ALLOWED_HOSTS` is still `*` by default.** | NFR-08 | P1 |
-| GAP-SEC-08 | No encryption at rest beyond what the MongoDB deployment provides; no field-level encryption for sensitive data (connector credentials will need it) | NFR-07 | P0 before connectors |
+| GAP-SEC-08 | No encryption at rest beyond what the MongoDB deployment provides; no field-level encryption for sensitive data (connector credentials will need it) **Done for connector credentials (#25): AES-256-GCM with key rotation; encryption of other data at rest is still the database's.** | NFR-07 | P0 before connectors |
 | GAP-SEC-09 | No container image signing, SBOM, SAST or container scanning in CI (GitGuardian secret scanning and npm audit only) | NFR-08 | P1 |
 | GAP-SEC-10 | No threat model, security policy for the hosted service, or penetration test | NFR-08, NFR-10 | P1 |
 | GAP-SEC-11 | The Compose stack serves HTTP; TLS termination is left to the operator | NFR-07 | P1 |
@@ -512,7 +512,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 | GAP-ENG-05 | Threat intelligence is per-lookup API calls (VirusTotal, AbuseIPDB, OTX) with a file cache; no feeds, no STIX/TAXII, no indicator store | FR-DET-09 | P1 |
 | GAP-ENG-06 | No suppressions, allow-lists or analyst feedback loop **Done (#24).** | FR-DET-10 | P0 |
 | GAP-ENG-07 | No model registry, versioning, shadow mode or drift monitoring; models are files in the image | FR-DET-12 | P1 |
-| GAP-ENG-08 | No identity or email detections (impossible travel, inbox rules, MFA fatigue, OAuth consent) because no such data arrives | FR-DET-04 | P0 |
+| GAP-ENG-08 | No identity or email detections (impossible travel, inbox rules, MFA fatigue, OAuth consent) because no such data arrives **Partly (#25): risky sign-ins, smart lockout, legacy authentication, admin roles granted, OAuth consent and MFA methods removed; those needing counts over time (impossible travel, MFA fatigue, password spraying) and mailbox data (inbox rules) remain.** | FR-DET-04 | P0 |
 | GAP-ENG-09 | Uses `ModelRegistry` that writes placeholder models into the working directory at start-up; read-only containers would fail | NFR-08 | P2 |
 
 ### 8.5 Machine learning
@@ -545,7 +545,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 |---|---|---|---|
 | GAP-ING-01 | Only handles device scans; polls MongoDB every few seconds as a queue | FR-ING-12 | P1 |
 | GAP-ING-02 | Health server is Flask's development server | NFR-03 | P2 |
-| GAP-ING-03 | No connectors at all (Microsoft 365, Google, syslog, cloud, EDR) | FR-ING-02 to 10 | P0 |
+| GAP-ING-03 | No connectors at all (Microsoft 365, Google, syslog, cloud, EDR) **Microsoft 365 (#25); the others remain.** | FR-ING-02 to 10 | P0 |
 | GAP-ING-04 | No enrichment (GeoIP, ASN, asset and user lookup) | FR-ING-13 | P1 |
 
 ### 8.8 Dashboard (`frontend/`)

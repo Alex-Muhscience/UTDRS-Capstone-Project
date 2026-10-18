@@ -1,0 +1,50 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#auditLogs/signIns",
+  "@odata.nextLink": "https://graph.microsoft.com/v1.0/auditLogs/signIns?$skiptoken=page2",
+  "value": [
+    {
+      "id": "66ea54eb-6301-4ee5-be62-ff5a759b8100",
+      "createdDateTime": "2026-10-18T06:01:12Z",
+      "userDisplayName": "Joan Smith",
+      "userPrincipalName": "JSmith@contoso.example",
+      "userId": "d7cc485d-2c1b-422c-98fd-5ce52859a4a3",
+      "appId": "00000002-0000-0ff1-ce00-000000000000",
+      "appDisplayName": "Office 365 Exchange Online",
+      "ipAddress": "203.0.113.45",
+      "clientAppUsed": "Browser",
+      "correlationId": "d79f5bee-5860-4832-928f-3133e22ae912",
+      "conditionalAccessStatus": "success",
+      "isInteractive": true,
+      "riskDetail": "none",
+      "riskLevelAggregated": "none",
+      "riskLevelDuringSignIn": "high",
+      "riskState": "atRisk",
+      "riskEventTypes_v2": ["unfamiliarFeatures", "anonymizedIPAddress"],
+      "resourceDisplayName": "Office 365 Exchange Online",
+      "authenticationRequirement": "singleFactorAuthentication",
+      "status": {"errorCode": 0, "failureReason": "Other.", "additionalDetails": null},
+      "deviceDetail": {"deviceId": "", "displayName": "", "operatingSystem": "Linux", "browser": "Firefox 131.0", "isCompliant": false, "isManaged": false, "trustType": ""},
+      "location": {"city": "Amsterdam", "state": "Noord-Holland", "countryOrRegion": "NL", "geoCoordinates": {"altitude": null, "latitude": 52.37, "longitude": 4.89}}
+    },
+    {
+      "id": "1f0d6a2e-4e5b-4a7c-9a1e-8b8c9d0e1f20",
+      "createdDateTime": "2026-10-18T06:03:40Z",
+      "userDisplayName": "Ana Lopez",
+      "userPrincipalName": "ana@contoso.example",
+      "userId": "5b1f2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d",
+      "appId": "00000002-0000-0ff1-ce00-000000000000",
+      "appDisplayName": "Office 365 Exchange Online",
+      "ipAddress": "198.51.100.23",
+      "clientAppUsed": "Mobile Apps and Desktop clients",
+      "conditionalAccessStatus": "notApplied",
+      "isInteractive": true,
+      "riskLevelDuringSignIn": "none",
+      "riskState": "none",
+      "riskEventTypes_v2": [],
+      "authenticationRequirement": "multiFactorAuthentication",
+      "status": {"errorCode": 50053, "failureReason": "Account is locked because user tried to sign in too many times with an incorrect user ID or password.", "additionalDetails": null},
+      "deviceDetail": {"operatingSystem": "Windows 10", "browser": "Edge 129.0"},
+      "location": {"city": "Lagos", "countryOrRegion": "NG"}
+    }
+  ]
+}

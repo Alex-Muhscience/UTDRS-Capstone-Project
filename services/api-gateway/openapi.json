@@ -5303,6 +5303,248 @@
         }
       }
     },
+    "/api/v1/connectors/microsoft-365": {
+      "get": {
+        "tags": [
+          "connectors"
+        ],
+        "summary": "Microsoft 365",
+        "description": "Whether Microsoft 365 is connected, how, and how polling is going.",
+        "operationId": "microsoft_365_api_v1_connectors_microsoft_365_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft365"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "connectors"
+        ],
+        "summary": "Connect Own App",
+        "description": "Connect with your own app registration. The credentials are tried first; the secret is\nstored encrypted, and never shown again. Then the Microsoft 365 detection rules are added.",
+        "operationId": "connect_own_app_api_v1_connectors_microsoft_365_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwnApp"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft365"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "connectors"
+        ],
+        "summary": "Disconnect",
+        "description": "Disconnect Microsoft 365: its credentials are deleted. Events already brought in, and its detection rules, stay.",
+        "operationId": "disconnect_api_v1_connectors_microsoft_365_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/connectors/microsoft-365/consent-url": {
+      "post": {
+        "tags": [
+          "connectors"
+        ],
+        "summary": "Consent Url",
+        "description": "Where to send a Microsoft 365 administrator to connect, by admin consent to UTDRS's app.",
+        "operationId": "consent_url_api_v1_connectors_microsoft_365_consent_url_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentUrl"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/connectors/microsoft-365/consent": {
+      "post": {
+        "tags": [
+          "connectors"
+        ],
+        "summary": "Consented",
+        "description": "Finish connecting with what Microsoft sent back after consent; then add the Microsoft 365 detection rules.",
+        "operationId": "consented_api_v1_connectors_microsoft_365_consent_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentResult"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft365"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/connectors/microsoft-365/check": {
+      "post": {
+        "tags": [
+          "connectors"
+        ],
+        "summary": "Check",
+        "description": "Sign in and try reading each kind of data, to see what works and what permission is missing.",
+        "operationId": "check_api_v1_connectors_microsoft_365_check_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Check"
+                  },
+                  "type": "array",
+                  "title": "Response Check Api V1 Connectors Microsoft 365 Check Post"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/connectors/microsoft-365/poll": {
+      "post": {
+        "tags": [
+          "connectors"
+        ],
+        "summary": "Poll Now",
+        "description": "Fetch new sign-ins, audit records and Defender alerts now, rather than at the next scheduled poll.",
+        "operationId": "poll_now_api_v1_connectors_microsoft_365_poll_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PollResult"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/tuning/suppressions": {
       "get": {
         "tags": [
@@ -8227,6 +8469,118 @@
         "type": "object",
         "title": "CaseUpdate"
       },
+      "Check": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "ok",
+          "detail"
+        ],
+        "title": "Check"
+      },
+      "ConsentResult": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "maxLength": 4000,
+            "title": "State"
+          },
+          "tenant": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant"
+          },
+          "admin_consent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Consent"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "error_description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state"
+        ],
+        "title": "ConsentResult",
+        "description": "What Microsoft sent back to the redirect page."
+      },
+      "ConsentStart": {
+        "properties": {
+          "redirect_uri": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Redirect Uri"
+          }
+        },
+        "type": "object",
+        "required": [
+          "redirect_uri"
+        ],
+        "title": "ConsentStart"
+      },
+      "ConsentUrl": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "ConsentUrl"
+      },
       "CoreEngineStatus": {
         "properties": {
           "configured": {
@@ -9132,6 +9486,149 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "Microsoft365": {
+        "properties": {
+          "connected": {
+            "type": "boolean",
+            "title": "Connected"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "connected",
+                  "error"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "consent",
+                  "own_app"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "azure_tenant_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Azure Tenant Id"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "organisation_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organisation Name"
+          },
+          "connected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connected At"
+          },
+          "last_poll_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Poll At"
+          },
+          "last_poll": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Last Poll",
+            "default": {}
+          },
+          "errors": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Errors",
+            "default": {}
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/Check"
+            },
+            "type": "array",
+            "title": "Checks",
+            "default": []
+          },
+          "consent_available": {
+            "type": "boolean",
+            "title": "Consent Available"
+          },
+          "encryption_available": {
+            "type": "boolean",
+            "title": "Encryption Available"
+          },
+          "permissions": {
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            },
+            "type": "array",
+            "title": "Permissions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "connected",
+          "consent_available",
+          "encryption_available",
+          "permissions"
+        ],
+        "title": "Microsoft365",
+        "description": "The Microsoft 365 connection, as administrators see it. Secrets are never shown."
+      },
       "Notification": {
         "properties": {
           "id": {
@@ -9438,6 +9935,37 @@
         ],
         "title": "Outstanding"
       },
+      "OwnApp": {
+        "properties": {
+          "azure_tenant_id": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 3,
+            "pattern": "^[A-Za-z0-9.\\-]+$",
+            "title": "Azure Tenant Id"
+          },
+          "client_id": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 3,
+            "pattern": "^[A-Za-z0-9\\-]+$",
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Client Secret"
+          }
+        },
+        "type": "object",
+        "required": [
+          "azure_tenant_id",
+          "client_id",
+          "client_secret"
+        ],
+        "title": "OwnApp"
+      },
       "PasswordChange": {
         "properties": {
           "current_password": {
@@ -9455,6 +9983,24 @@
           "new_password"
         ],
         "title": "PasswordChange"
+      },
+      "Permission": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "used_for": {
+            "type": "string",
+            "title": "Used For"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "used_for"
+        ],
+        "title": "Permission"
       },
       "Playbook": {
         "properties": {
@@ -9785,6 +10331,30 @@
         },
         "type": "object",
         "title": "PlaybookUpdate"
+      },
+      "PollResult": {
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Counts"
+          },
+          "errors": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "counts",
+          "errors"
+        ],
+        "title": "PollResult"
       },
       "Registration": {
         "properties": {

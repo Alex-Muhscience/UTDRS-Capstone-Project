@@ -382,6 +382,55 @@ export function useDetectorQuality(days = 30) {
   })
 }
 
+// ---------------------------------------------------------------------------- Connectors
+
+export function useMicrosoft365() {
+  return useQuery({ queryKey: ["connectors", "m365"], queryFn: () => unwrap(api.GET("/api/v1/connectors/microsoft-365")), refetchInterval: POLL_INTERVAL_MS })
+}
+
+function useConnectorMutation<TVariables, TResult>(mutationFn: (variables: TVariables) => Promise<TResult>) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn,
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["connectors"] })
+      void queryClient.invalidateQueries({ queryKey: ["actions", "types"] })
+    },
+  })
+}
+
+export function useConnectOwnApp() {
+  return useConnectorMutation((body: { azure_tenant_id: string; client_id: string; client_secret: string }) =>
+    unwrap(api.PUT("/api/v1/connectors/microsoft-365", { body })),
+  )
+}
+
+/** Start "Connect with Microsoft": where to send the administrator. */
+export function useConsentUrl() {
+  return useMutation({
+    mutationFn: (redirectUri: string) => unwrap(api.POST("/api/v1/connectors/microsoft-365/consent-url", { body: { redirect_uri: redirectUri } })),
+  })
+}
+
+export function useFinishConsent() {
+  return useConnectorMutation(
+    (body: { state: string; tenant?: string | null; admin_consent?: string | null; error?: string | null; error_description?: string | null }) =>
+      unwrap(api.POST("/api/v1/connectors/microsoft-365/consent", { body })),
+  )
+}
+
+export function useCheckMicrosoft365() {
+  return useConnectorMutation(() => unwrap(api.POST("/api/v1/connectors/microsoft-365/check")))
+}
+
+export function usePollMicrosoft365() {
+  return useConnectorMutation(() => unwrap(api.POST("/api/v1/connectors/microsoft-365/poll")))
+}
+
+export function useDisconnectMicrosoft365() {
+  return useConnectorMutation(() => unwrap(api.DELETE("/api/v1/connectors/microsoft-365")))
+}
+
 // ---------------------------------------------------------------------------- API keys
 
 export function useApiKeys() {

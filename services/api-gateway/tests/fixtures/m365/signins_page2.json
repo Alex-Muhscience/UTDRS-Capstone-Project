@@ -1,0 +1,23 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#auditLogs/signIns",
+  "value": [
+    {
+      "id": "9c3b2a10-7d6e-4f5a-8b9c-0d1e2f3a4b5c",
+      "createdDateTime": "2026-10-18T06:05:02Z",
+      "userDisplayName": "Printer Service",
+      "userPrincipalName": "scanner@contoso.example",
+      "appDisplayName": "Office 365 Exchange Online",
+      "ipAddress": "192.0.2.10",
+      "clientAppUsed": "Authenticated SMTP",
+      "conditionalAccessStatus": "notApplied",
+      "isInteractive": false,
+      "riskLevelDuringSignIn": "none",
+      "riskState": "none",
+      "riskEventTypes_v2": [],
+      "authenticationRequirement": "singleFactorAuthentication",
+      "status": {"errorCode": 0, "failureReason": null, "additionalDetails": null},
+      "deviceDetail": {"operatingSystem": "", "browser": ""},
+      "location": {"city": "Nairobi", "countryOrRegion": "KE"}
+    }
+  ]
+}
