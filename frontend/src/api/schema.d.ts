@@ -1609,6 +1609,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/connectors/microsoft-365": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Microsoft 365
+         * @description Whether Microsoft 365 is connected, how, and how polling is going.
+         */
+        get: operations["microsoft_365_api_v1_connectors_microsoft_365_get"];
+        /**
+         * Connect Own App
+         * @description Connect with your own app registration. The credentials are tried first; the secret is
+         *     stored encrypted, and never shown again. Then the Microsoft 365 detection rules are added.
+         */
+        put: operations["connect_own_app_api_v1_connectors_microsoft_365_put"];
+        post?: never;
+        /**
+         * Disconnect
+         * @description Disconnect Microsoft 365: its credentials are deleted. Events already brought in, and its detection rules, stay.
+         */
+        delete: operations["disconnect_api_v1_connectors_microsoft_365_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/connectors/microsoft-365/consent-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Consent Url
+         * @description Where to send a Microsoft 365 administrator to connect, by admin consent to UTDRS's app.
+         */
+        post: operations["consent_url_api_v1_connectors_microsoft_365_consent_url_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/connectors/microsoft-365/consent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Consented
+         * @description Finish connecting with what Microsoft sent back after consent; then add the Microsoft 365 detection rules.
+         */
+        post: operations["consented_api_v1_connectors_microsoft_365_consent_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/connectors/microsoft-365/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check
+         * @description Sign in and try reading each kind of data, to see what works and what permission is missing.
+         */
+        post: operations["check_api_v1_connectors_microsoft_365_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/connectors/microsoft-365/poll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Poll Now
+         * @description Fetch new sign-ins, audit records and Defender alerts now, rather than at the next scheduled poll.
+         */
+        post: operations["poll_now_api_v1_connectors_microsoft_365_poll_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tuning/suppressions": {
         parameters: {
             query?: never;
@@ -2667,6 +2776,41 @@ export interface components {
             /** Owner Id */
             owner_id?: string | null;
         };
+        /** Check */
+        Check: {
+            /** Name */
+            name: string;
+            /** Ok */
+            ok: boolean;
+            /** Detail */
+            detail: string;
+        };
+        /**
+         * ConsentResult
+         * @description What Microsoft sent back to the redirect page.
+         */
+        ConsentResult: {
+            /** State */
+            state: string;
+            /** Tenant */
+            tenant?: string | null;
+            /** Admin Consent */
+            admin_consent?: string | null;
+            /** Error */
+            error?: string | null;
+            /** Error Description */
+            error_description?: string | null;
+        };
+        /** ConsentStart */
+        ConsentStart: {
+            /** Redirect Uri */
+            redirect_uri: string;
+        };
+        /** ConsentUrl */
+        ConsentUrl: {
+            /** Url */
+            url: string;
+        };
         /** CoreEngineStatus */
         CoreEngineStatus: {
             /** Configured */
@@ -3038,6 +3182,53 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * Microsoft365
+         * @description The Microsoft 365 connection, as administrators see it. Secrets are never shown.
+         */
+        Microsoft365: {
+            /** Connected */
+            connected: boolean;
+            /** Status */
+            status?: ("connected" | "error") | null;
+            /** Mode */
+            mode?: ("consent" | "own_app") | null;
+            /** Azure Tenant Id */
+            azure_tenant_id?: string | null;
+            /** Client Id */
+            client_id?: string | null;
+            /** Organisation Name */
+            organisation_name?: string | null;
+            /** Connected At */
+            connected_at?: string | null;
+            /** Last Poll At */
+            last_poll_at?: string | null;
+            /**
+             * Last Poll
+             * @default {}
+             */
+            last_poll: {
+                [key: string]: number;
+            };
+            /**
+             * Errors
+             * @default {}
+             */
+            errors: {
+                [key: string]: string;
+            };
+            /**
+             * Checks
+             * @default []
+             */
+            checks: components["schemas"]["Check"][];
+            /** Consent Available */
+            consent_available: boolean;
+            /** Encryption Available */
+            encryption_available: boolean;
+            /** Permissions */
+            permissions: components["schemas"]["Permission"][];
+        };
+        /**
          * Notification
          * @description One email, as the delivery log shows it.
          */
@@ -3148,12 +3339,28 @@ export interface components {
             /** Awaiting Approval */
             awaiting_approval: number;
         };
+        /** OwnApp */
+        OwnApp: {
+            /** Azure Tenant Id */
+            azure_tenant_id: string;
+            /** Client Id */
+            client_id: string;
+            /** Client Secret */
+            client_secret: string;
+        };
         /** PasswordChange */
         PasswordChange: {
             /** Current Password */
             current_password: string;
             /** New Password */
             new_password: string;
+        };
+        /** Permission */
+        Permission: {
+            /** Name */
+            name: string;
+            /** Used For */
+            used_for: string;
         };
         /** Playbook */
         Playbook: {
@@ -3294,6 +3501,17 @@ export interface components {
             trigger?: components["schemas"]["PlaybookTrigger"] | null;
             /** Steps */
             steps?: components["schemas"]["PlaybookStep"][] | null;
+        };
+        /** PollResult */
+        PollResult: {
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Errors */
+            errors: {
+                [key: string]: string;
+            };
         };
         /** Registration */
         Registration: {
@@ -6969,6 +7187,183 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    microsoft_365_api_v1_connectors_microsoft_365_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Microsoft365"];
+                };
+            };
+        };
+    };
+    connect_own_app_api_v1_connectors_microsoft_365_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OwnApp"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Microsoft365"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disconnect_api_v1_connectors_microsoft_365_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    consent_url_api_v1_connectors_microsoft_365_consent_url_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsentStart"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentUrl"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    consented_api_v1_connectors_microsoft_365_consent_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsentResult"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Microsoft365"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_api_v1_connectors_microsoft_365_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Check"][];
+                };
+            };
+        };
+    };
+    poll_now_api_v1_connectors_microsoft_365_poll_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PollResult"];
                 };
             };
         };

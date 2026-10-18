@@ -25,3 +25,6 @@ httpx==0.28.1
 
 # PDF reports
 reportlab==4.5.1
+
+# Encrypting stored secrets, such as connector credentials (AES-GCM)
+cryptography==48.0.1
