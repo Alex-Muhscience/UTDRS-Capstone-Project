@@ -1,5 +1,6 @@
 import {
   Activity,
+  Briefcase,
   FlaskConical,
   KeyRound,
   LayoutDashboard,
@@ -27,6 +28,7 @@ import { ThemeSwitcher } from "./ThemeSwitcher"
 
 const NAVIGATION = [
   { to: "/", label: "Overview", icon: LayoutDashboard, end: true },
+  { to: "/cases", label: "Cases", icon: Briefcase },
   { to: "/alerts", label: "Alerts", icon: ShieldAlert },
   { to: "/events", label: "Events", icon: Activity },
   { to: "/assets", label: "Assets", icon: Server },

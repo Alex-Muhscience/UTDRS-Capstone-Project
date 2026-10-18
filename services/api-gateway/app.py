@@ -13,16 +13,26 @@ from api.middleware.security import (
     SecurityMiddleware,
     rate_limit_handler,
 )
-from api.routes import alerts, api_keys, assets, audit, auth, detection, events, health, scans, simulation, tenants as tenant_routes, users
+from api.routes import alerts, api_keys, assets, audit, auth, cases, detection, events, health, scans, simulation, tenants as tenant_routes, users
 from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
 from core.database.indexes import ensure_indexes
-from core.services import tenants
+from core.services import case_service, tenants
 from core.services.bootstrap import ensure_admin
 from core.services.startup_lock import startup_lock
+from core.tenancy import tenant_context
+from utils.logger import get_logger
 from core.services.audit import audited
 from core.services.rule_sync import sync_periodically
 from utils.security import require_scope
+
+
+async def group_existing_alerts_into_cases() -> None:
+    for tenant_id in await tenants.all_ids():
+        with tenant_context(tenant_id):
+            grouped = await case_service.group_existing_alerts()
+        if grouped:
+            get_logger(__name__).info(f"Put {grouped} open alerts from before cases into cases")
 
 
 @asynccontextmanager
@@ -35,6 +45,7 @@ async def lifespan(app: FastAPI):
         await tenants.adopt_untenanted(await tenants.ensure_default())
         await ensure_indexes()
         await ensure_admin()
+        await group_existing_alerts_into_cases()
     rule_sync = asyncio.create_task(sync_periodically())
     yield
     rule_sync.cancel()
@@ -83,6 +94,7 @@ app.include_router(health.router, prefix=settings.API_PREFIX, tags=["health"])
 app.include_router(auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["authentication"])
 app.include_router(users.router, prefix=f"{settings.API_PREFIX}/users", tags=["users"], dependencies=scoped("users"))
 app.include_router(alerts.router, prefix=f"{settings.API_PREFIX}/alerts", tags=["alerts"], dependencies=scoped("alerts"))
+app.include_router(cases.router, prefix=f"{settings.API_PREFIX}/cases", tags=["cases"], dependencies=scoped("cases"))
 # Events are ingested in volume and are their own record, so they are not audited.
 app.include_router(
     events.router, prefix=f"{settings.API_PREFIX}/events", tags=["events"], dependencies=[Depends(require_scope("events"))]

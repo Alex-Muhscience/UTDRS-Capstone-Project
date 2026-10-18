@@ -22,6 +22,7 @@ TENANT_SCOPED = {
     "users",
     "events",
     "alerts",
+    "cases",
     "assets",
     "detection_rules",
     "simulations",

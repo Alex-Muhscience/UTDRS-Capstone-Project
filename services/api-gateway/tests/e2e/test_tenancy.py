@@ -132,7 +132,7 @@ def test_another_organisations_items_cannot_be_read_or_changed(client, b, a_data
     assert client.get(f"{API}/users/{a_data['me']['id']}", headers=b).status_code == 404
 
     assert client.put(f"{API}/assets/{asset['id']}", json={"name": "stolen"}, headers=b).status_code == 404
-    assert client.patch(f"{API}/alerts/{alert['id']}/status", json={"status": "closed"}, headers=b).status_code in (404, 422)
+    assert client.patch(f"{API}/alerts/{alert['id']}/status", params={"status": "closed"}, headers=b).status_code == 404
     assert client.put(f"{API}/detection/rules/{rule['id']}", json={"severity": "critical"}, headers=b).status_code == 404
     assert client.patch(f"{API}/users/{a_data['me']['id']}", json={"active": False}, headers=b).status_code == 404
     assert client.delete(f"{API}/api-keys/{a_data['key']['api_key']['id']}", headers=b).status_code == 404

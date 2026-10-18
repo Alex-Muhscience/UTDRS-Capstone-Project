@@ -1285,6 +1285,364 @@
         }
       }
     },
+    "/api/v1/cases/": {
+      "get": {
+        "tags": [
+          "cases"
+        ],
+        "summary": "List Cases",
+        "description": "Cases, most recently active first. The list leaves out each case's timeline.",
+        "operationId": "list_cases_api_v1_cases__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "open",
+                      "investigating",
+                      "contained",
+                      "resolved",
+                      "false_positive",
+                      "closed"
+                    ],
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "One or more statuses",
+              "title": "Status"
+            },
+            "description": "One or more statuses"
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "critical",
+                    "high",
+                    "medium",
+                    "low",
+                    "info"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Priority"
+            }
+          },
+          {
+            "name": "owner_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A user id, or 'none' for unassigned cases",
+              "title": "Owner Id"
+            },
+            "description": "A user id, or 'none' for unassigned cases"
+          },
+          {
+            "name": "open_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Only open, investigating and contained cases",
+              "default": false,
+              "title": "Open Only"
+            },
+            "description": "Only open, investigating and contained cases"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Skip"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Case"
+                  },
+                  "title": "Response List Cases Api V1 Cases  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cases/{case_id}": {
+      "get": {
+        "tags": [
+          "cases"
+        ],
+        "summary": "Get Case",
+        "description": "A case with its timeline, and an explanation of it in plain language.",
+        "operationId": "get_case_api_v1_cases__case_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Case"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "cases"
+        ],
+        "summary": "Update Case",
+        "description": "Change a case's status, priority, owner or title; each change is added to its\ntimeline. Resolving, closing or marking it a false positive does the same to its\nalerts that are still open.",
+        "operationId": "update_case_api_v1_cases__case_id__patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Case"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cases/{case_id}/notes": {
+      "post": {
+        "tags": [
+          "cases"
+        ],
+        "summary": "Add Note",
+        "description": "Add a note to a case's timeline.",
+        "operationId": "add_note_api_v1_cases__case_id__notes_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseNote"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Case"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cases/{case_id}/evidence": {
+      "get": {
+        "tags": [
+          "cases"
+        ],
+        "summary": "Case Evidence",
+        "description": "The alerts and events behind a case, oldest first, and the entities involved.",
+        "operationId": "case_evidence_api_v1_cases__case_id__evidence_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseEvidence"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/events/": {
       "get": {
         "tags": [
@@ -4699,6 +5057,17 @@
             "type": "string",
             "title": "Id"
           },
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -5780,6 +6149,253 @@
         ],
         "title": "Body_login_api_v1_auth_login_post"
       },
+      "Case": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "investigating",
+              "contained",
+              "resolved",
+              "false_positive",
+              "closed"
+            ],
+            "title": "Status"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low",
+              "info"
+            ],
+            "title": "Priority"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Id"
+          },
+          "alert_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Alert Ids"
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/Entity"
+            },
+            "type": "array",
+            "title": "Entities"
+          },
+          "techniques": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Techniques",
+            "default": []
+          },
+          "first_seen": {
+            "type": "string",
+            "format": "date-time",
+            "title": "First Seen"
+          },
+          "last_seen": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Seen"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "due_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Due At"
+          },
+          "breached": {
+            "type": "boolean",
+            "title": "Breached",
+            "default": false
+          },
+          "timeline": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineEntry"
+            },
+            "type": "array",
+            "title": "Timeline",
+            "default": []
+          },
+          "explanation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Explanation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "status",
+          "priority",
+          "alert_ids",
+          "entities",
+          "first_seen",
+          "last_seen",
+          "created_at",
+          "updated_at",
+          "due_at"
+        ],
+        "title": "Case"
+      },
+      "CaseEvidence": {
+        "properties": {
+          "alerts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Alerts"
+          },
+          "events": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Events"
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/Entity"
+            },
+            "type": "array",
+            "title": "Entities"
+          }
+        },
+        "type": "object",
+        "required": [
+          "alerts",
+          "events",
+          "entities"
+        ],
+        "title": "CaseEvidence"
+      },
+      "CaseNote": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "CaseNote"
+      },
+      "CaseUpdate": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "open",
+                  "investigating",
+                  "contained",
+                  "resolved",
+                  "false_positive",
+                  "closed"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "critical",
+                  "high",
+                  "medium",
+                  "low",
+                  "info"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Id"
+          }
+        },
+        "type": "object",
+        "title": "CaseUpdate"
+      },
       "CoreEngineStatus": {
         "properties": {
           "configured": {
@@ -6166,6 +6782,35 @@
         ],
         "title": "DetectionStatus"
       },
+      "Entity": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "value"
+        ],
+        "title": "Entity"
+      },
       "Event": {
         "properties": {
           "timestamp": {
@@ -6491,6 +7136,33 @@
         },
         "type": "object",
         "title": "EventUpdate"
+      },
+      "Explanation": {
+        "properties": {
+          "what_happened": {
+            "type": "string",
+            "title": "What Happened"
+          },
+          "why_it_matters": {
+            "type": "string",
+            "title": "Why It Matters"
+          },
+          "next_steps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Next Steps"
+          }
+        },
+        "type": "object",
+        "required": [
+          "what_happened",
+          "why_it_matters",
+          "next_steps"
+        ],
+        "title": "Explanation",
+        "description": "The case in plain language, for whoever has to act on it."
       },
       "HTTPValidationError": {
         "properties": {
@@ -7303,6 +7975,54 @@
           "name"
         ],
         "title": "TenantUpdate"
+      },
+      "TimelineEntry": {
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Data",
+            "default": {}
+          }
+        },
+        "type": "object",
+        "required": [
+          "at",
+          "kind"
+        ],
+        "title": "TimelineEntry"
       },
       "Token": {
         "properties": {
