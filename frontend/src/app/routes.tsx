@@ -20,6 +20,7 @@ import { RouteError } from "@/pages/errors/RouteError"
 import { NotFoundPage } from "@/pages/errors/NotFoundPage"
 import { EventDetailPage } from "@/pages/events/EventDetailPage"
 import { EventsPage } from "@/pages/events/EventsPage"
+import { GetStartedPage } from "@/pages/onboarding/GetStartedPage"
 import { OverviewPage } from "@/pages/overview/OverviewPage"
 import { ProfilePage } from "@/pages/profile/ProfilePage"
 import { ReportPage } from "@/pages/reports/ReportPage"
@@ -50,6 +51,7 @@ export const routes: RouteObject[] = [
             element: <AppLayout />,
             children: [
               { index: true, element: <OverviewPage /> },
+              { path: "get-started", element: <GetStartedPage /> },
               { path: "cases", element: <CasesPage /> },
               { path: "cases/:caseId", element: <CaseDetailPage /> },
               { path: "response", element: <ResponsePage /> },

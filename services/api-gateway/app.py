@@ -15,7 +15,7 @@ from api.middleware.security import (
 )
 from api.routes import (
     alerts, api_keys, assets, audit, auth, cases, connectors as connector_routes, detection, events, health, notifications,
-    playbooks, reports, response, scans, simulation, tenants as tenant_routes, tuning, users,
+    onboarding, playbooks, reports, response, scans, simulation, tenants as tenant_routes, tuning, users,
 )
 from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
@@ -61,6 +61,7 @@ async def lifespan(app: FastAPI):
     for loop in loops:
         loop.cancel()
     await playbook_service.idle()
+    await m365_ingest.idle()
     for loop in loops:
         with suppress(asyncio.CancelledError):
             await loop
@@ -120,6 +121,7 @@ app.include_router(detection.router, prefix=f"{settings.API_PREFIX}/detection", 
 app.include_router(
     simulation.router, prefix=f"{settings.API_PREFIX}/simulation", tags=["simulation"], dependencies=scoped("simulations")
 )
+app.include_router(onboarding.router, prefix=f"{settings.API_PREFIX}/onboarding", tags=["onboarding"], dependencies=[Depends(audited("onboarding"))])
 app.include_router(
     connector_routes.router, prefix=f"{settings.API_PREFIX}/connectors", tags=["connectors"], dependencies=[Depends(audited("connectors"))]
 )

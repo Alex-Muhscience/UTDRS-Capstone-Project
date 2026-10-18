@@ -322,7 +322,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 |---|---|---|---|
 | FR-PLT-01 | Billing: plans, per-seat metering, invoices, card and invoice payment, MSP wholesale billing (Stripe or equivalent) | P1 | 2 |
 | FR-PLT-02 | Data retention per plan (for example 90 days hot, 1 year archive), enforced automatically | P0 | 1 |
-| FR-PLT-03 | Onboarding wizard: connect Microsoft 365 or Google in minutes, see first results the same day | P0 | 1 |
+| FR-PLT-03 | Onboarding wizard: connect Microsoft 365 or Google in minutes, see first results the same day **Done for Microsoft 365 (#27); Google comes with its connector (FR-ING-03).** | P0 | 1 |
 | FR-PLT-04 | Self-hosted edition (Helm chart and Compose) for customers who cannot use the hosted service | P3 | 4 |
 | FR-PLT-05 | Status page and in-product incident notices | P1 | 2 |
 | FR-PLT-06 | Internationalisation of the dashboard and reports (English first, then French, Swahili, Arabic, Portuguese as the market requires) | P2 | 3 |
@@ -554,7 +554,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 |---|---|---|---|
 | GAP-WEB-01 | Single-organisation UI; no tenant switcher or MSP views | FR-TEN-03 | P1 |
 | GAP-WEB-02 | No cases, investigation graph, search, playbooks, connectors, response approvals, reports or settings pages **Cases (#20), playbooks and response approvals (#21), notification settings (#22) and reports (#23) done.** | Sections 5.5 to 5.8 | P0/P1 |
-| GAP-WEB-03 | No onboarding flow | FR-PLT-03 | P0 |
+| GAP-WEB-03 | No onboarding flow **Done (#27).** | FR-PLT-03 | P0 |
 | GAP-WEB-04 | No MFA, SSO or API-key management screens | FR-TEN-05, FR-TEN-06, FR-API-02 | P0 |
 | GAP-WEB-05 | Polling rather than push; no notifications centre | GAP-ARC-06 | P1 |
 | GAP-WEB-06 | English only; accessibility not audited | FR-PLT-06, NFR-13 | P2 |

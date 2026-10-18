@@ -101,7 +101,12 @@ def org(client, monkeypatch):
 
 
 def connect(client, auth, secret=CLIENT_SECRET):
-    return client.put(f"{API}/connectors/microsoft-365", json={"azure_tenant_id": AZURE_TENANT, "client_id": CLIENT_ID, "client_secret": secret}, headers=auth)
+    """Connect, and wait for the first fetch that connecting starts."""
+    from core.services import m365_ingest
+
+    response = client.put(f"{API}/connectors/microsoft-365", json={"azure_tenant_id": AZURE_TENANT, "client_id": CLIENT_ID, "client_secret": secret}, headers=auth)
+    client.portal.call(m365_ingest.idle)
+    return response
 
 
 def stored_connection(client):
@@ -148,8 +153,9 @@ def test_no_secret_is_stored_without_an_encryption_key(client, org, microsoft, m
 
 def test_polling_brings_in_sign_ins_audits_and_defender_alerts(client, org, microsoft):
     connect(client, org)
-    result = client.post(f"{API}/connectors/microsoft-365/poll", headers=org).json()
-    assert result == {"counts": {"signins": 3, "audits": 2, "alerts": 1}, "errors": {}}
+    # Connecting fetches the last day straight away.
+    first = client.get(f"{API}/connectors/microsoft-365", headers=org).json()
+    assert (first["last_poll"], first["errors"]) == ({"signins": 3, "audits": 2, "alerts": 1}, {})
 
     events = client.get(f"{API}/events/", params={"limit": 50}, headers=org).json()
     by_id = {e["raw_data"].get("external_id"): e for e in events}
@@ -181,13 +187,13 @@ def test_polling_brings_in_sign_ins_audits_and_defender_alerts(client, org, micr
 
 
 def test_a_missing_permission_stops_only_its_source(client, org, microsoft):
-    connect(client, org)
     microsoft.forbidden.add("/auditLogs/signIns")
     microsoft.throttle_once.add("/auditLogs/directoryAudits")  # Microsoft says to slow down once
-    result = client.post(f"{API}/connectors/microsoft-365/poll", headers=org).json()
-    assert result["counts"]["audits"] == 2 and result["counts"]["alerts"] == 1
+    connect(client, org)
+    result = client.get(f"{API}/connectors/microsoft-365", headers=org).json()
+    assert result["last_poll"]["audits"] == 2 and result["last_poll"]["alerts"] == 1
     assert result["errors"] == {"signins": "Not allowed: check UTDRS's permissions in Microsoft 365"}
-    assert client.get(f"{API}/connectors/microsoft-365", headers=org).json()["status"] == "error"
+    assert result["status"] == "error"
 
     checks = {c["name"]: c for c in client.post(f"{API}/connectors/microsoft-365/check", headers=org).json()}
     assert checks["Sign-ins"] == {"name": "Sign-ins", "ok": False, "detail": "Not allowed: needs AuditLog.Read.All, and an Entra ID P1 or P2 licence"}
@@ -220,6 +226,9 @@ def test_connecting_by_admin_consent(client, org, microsoft, monkeypatch):
     assert forged.status_code == 422
 
     done = client.post(f"{API}/connectors/microsoft-365/consent", json={"state": state, "tenant": AZURE_TENANT, "admin_consent": "True"}, headers=org).json()
+    from core.services import m365_ingest
+
+    client.portal.call(m365_ingest.idle)
     assert (done["connected"], done["mode"], done["azure_tenant_id"], done["client_id"]) == (True, "consent", AZURE_TENANT, None)
 
 

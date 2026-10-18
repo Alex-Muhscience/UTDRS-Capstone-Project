@@ -58,6 +58,7 @@ async def consented(body: ConsentResult, request: Request, admin: User = Depends
         raise _refused(e)
     await m365_ingest.add_rules(admin.id)
     await m365.check()
+    m365_ingest.start_first_poll()
     return await _status()
 
 
@@ -75,6 +76,7 @@ async def connect_own_app(body: OwnApp, request: Request, admin: User = Depends(
         raise _refused(e)
     await m365_ingest.add_rules(admin.id)
     await m365.check()
+    m365_ingest.start_first_poll()
     return await _status()
 
 
