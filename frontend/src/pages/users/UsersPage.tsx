@@ -3,7 +3,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 
 import type { UserWithPassword } from "@/api/client"
-import { displayName, useCreateUser, useResetPassword, useUpdateUser, useUsers } from "@/api/queries"
+import { displayName, useCreateUser, useResetMfa, useResetPassword, useUpdateUser, useUsers } from "@/api/queries"
 import { useUser } from "@/auth/context"
 import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
@@ -81,6 +81,7 @@ export function UsersPage() {
   const users = useUsers()
   const update = useUpdateUser()
   const reset = useResetPassword()
+  const resetMfa = useResetMfa()
   const [adding, setAdding] = useState(false)
   const [password, setPassword] = useState<UserWithPassword | null>(null)
 
@@ -124,6 +125,7 @@ export function UsersPage() {
                 <Th>Person</Th>
                 <Th className="w-44">Role</Th>
                 <Th className="w-32">Status</Th>
+                <Th className="w-24">MFA</Th>
                 <Th className="w-36">Last sign-in</Th>
                 <Th className="w-56">
                   <span className="sr-only">Actions</span>
@@ -157,6 +159,7 @@ export function UsersPage() {
                       />
                     </Td>
                     <Td>{user.active ? <Badge tone="success">Active</Badge> : <Badge>Deactivated</Badge>}</Td>
+                    <Td>{user.mfa_enabled ? <Badge tone="success">On</Badge> : <Badge>Off</Badge>}</Td>
                     <Td className="text-muted" title={formatDateTime(user.lastLogin)}>
                       {user.lastLogin ? formatRelative(user.lastLogin) : "Never"}
                     </Td>
@@ -175,6 +178,22 @@ export function UsersPage() {
                         >
                           <KeyRound className="size-3.5" aria-hidden /> Reset password
                         </Button>
+                        {user.mfa_enabled && !isMe && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title="For a lost phone: they set MFA up again when they next sign in, if it is required"
+                            disabled={resetMfa.isPending}
+                            onClick={() =>
+                              resetMfa.mutate(user.id, {
+                                onSuccess: () => toast.success(`${name}'s multi-factor authentication is reset`),
+                                onError: (error) => toast.error(error.message),
+                              })
+                            }
+                          >
+                            Reset MFA
+                          </Button>
+                        )}
                         {!isMe && (
                           <Button
                             size="sm"

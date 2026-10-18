@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Literal, Optional
 from bson import ObjectId
 
 from core.models.common import IdString, PyObjectId
-from pydantic import AliasChoices, BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 from utils.time import utcnow
 
 
@@ -77,6 +77,18 @@ class User(UserBase):
     createdAt: datetime
     updatedAt: datetime
     preferences: Dict[str, Any] = {}
+    # Whether a second factor is needed to sign in (the secret itself is never shown).
+    mfa_enabled: bool = False
+    # Signed in, but the organisation requires MFA and this account has none yet: the
+    # session can only set it up.
+    mfa_setup_required: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _mfa(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "mfa" in data:
+            data = {**data, "mfa_enabled": bool((data.get("mfa") or {}).get("enabled"))}
+        return data
 
     model_config = ConfigDict(
         populate_by_name=True,
