@@ -5303,6 +5303,109 @@
         }
       }
     },
+    "/api/v1/retention/": {
+      "get": {
+        "tags": [
+          "retention"
+        ],
+        "summary": "Get Retention",
+        "description": "How long each kind of data is kept, the deployment's defaults and maximum, and the last clean-up.",
+        "operationId": "get_retention_api_v1_retention__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Retention"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "retention"
+        ],
+        "summary": "Update Retention",
+        "description": "Change how long each kind of data is kept, within the deployment's maximum.",
+        "operationId": "update_retention_api_v1_retention__patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Retention"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/retention/run": {
+      "post": {
+        "tags": [
+          "retention"
+        ],
+        "summary": "Run Now",
+        "description": "Delete what has passed its time now, rather than at the next hourly clean-up. Returns how much of each kind.",
+        "operationId": "run_now_api_v1_retention_run_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "type": "object",
+                  "title": "Response Run Now Api V1 Retention Run Post"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/onboarding/": {
       "get": {
         "tags": [
@@ -10826,6 +10929,182 @@
         },
         "type": "object",
         "title": "ResponseSettingsUpdate"
+      },
+      "Retention": {
+        "properties": {
+          "days": {
+            "$ref": "#/components/schemas/RetentionDays"
+          },
+          "defaults": {
+            "$ref": "#/components/schemas/RetentionDays"
+          },
+          "max_days": {
+            "type": "integer",
+            "title": "Max Days"
+          },
+          "last_run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RetentionRun"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "days",
+          "defaults",
+          "max_days"
+        ],
+        "title": "Retention"
+      },
+      "RetentionDays": {
+        "properties": {
+          "events": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Events"
+          },
+          "alerts": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Alerts"
+          },
+          "cases": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Cases"
+          },
+          "actions": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Actions"
+          },
+          "notifications": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Notifications"
+          },
+          "labels": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Labels"
+          }
+        },
+        "type": "object",
+        "required": [
+          "events",
+          "alerts",
+          "cases",
+          "actions",
+          "notifications",
+          "labels"
+        ],
+        "title": "RetentionDays",
+        "description": "Days each kind of data is kept."
+      },
+      "RetentionRun": {
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "deleted": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "at",
+          "deleted"
+        ],
+        "title": "RetentionRun"
+      },
+      "RetentionUpdate": {
+        "properties": {
+          "events": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Events"
+          },
+          "alerts": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alerts"
+          },
+          "cases": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cases"
+          },
+          "actions": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actions"
+          },
+          "notifications": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notifications"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels"
+          }
+        },
+        "type": "object",
+        "title": "RetentionUpdate"
       },
       "RuleEngineStatus": {
         "properties": {

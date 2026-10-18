@@ -321,7 +321,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 | ID | Requirement | Priority | Phase |
 |---|---|---|---|
 | FR-PLT-01 | Billing: plans, per-seat metering, invoices, card and invoice payment, MSP wholesale billing (Stripe or equivalent) | P1 | 2 |
-| FR-PLT-02 | Data retention per plan (for example 90 days hot, 1 year archive), enforced automatically | P0 | 1 |
+| FR-PLT-02 | Data retention per plan (for example 90 days hot, 1 year archive), enforced automatically **Done (#28): per-organisation periods within the deployment's defaults and maximum, enforced hourly; per-plan limits come with billing, and archiving to cheaper storage remains.** | P0 | 1 |
 | FR-PLT-03 | Onboarding wizard: connect Microsoft 365 or Google in minutes, see first results the same day **Done for Microsoft 365 (#27); Google comes with its connector (FR-ING-03).** | P0 | 1 |
 | FR-PLT-04 | Self-hosted edition (Helm chart and Compose) for customers who cannot use the hosted service | P3 | 4 |
 | FR-PLT-05 | Status page and in-product incident notices | P1 | 2 |
@@ -565,7 +565,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 |---|---|---|---|
 | GAP-OPS-01 | No metrics, traces or service dashboards (structured logs only); no alerting on the platform's own health | NFR-11 | P0 |
 | GAP-OPS-02 | No automated backups or restore tests (manual `mongodump` steps in `docs/docker.md`) | NFR-04 | P0 |
-| GAP-OPS-03 | No data retention or deletion jobs | FR-PLT-02, NFR-09 | P0 |
+| GAP-OPS-03 | No data retention or deletion jobs **Done (#28), except trimming the audit log, which needs a signed checkpoint.** | FR-PLT-02, NFR-09 | P0 |
 | GAP-OPS-04 | No load or soak tests; throughput unknown | NFR-02 | P1 |
 | GAP-OPS-05 | No staging environment, release process, versioning or changelog per release | NFR-16 | P1 |
 | GAP-OPS-06 | No incident response runbooks or on-call for the service itself | NFR-03 | P1 |

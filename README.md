@@ -145,6 +145,7 @@ Next:
 - [x] Cases: related alerts grouped by user, device, address or sender, with owners, deadlines, timelines, notes, evidence and a plain-language explanation
 - [x] Response actions and playbooks: approval, automatic and notify modes, undo, safety limits and built-in playbooks (Microsoft 365 actions run once its connector is connected)
 - [x] Email notifications: new cases, approvals needed and actions taken, per-person preferences, retried delivery and a delivery log
+- [x] Data retention: per-organisation periods for each kind of data, deleted hourly, never open work
 - [x] Onboarding: a checklist from sign-up to first results the same day, worked out from the organisation's state
 - [x] Microsoft 365 connector: admin consent or an own app registration, encrypted secrets, Entra ID sign-ins and audit logs and Defender alerts, built-in identity detections, and response actions through it (built against Graph's documented formats; not yet run against a live tenant)
 - [x] Identity correlations in the engine: impossible travel, password spraying, password guessing, success after repeated failures and MFA fatigue

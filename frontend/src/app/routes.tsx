@@ -8,6 +8,7 @@ import { AuditLogPage } from "@/pages/admin/AuditLogPage"
 import { ConnectorsPage } from "@/pages/connectors/ConnectorsPage"
 import { ConsentedPage } from "@/pages/connectors/ConsentedPage"
 import { EmailLogPage } from "@/pages/admin/EmailLogPage"
+import { RetentionPage } from "@/pages/admin/RetentionPage"
 import { AlertDetailPage } from "@/pages/alerts/AlertDetailPage"
 import { AlertsPage } from "@/pages/alerts/AlertsPage"
 import { AssetDetailPage } from "@/pages/assets/AssetDetailPage"
@@ -76,6 +77,7 @@ export const routes: RouteObject[] = [
                   { path: "api-keys", element: <ApiKeysPage /> },
                   { path: "audit-log", element: <AuditLogPage /> },
                   { path: "email-log", element: <EmailLogPage /> },
+                  { path: "retention", element: <RetentionPage /> },
                   { path: "connectors", element: <ConnectorsPage /> },
                   { path: "connectors/microsoft-365/consented", element: <ConsentedPage /> },
                 ],
