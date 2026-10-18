@@ -336,7 +336,7 @@ Detailed in [section 7](#7-public-api-mcp-server-and-integrations).
 | FR-API-01 | Versioned public REST API covering everything the dashboard can do, documented with OpenAPI | P0 | 1 |
 | FR-API-02 | API keys and OAuth 2.0 client credentials with scopes, per-tenant | P0 | 1 |
 | FR-API-03 | Webhooks with signed payloads, retries and delivery log **Done (#34).** | P1 | 2 |
-| FR-API-04 | MCP server with read tools, guarded response tools and resources | P1 | 2 |
+| FR-API-04 | MCP server with read tools, guarded response tools and resources **v1 done (#35): read tools, case and verdict tools, guarded action proposals, resources and prompts, over Streamable HTTP and stdio with API keys; OAuth 2.1 remains.** | P1 | 2 |
 | FR-API-05 | SIEM forwarding: Splunk HEC, Microsoft Sentinel, Elastic, syslog/CEF | P2 | 3 |
 | FR-API-06 | SDKs: Python and TypeScript, generated from the OpenAPI schema | P2 | 3 |
 | FR-API-07 | Integration marketplace page listing connectors and their status | P3 | 4 |
