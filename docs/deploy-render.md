@@ -9,7 +9,7 @@ The dashboard is on Vercel (built from this repository). This puts the backend o
 | Core engine | Render web service `utdrs-core-engine` | https://utdrs-core-engine.onrender.com (answers only the gateway: it needs the shared internal token) |
 | Database | MongoDB Atlas | databases `utdrs` (gateway) and `utdrs_engine` (engine) in one cluster |
 
-The browser calls the gateway directly (its address is in `frontend/.env.vercel`, read by `vite.config.ts` only in Vercel builds, so nothing in the Vercel project's settings can override it), and the gateway allows the dashboard's origins (CORS), so the gateway sees each person's real address for sign-in throttling. `frontend/vercel.json` also serves the app for every route and sends the same security headers as the Docker image.
+The browser calls the gateway directly: the dashboard picks the gateway's address from the domain it is served on (`frontend/src/api/deployment.ts`), so neither Vercel's build settings nor its environment variables can get it wrong, and the gateway allows the dashboard's origins (CORS), so the gateway sees each person's real address for sign-in throttling. `frontend/vercel.json` also serves the app for every route and sends the same security headers as the Docker image.
 
 ## 1. The database: MongoDB Atlas
 
@@ -26,7 +26,7 @@ The browser calls the gateway directly (its address is in `frontend/.env.vercel`
    - `MONGODB_URI`, for both services: the Atlas connection string (the same one).
    - `ADMIN_EMAIL` and `ADMIN_PASSWORD`: the first administrator (user name `admin`). Use a password manager; at least 8 characters.
 4. **Apply**. The engine builds first (a few minutes: it installs its machine-learning libraries), then the gateway. Render generates `JWT_SECRET`, `ENCRYPTION_KEY` and the shared `INTERNAL_API_TOKEN`.
-5. Check both service addresses in Render. If either name was taken, Render adds a suffix: then change the addresses in `render.yaml` (`CORE_ENGINE_URL`), `frontend/.env.vercel` (`UTDRS_DEPLOY_API_URL`) and `frontend/vercel.json` (`connect-src`), and push.
+5. Check both service addresses in Render. If either name was taken, Render adds a suffix: then change the addresses in `render.yaml` (`CORE_ENGINE_URL`), `frontend/src/api/deployment.ts` and `frontend/vercel.json` (`connect-src`), and push.
 
 ## 3. Check it
 
