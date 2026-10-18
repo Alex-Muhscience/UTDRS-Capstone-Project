@@ -226,6 +226,11 @@ export function AlertDetailPage() {
             <span className="text-subtle">
               Raised {formatRelative(data.created_at)} by {data.source}
             </span>
+            {data.case_id && (
+              <Link to={`/cases/${data.case_id}`} className="text-accent hover:underline">
+                Part of a case
+              </Link>
+            )}
           </span>
         }
       />

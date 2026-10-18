@@ -12,6 +12,9 @@ export const RULE_TYPES = ["signature", "anomaly", "behavior", "correlation"] as
 export const DETECTION_SOURCES = ["network", "endpoint", "log", "cloud", "identity"] as const
 
 export const ASSET_TYPES = ["server", "workstation", "laptop", "network_device", "mobile", "cloud", "iot"] as const
+export const CASE_STATUSES = ["open", "investigating", "contained", "resolved", "false_positive", "closed"] as const
+export type CaseStatus = (typeof CASE_STATUSES)[number]
+
 export const ASSET_STATUSES = ["active", "inactive", "decommissioned"] as const
 export const CRITICALITIES = ["critical", "high", "medium", "low"] as const
 

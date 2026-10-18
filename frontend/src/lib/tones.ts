@@ -31,6 +31,9 @@ export const STATUS_TONES: Record<string, Tone> = {
   resolved: "success",
   closed: "neutral",
   false_positive: "neutral",
+  // Cases (open, resolved, closed and false_positive as for alerts)
+  investigating: "accent",
+  contained: "accent",
   // Detection rules
   enabled: "success",
   testing: "warning",
