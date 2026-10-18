@@ -375,5 +375,5 @@ def test_response_is_kept_within_an_organisation(client, admin, monkeypatch):
     assert response.status_code == 422 and response.json()["detail"] == "Case not found"
     # The other organisation has built-in playbooks of its own.
     theirs = client.get(f"{API}/playbooks/", headers=other).json()
-    assert {p["built_in"] for p in theirs} == {"account-takeover", "phishing", "ransomware"}
+    assert {p["built_in"] for p in theirs} == {"account-takeover", "phishing", "inbox-rule", "ransomware"}
     assert not {p["id"] for p in theirs} & {p["id"] for p in client.get(f"{API}/playbooks/", headers=admin).json()}

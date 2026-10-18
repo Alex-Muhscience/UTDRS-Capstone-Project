@@ -35,7 +35,7 @@ from core.database.connection import get_database
 from core.models.alert import AlertCreate
 from core.models.detection import DetectionRuleCreate
 from core.models.event import EventCreate
-from core.services import m365, tenants
+from core.services import m365, m365_mailbox, tenants
 from core.tenancy import scoped, tenant_context
 from utils.logger import get_logger
 from utils.time import utcnow
@@ -96,6 +96,28 @@ RULES: List[Dict[str, Any]] = [
         "tags": ["identity", "mfa", "T1556.006"],
         "logic": "source == 'm365' and event_type == 'audit' and activity matches "
                  "'(?i)(deleted security info|delete.*authentication method|disable strong authentication)'",
+    },
+    {
+        "name": "Microsoft 365: inbox rule forwards mail outside",
+        "description": "An inbox rule sends mail to an address outside your organisation: a common way to steal mail from a taken-over account.",
+        "severity": "high",
+        "tags": ["email", "inbox-rule", "T1114.003"],
+        "logic": "source == 'm365' and event_type == 'mailbox' and activity in ['New-InboxRule', 'Set-InboxRule', 'UpdateInboxRules'] "
+                 "and external_forward == true",
+    },
+    {
+        "name": "Microsoft 365: mailbox forwards mail outside",
+        "description": "A mailbox was set to forward all its mail to an address outside your organisation.",
+        "severity": "high",
+        "tags": ["email", "inbox-rule", "T1114.003"],
+        "logic": "source == 'm365' and event_type == 'mailbox' and activity == 'Set-Mailbox' and external_forward == true",
+    },
+    {
+        "name": "Microsoft 365: inbox rule hides mail",
+        "description": "An inbox rule deletes mail or moves it where nobody looks, as attackers do to hide replies while they use the account.",
+        "severity": "medium",
+        "tags": ["email", "inbox-rule", "T1564.008"],
+        "logic": "source == 'm365' and event_type == 'mailbox' and hides_mail == true",
     },
 ]
 
@@ -308,6 +330,37 @@ async def _poll_source(client, connection, name: str, path: str, time_field: str
     return stored, newest, error
 
 
+async def _verified_domains(client: httpx.AsyncClient) -> set:
+    """The organisation's own domains, so forwarding to them is not called external."""
+    try:
+        response = await client.get("/domains", params={"$select": "id,isVerified"})
+    except httpx.HTTPError:
+        return set()
+    if response.is_error:
+        return set()
+    return {d["id"].lower() for d in response.json().get("value") or [] if d.get("isVerified")}
+
+
+async def _poll_mailbox(connection: Dict[str, Any], domains: set, cursor: Optional[str]) -> Tuple[int, Optional[str], Optional[str]]:
+    """Exchange's inbox-rule and forwarding changes, from the Management Activity API."""
+    client = await m365.management()
+    if client is None:
+        return 0, cursor, "Could not sign in to the Office 365 Management API"
+    async with client:
+        if not connection.get("mailbox_subscribed"):
+            error = await m365_mailbox.subscribe(client)
+            if error:
+                return 0, cursor, error
+            await scoped(get_database(), "connections").update_one({"_id": connection["_id"]}, {"$set": {"mailbox_subscribed": True}})
+        records, new_cursor, error = await m365_mailbox.fetch(client, cursor)
+    stored = 0
+    for record in records:
+        event = m365_mailbox.mailbox_event(record, domains)
+        if event:
+            stored += bool(await _store_event(event))
+    return stored, new_cursor, error
+
+
 SOURCES = [("signins", "/auditLogs/signIns", "createdDateTime"), ("audits", "/auditLogs/directoryAudits", "activityDateTime"),
            ("alerts", "/security/alerts_v2", "createdDateTime")]
 
@@ -338,6 +391,13 @@ async def poll() -> Optional[Dict[str, Any]]:
                         counts[name], error = 0, f"Could not reach Microsoft Graph: {e.__class__.__name__}"
                     if error:
                         errors[name] = error
+                domains = await _verified_domains(client)
+            try:
+                counts["mailbox"], cursors["mailbox"], error = await _poll_mailbox(connection, domains, cursors.get("mailbox"))
+            except httpx.HTTPError as e:
+                counts["mailbox"], error = 0, f"Could not reach the Office 365 Management API: {e.__class__.__name__}"
+            if error:
+                errors["mailbox"] = error
     finally:
         await connections.update_one({"_id": connection["_id"]}, {"$set": {
             "cursors": cursors, "last_poll_at": utcnow(), "last_poll": counts, "errors": errors,
@@ -367,6 +427,7 @@ async def poll_all() -> None:
         with tenant_context(tenant_id):
             if await m365.get_connection():
                 try:
+                    await add_rules()  # rules added since the organisation connected
                     await poll()
                 except Exception:
                     logger.exception("Microsoft 365 poll failed")
