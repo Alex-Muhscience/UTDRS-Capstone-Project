@@ -22,7 +22,7 @@ describe("tuning", () => {
       "POST /api/v1/tuning/suppressions": { id: "s1" },
     })
     const { user: person } = renderApp(`/alerts/${item.id}`)
-    await person.type(await screen.findByLabelText("Verdict note"), "Our scanner")
+    await person.type(await screen.findByLabelText("Reason for the verdict"), "Our scanner")
     await person.click(screen.getByRole("button", { name: "False positive" }))
     await waitFor(() => expect(calls.some((call) => call.path.endsWith("/feedback"))).toBe(true))
     expect(JSON.parse(calls.find((call) => call.path.endsWith("/feedback"))?.body ?? "{}")).toEqual({ verdict: "false_positive", note: "Our scanner" })

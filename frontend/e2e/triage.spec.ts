@@ -44,6 +44,8 @@ test("an event becomes an alert that an analyst can triage", async ({ page }) =>
   await page.getByRole("button", { name: "Resolve" }).click()
   await expect(page.getByRole("button", { name: "Close" })).toBeVisible()
   await expect(page.getByText("Isolated the laptop from the network.")).toBeVisible()
+  await page.getByRole("button", { name: "Real threat" }).click()
+  await expect(page.getByText(/Marked a real threat by/)).toBeVisible()
 
   await page.getByRole("button", { name: "Sign out" }).click()
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible()
