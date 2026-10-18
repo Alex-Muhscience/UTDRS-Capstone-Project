@@ -125,7 +125,7 @@ The plan for turning UTDRS into a commercial product, with every requirement and
 Done:
 
 - [x] Bring the components into one repository with their history, removing committed credentials, vendored tools and binaries
-- [x] Python 3.12 and current FastAPI, Pydantic and PyMongo; tests and CI for every component
+- [x] Python 3.12 and current FastAPI, Pydantic and PyMongo; tests and CI for every component (a pull request runs the jobs for the parts it changes; everything runs weekly and on demand)
 - [x] Connect the gateway to the core engine: event in, detection, alert out
 - [x] Rebuild the dashboard on the gateway's real API, typed against its schema, with unit and end-to-end tests
 - [x] Give the engine its own database and load its signature rules; fix rules that flagged all DNS and network traffic
