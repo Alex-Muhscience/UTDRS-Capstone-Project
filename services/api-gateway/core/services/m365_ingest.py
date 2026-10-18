@@ -119,6 +119,27 @@ RULES: List[Dict[str, Any]] = [
         "tags": ["email", "inbox-rule", "T1564.008"],
         "logic": "source == 'm365' and event_type == 'mailbox' and hides_mail == true",
     },
+    {
+        "name": "Microsoft 365: email failed DMARC",
+        "description": "An email claiming to be from a domain failed that domain's DMARC check: it may be forged.",
+        "severity": "medium",
+        "tags": ["email", "phishing", "T1566"],
+        "logic": "source == 'm365' and event_type == 'email' and dmarc == 'fail'",
+    },
+    {
+        "name": "Microsoft 365: risky attachment from outside",
+        "description": "An email from outside carried a file type often used to deliver malware (a program, script, disk image, macro document or web page).",
+        "severity": "high",
+        "tags": ["email", "phishing", "T1566.001"],
+        "logic": "source == 'm365' and event_type == 'email' and risky_attachment == true and external_sender == true",
+    },
+    {
+        "name": "Microsoft 365: replies would go to someone else",
+        "description": "An email from outside asks for replies to another domain, as in invoice fraud and business email compromise.",
+        "severity": "medium",
+        "tags": ["email", "phishing", "bec", "T1566"],
+        "logic": "source == 'm365' and event_type == 'email' and reply_to_mismatch == true and external_sender == true",
+    },
 ]
 
 
@@ -211,6 +232,15 @@ def audit_event(record: Dict[str, Any]) -> EventCreate:
     )
 
 
+def messages_in(record: Dict[str, Any]) -> List[Tuple[str, str]]:
+    """The (recipient, Internet message id) of each email a Defender alert names."""
+    found = []
+    for evidence in record.get("evidence") or []:
+        if evidence.get("@odata.type", "").endswith("analyzedMessageEvidence") and evidence.get("internetMessageId") and evidence.get("recipientEmailAddress"):
+            found.append((evidence["recipientEmailAddress"].lower(), evidence["internetMessageId"]))
+    return list(dict.fromkeys(found))
+
+
 def defender_alert(record: Dict[str, Any]) -> Tuple[EventCreate, Dict[str, Any]]:
     """Microsoft's alert, as an event holding its record and the alert UTDRS raises from it."""
     users, hosts, ips = [], [], []
@@ -239,6 +269,7 @@ def defender_alert(record: Dict[str, Any]) -> Tuple[EventCreate, Dict[str, Any]]
             "hostname": hosts[0] if hosts else None,
             "source_ip": ips[0] if ips else None,
             "users": users, "hosts": hosts, "ips": ips,
+            "internet_message_id": messages_in(record)[0][1] if messages_in(record) else None,
             "provider": record.get("serviceSource"),
             "category": record.get("category"),
             "severity": record.get("severity"),
@@ -326,8 +357,23 @@ async def _poll_source(client, connection, name: str, path: str, time_field: str
                     metadata=alert["metadata"],
                 )
                 stored += 1
+                await _check_messages(record)
     newest = records[-1].get(time_field) if records else cursor
     return stored, newest, error
+
+
+MAX_MESSAGES_PER_ALERT = 5
+
+
+async def _check_messages(record: Dict[str, Any]) -> None:
+    """Check each email a Defender alert names, so its links, attachments and the engine's verdict are in the case."""
+    from core.services import m365_email
+
+    for recipient, message_id in messages_in(record)[:MAX_MESSAGES_PER_ALERT]:
+        try:
+            await m365_email.analyse(recipient, message_id)
+        except Exception as e:  # one unreadable message must not stop the poll
+            logger.warning(f"Could not check message {message_id} for {recipient}: {e}")
 
 
 async def _verified_domains(client: httpx.AsyncClient) -> set:

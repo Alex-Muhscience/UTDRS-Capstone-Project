@@ -3096,6 +3096,53 @@
         }
       }
     },
+    "/api/v1/email/check": {
+      "post": {
+        "tags": [
+          "email"
+        ],
+        "summary": "Check Email",
+        "description": "Check a delivered email for phishing: UTDRS reads its headers, sender, links and\nattachments from the recipient's mailbox, and the engine judges it. The result is an\n`email` event, and an alert if it looks malicious; the body is not kept.",
+        "operationId": "check_email_api_v1_email_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailCheck"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailCheckResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/assets/": {
       "get": {
         "tags": [
@@ -9200,6 +9247,58 @@
           "noisy"
         ],
         "title": "DetectorQuality"
+      },
+      "EmailCheck": {
+        "properties": {
+          "recipient": {
+            "type": "string",
+            "maxLength": 320,
+            "minLength": 3,
+            "pattern": "^[^@\\s]+@[^@\\s]+$",
+            "title": "Recipient"
+          },
+          "internet_message_id": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 3,
+            "title": "Internet Message Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recipient",
+          "internet_message_id"
+        ],
+        "title": "EmailCheck"
+      },
+      "EmailCheckResult": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "alert_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alert Id"
+          },
+          "already_checked": {
+            "type": "boolean",
+            "title": "Already Checked"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "already_checked"
+        ],
+        "title": "EmailCheckResult"
       },
       "Entity": {
         "properties": {

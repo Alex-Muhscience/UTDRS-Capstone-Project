@@ -1,0 +1,16 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#users('ana%40contoso.example')/messages('AAMkAGI2THVSAAA%3D')/attachments",
+  "value": [
+    {
+      "@odata.type": "#microsoft.graph.fileAttachment",
+      "id": "AAMkAGI2THVSAAABEgAQAC=",
+      "lastModifiedDateTime": "2026-10-18T06:18:42Z",
+      "name": "Invoice_4471.html",
+      "contentType": "text/html",
+      "size": 63,
+      "isInline": false,
+      "contentId": null,
+      "contentBytes": "PHNjcmlwdD5sb2NhdGlvbj0naHR0cHM6Ly9sb2dpbi1taWNyb3MwZnQuZXZpbC5leGFtcGxlJzwvc2NyaXB0Pg=="
+    }
+  ]
+}

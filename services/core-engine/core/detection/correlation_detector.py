@@ -728,7 +728,10 @@ class CorrelationDetector:
         # Store a copy: insert_one adds an ObjectId "_id" to the dict it is given, which
         # would otherwise leak into the event the other detectors and the alert see.
         # stored_at lets MongoDB expire the copy after EVENT_RETENTION_DAYS (see app.py).
-        await self.db.events.insert_one({**event, "stored_at": utcnow()})
+        # The copy leaves out message text (an email's body, content scanned by YARA): it
+        # is judged as it arrives, and not kept (data minimisation).
+        data = {k: v for k, v in (event.get("data") or {}).items() if k not in ("body", "content")}
+        await self.db.events.insert_one({**event, "data": data, "stored_at": utcnow()})
         
         # Correlate recent events
         correlations = await self.correlate_events()
