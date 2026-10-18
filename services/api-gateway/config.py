@@ -67,5 +67,21 @@ class Settings(BaseSettings):
     # How often the detection rules are re-sent to the core engine, besides after each change.
     RULE_SYNC_INTERVAL_SECONDS: int = 60
 
+    # Email notifications (core/services/notifications.py). Without SMTP_HOST, nothing is
+    # sent, and each notification is logged as skipped.
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    # "starttls" (port 587), "ssl" (port 465) or "none" (a local relay only).
+    SMTP_SECURITY: Literal["starttls", "ssl", "none"] = "starttls"
+    MAIL_FROM: str = "UTDRS <utdrs@localhost>"
+    # Where the dashboard is, for links in emails.
+    DASHBOARD_URL: str = "http://localhost:3001"
+    # How often the outbox is checked for email to send, and the most emails one person
+    # is sent in an hour (beyond it, notifications are logged as skipped).
+    NOTIFY_INTERVAL_SECONDS: int = 10
+    NOTIFY_MAX_PER_USER_PER_HOUR: int = 30
+
 
 settings = Settings()

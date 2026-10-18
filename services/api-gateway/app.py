@@ -14,13 +14,13 @@ from api.middleware.security import (
     rate_limit_handler,
 )
 from api.routes import (
-    alerts, api_keys, assets, audit, auth, cases, detection, events, health, playbooks, response, scans, simulation,
+    alerts, api_keys, assets, audit, auth, cases, detection, events, health, notifications, playbooks, response, scans, simulation,
     tenants as tenant_routes, users,
 )
 from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
 from core.database.indexes import ensure_indexes
-from core.services import case_service, playbooks as playbook_service, tenants
+from core.services import case_service, notifications as notification_service, playbooks as playbook_service, tenants
 from core.services.bootstrap import ensure_admin
 from core.services.startup_lock import startup_lock
 from core.tenancy import tenant_context
@@ -49,12 +49,14 @@ async def lifespan(app: FastAPI):
         await ensure_indexes()
         await ensure_admin()
         await group_existing_alerts_into_cases()
-    rule_sync = asyncio.create_task(sync_periodically())
+    loops = [asyncio.create_task(sync_periodically()), asyncio.create_task(notification_service.deliver_periodically())]
     yield
-    rule_sync.cancel()
+    for loop in loops:
+        loop.cancel()
     await playbook_service.idle()
-    with suppress(asyncio.CancelledError):
-        await rule_sync
+    for loop in loops:
+        with suppress(asyncio.CancelledError):
+            await loop
     await close_mongo_connection()
 
 
@@ -110,6 +112,9 @@ app.include_router(scans.router, prefix=f"{settings.API_PREFIX}/scans", tags=["s
 app.include_router(detection.router, prefix=f"{settings.API_PREFIX}/detection", tags=["detection"], dependencies=scoped("rules"))
 app.include_router(
     simulation.router, prefix=f"{settings.API_PREFIX}/simulation", tags=["simulation"], dependencies=scoped("simulations")
+)
+app.include_router(
+    notifications.router, prefix=f"{settings.API_PREFIX}/notifications", tags=["notifications"], dependencies=[Depends(audited("notifications"))]
 )
 app.include_router(api_keys.router, prefix=f"{settings.API_PREFIX}/api-keys", tags=["api keys"])
 app.include_router(audit.router, prefix=f"{settings.API_PREFIX}/audit-log", tags=["audit log"])
