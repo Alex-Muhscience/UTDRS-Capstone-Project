@@ -94,6 +94,11 @@ class Settings(BaseSettings):
     RETENTION_MAX_DAYS: int = 730
     RETENTION_INTERVAL_SECONDS: int = 3600
 
+    # Webhooks (core/services/webhooks.py): how often due deliveries are sent, and whether
+    # receivers may be on private networks (only for a deployment's own receivers).
+    WEBHOOK_INTERVAL_SECONDS: int = 5
+    WEBHOOK_ALLOW_PRIVATE_ADDRESSES: bool = False
+
     # Encrypting secrets stored in the database (utils/crypto.py): 32 random bytes,
     # base64 (openssl rand -base64 32). When rotating, put the old key in _PREVIOUS.
     ENCRYPTION_KEY: Optional[str] = None

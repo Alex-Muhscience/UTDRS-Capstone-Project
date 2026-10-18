@@ -18,6 +18,7 @@ import {
   SlidersHorizontal,
   UserRound,
   Users,
+  Webhook as WebhookIcon,
   X,
   Zap,
 } from "lucide-react"
@@ -51,6 +52,7 @@ const ADMIN_NAVIGATION = [
   { to: "/connectors", label: "Connectors", icon: Plug },
   { to: "/users", label: "Users", icon: Users },
   { to: "/api-keys", label: "API keys", icon: KeyRound },
+  { to: "/webhooks", label: "Webhooks", icon: WebhookIcon },
   { to: "/audit-log", label: "Audit log", icon: ScrollText },
   { to: "/email-log", label: "Email log", icon: Mail },
   { to: "/retention", label: "Data retention", icon: Archive },
