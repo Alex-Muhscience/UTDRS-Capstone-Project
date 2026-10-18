@@ -5,6 +5,7 @@ import { GuestOnly, RequireAuth } from "@/auth/RequireAuth"
 import { AppLayout } from "@/components/layout/AppLayout"
 import { ApiKeysPage } from "@/pages/admin/ApiKeysPage"
 import { AuditLogPage } from "@/pages/admin/AuditLogPage"
+import { EmailLogPage } from "@/pages/admin/EmailLogPage"
 import { AlertDetailPage } from "@/pages/alerts/AlertDetailPage"
 import { AlertsPage } from "@/pages/alerts/AlertsPage"
 import { AssetDetailPage } from "@/pages/assets/AssetDetailPage"
@@ -64,6 +65,7 @@ export const routes: RouteObject[] = [
                   { path: "users", element: <UsersPage /> },
                   { path: "api-keys", element: <ApiKeysPage /> },
                   { path: "audit-log", element: <AuditLogPage /> },
+                  { path: "email-log", element: <EmailLogPage /> },
                 ],
               },
               { path: "*", element: <NotFoundPage /> },

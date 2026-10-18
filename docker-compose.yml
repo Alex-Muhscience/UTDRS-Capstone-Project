@@ -70,6 +70,14 @@ services:
       # it from the private ranges Docker gives its networks, so sign-in throttling
       # counts browsers, not the proxy.
       TRUSTED_PROXIES: '["172.16.0.0/12", "192.168.0.0/16", "10.0.0.0/8"]'
+      # Email notifications. Without SMTP_HOST, nothing is sent (the email log says so).
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_SECURITY: ${SMTP_SECURITY:-starttls}
+      MAIL_FROM: ${MAIL_FROM:-UTDRS <utdrs@localhost>}
+      DASHBOARD_URL: ${DASHBOARD_URL:-http://localhost:${DASHBOARD_PORT:-8080}}
     depends_on:
       mongodb:
         condition: service_healthy

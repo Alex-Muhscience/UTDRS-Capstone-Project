@@ -27,6 +27,8 @@ export type Action = Schemas["Action"]
 export type ActionType = Schemas["ActionType"]
 export type Playbook = Schemas["Playbook"]
 export type ResponseSettings = Schemas["ResponseSettings"]
+export type NotificationPreferences = Schemas["NotificationPreferences"]
+export type Notification = Schemas["Notification"]
 export type Role = Schemas["UserAdminUpdate"]["role"]
 
 /** An error response from the gateway, or a network failure (status 0). */

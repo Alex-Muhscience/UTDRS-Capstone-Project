@@ -120,8 +120,11 @@ def _entry(kind: str, actor: Optional[Dict[str, Any]] = None, text: Optional[str
     return {"at": utcnow(), "kind": kind, "actor": actor, "text": text, "data": data}
 
 
-async def attach_alert(alert_id: str) -> Optional[str]:
-    """Put a new alert in a case: an open one about the same entity, or a new one. Returns the case id."""
+async def attach_alert(alert_id: str, notify: bool = True) -> Optional[str]:
+    """
+    Put a new alert in a case: an open one about the same entity, or a new one. Returns
+    the case id. A new case is emailed to those who want it, unless `notify` is false.
+    """
     alert = await _alerts().find_one({"_id": ObjectId(alert_id)})
     if not alert:
         return None
@@ -153,7 +156,7 @@ async def attach_alert(alert_id: str) -> Optional[str]:
         case_id = str(case["_id"])
     else:
         names = [e["value"] for e in entities if e["type"] in ("user", "host", "sender")][:1]
-        result = await _cases().insert_one({
+        case = {
             "title": f"{alert.get('title')}{' — ' + names[0] if names else ''}",
             "status": "open",
             "priority": priority,
@@ -167,8 +170,13 @@ async def attach_alert(alert_id: str) -> Optional[str]:
             "updated_at": now,
             "due_at": now + SLA[priority],
             "timeline": [{**_entry("created", text="Opened for this alert"), "at": now}, added],
-        })
-        case_id = str(result.inserted_id)
+        }
+        case["_id"] = (await _cases().insert_one(case)).inserted_id
+        case_id = str(case["_id"])
+        if notify:
+            from core.services import notifications  # it uses this module
+
+            await notifications.case_opened(case, [alert])
     await _alerts().update_one({"_id": alert["_id"]}, {"$set": {"case_id": case_id}})
     return case_id
 
@@ -182,7 +190,7 @@ async def group_existing_alerts(limit: int = 5000) -> int:
         {"case_id": {"$exists": False}, "status": {"$in": ["open", "in_progress"]}}, {"_id": 1}
     ).sort("created_at", 1).to_list(limit)
     for alert in alerts:
-        await attach_alert(str(alert["_id"]))
+        await attach_alert(str(alert["_id"]), notify=False)  # old news: nobody is emailed
     return len(alerts)
 
 

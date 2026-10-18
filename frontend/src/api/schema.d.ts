@@ -1585,6 +1585,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Preferences
+         * @description What you are emailed about, and whether email is set up.
+         */
+        get: operations["get_preferences_api_v1_notifications_preferences_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Preferences
+         * @description Change what you are emailed about.
+         */
+        patch: operations["update_preferences_api_v1_notifications_preferences_patch"];
+        trace?: never;
+    };
+    "/api/v1/notifications/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Test Email
+         * @description Send yourself a test email now, to check that email works.
+         */
+        post: operations["send_test_email_api_v1_notifications_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Delivery Log
+         * @description Every email your organisation's people were sent or not sent, newest first (administrators only).
+         */
+        get: operations["delivery_log_api_v1_notifications__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/api-keys/scopes": {
         parameters: {
             query?: never;
@@ -2722,6 +2786,79 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * Notification
+         * @description One email, as the delivery log shows it.
+         */
+        Notification: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** User Id */
+            user_id: string;
+            /** Email */
+            email: string;
+            /** Subject */
+            subject: string;
+            /** Link */
+            link?: string | null;
+            /** About */
+            about?: {
+                [key: string]: unknown;
+            } | null;
+            /** Status */
+            status: string;
+            /** Error */
+            error?: string | null;
+            /** Attempts */
+            attempts: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Sent At */
+            sent_at?: string | null;
+        };
+        /**
+         * NotificationPreferences
+         * @description What you are emailed about.
+         */
+        NotificationPreferences: {
+            /** Email */
+            email: boolean;
+            /**
+             * New Cases
+             * @enum {string}
+             */
+            new_cases: "critical" | "high" | "medium" | "low" | "info" | "off";
+            /** Approvals */
+            approvals: boolean;
+            /**
+             * Actions
+             * @enum {string}
+             */
+            actions: "all" | "failed" | "off";
+            /**
+             * Email Configured
+             * @default false
+             */
+            email_configured: boolean;
+            /** Address */
+            address?: string | null;
+        };
+        /** NotificationPreferencesUpdate */
+        NotificationPreferencesUpdate: {
+            /** Email */
+            email?: boolean | null;
+            /** New Cases */
+            new_cases?: ("critical" | "high" | "medium" | "low" | "info" | "off") | null;
+            /** Approvals */
+            approvals?: boolean | null;
+            /** Actions */
+            actions?: ("all" | "failed" | "off") | null;
+        };
         /** PasswordChange */
         PasswordChange: {
             /** Current Password */
@@ -3201,6 +3338,13 @@ export interface components {
         TenantUpdate: {
             /** Name */
             name: string;
+        };
+        /** TestEmailResult */
+        TestEmailResult: {
+            /** Sent */
+            sent: boolean;
+            /** Error */
+            error?: string | null;
         };
         /** TimelineEntry */
         TimelineEntry: {
@@ -6260,6 +6404,112 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Simulation"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_preferences_api_v1_notifications_preferences_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+        };
+    };
+    update_preferences_api_v1_notifications_preferences_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationPreferencesUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_test_email_api_v1_notifications_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestEmailResult"];
+                };
+            };
+        };
+    };
+    delivery_log_api_v1_notifications__get: {
+        parameters: {
+            query?: {
+                status?: ("queued" | "sending" | "sent" | "failed" | "skipped") | null;
+                limit?: number;
+                skip?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"][];
                 };
             };
             /** @description Validation Error */
