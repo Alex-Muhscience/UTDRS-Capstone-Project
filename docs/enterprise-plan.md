@@ -216,7 +216,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 | FR-TEN-03 | MSP accounts that own and switch between many client tenants, with per-client and all-client views | P1 | 2 |
 | FR-TEN-04 | Roles: owner, administrator, analyst, read-only, MSP technician, MSP administrator; custom roles with fine-grained permissions | P1 | 2 |
 | FR-TEN-05 | Single sign-on with OIDC (Entra ID, Google, Okta) and SAML; SCIM user provisioning | P1 | 2 |
-| FR-TEN-06 | Multi-factor authentication (TOTP, WebAuthn passkeys); enforceable per tenant **TOTP with recovery codes, enforceable per organisation, done (#32); passkeys remain.** | P0 | 1 |
+| FR-TEN-06 | Multi-factor authentication (TOTP, WebAuthn passkeys); enforceable per tenant **TOTP with recovery codes, enforceable per organisation, done (#33); passkeys remain.** | P0 | 1 |
 | FR-TEN-07 | Sessions: short-lived access tokens with refresh, revocation, idle timeout, list and end active sessions | P0 | 1 |
 | FR-TEN-08 | Audit log of every change and every response action, by whom, when, from where; exportable; tamper-evident | P0 | 1 |
 | FR-TEN-09 | Data residency: choose the region a tenant's data is stored in | P2 | 3 |
@@ -476,7 +476,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 
 | ID | Gap | Blocks | Priority |
 |---|---|---|---|
-| GAP-SEC-01 | No MFA, no SSO, no SCIM (`api/routes/auth.py` is password + JWT only) **MFA (TOTP) done (#32); passkeys, SSO and SCIM remain.** | FR-TEN-05, FR-TEN-06 | P0 |
+| GAP-SEC-01 | No MFA, no SSO, no SCIM (`api/routes/auth.py` is password + JWT only) **MFA (TOTP) done (#33); passkeys, SSO and SCIM remain.** | FR-TEN-05, FR-TEN-06 | P0 |
 | GAP-SEC-02 | Access tokens are 30-minute HS256 JWTs signed with one shared secret, no refresh tokens, no revocation list beyond deactivation; stored in `sessionStorage` (`frontend/src/auth/session.ts`) | FR-TEN-07 | P0 |
 | GAP-SEC-03 | Sign-in is not rate limited (SlowAPI configured, no limits set; see gateway README) **Done (#16): throttled per account and address, and per address.** | NFR-08 | P0 |
 | GAP-SEC-04 | No API keys or machine credentials; integrations must use a person's token **Done (#18): API keys with read/write scopes per area, hashed, revocable, expiring; never administrators.** | FR-API-02, FR-ING-05 | P0 |
@@ -555,7 +555,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 | GAP-WEB-01 | Single-organisation UI; no tenant switcher or MSP views | FR-TEN-03 | P1 |
 | GAP-WEB-02 | No cases, investigation graph, search, playbooks, connectors, response approvals, reports or settings pages **Cases (#20), playbooks and response approvals (#21), notification settings (#22) and reports (#23) done.** | Sections 5.5 to 5.8 | P0/P1 |
 | GAP-WEB-03 | No onboarding flow **Done (#27).** | FR-PLT-03 | P0 |
-| GAP-WEB-04 | No MFA, SSO or API-key management screens **API keys (#18) and MFA (#32) done; SSO remains.** | FR-TEN-05, FR-TEN-06, FR-API-02 | P0 |
+| GAP-WEB-04 | No MFA, SSO or API-key management screens **API keys (#18) and MFA (#33) done; SSO remains.** | FR-TEN-05, FR-TEN-06, FR-API-02 | P0 |
 | GAP-WEB-05 | Polling rather than push; no notifications centre | GAP-ARC-06 | P1 |
 | GAP-WEB-06 | English only; accessibility not audited | FR-PLT-06, NFR-13 | P2 |
 
