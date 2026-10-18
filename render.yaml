@@ -68,11 +68,13 @@ services:
       # secrets (Microsoft 365, MFA, webhooks) cannot be read.
       - key: ENCRYPTION_KEY
         generateValue: true
-      # The engine's public address (free services cannot use the private network).
+      # The engine's public address (free services cannot use the private network). Render
+      # gave the services suffixed names (utdrs-core-engine-vtv2, utdrs-api-gateway-1pjf);
+      # if you deploy a copy, use the addresses Render gives yours.
       # On a paid plan, use the private network instead, replacing `value` with:
       #   fromService: {type: web, name: utdrs-core-engine, property: hostport}
       - key: CORE_ENGINE_URL
-        value: https://utdrs-core-engine.onrender.com
+        value: https://utdrs-core-engine-vtv2.onrender.com
       - key: CORE_ENGINE_TIMEOUT_SECONDS
         value: "60"
       # The first administrator, created at start-up (the password is asked for once).
@@ -117,6 +119,6 @@ services:
   #     - key: PORT
   #       value: "8765"
   #     - key: UTDRS_GATEWAY_URL
-  #       value: https://utdrs-api-gateway.onrender.com
+  #       value: https://utdrs-api-gateway-1pjf.onrender.com
   #     - key: MCP_ALLOWED_HOSTS
   #       value: utdrs-mcp-server.onrender.com
