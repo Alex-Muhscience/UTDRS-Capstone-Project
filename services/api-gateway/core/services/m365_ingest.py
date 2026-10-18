@@ -139,6 +139,9 @@ def sign_in_event(record: Dict[str, Any]) -> EventCreate:
             "failure_reason": status.get("failureReason"),
             "country": location.get("countryOrRegion"),
             "city": location.get("city"),
+            # For impossible travel, which the engine works out between sign-ins.
+            "latitude": (location.get("geoCoordinates") or {}).get("latitude"),
+            "longitude": (location.get("geoCoordinates") or {}).get("longitude"),
             "risk_level": record.get("riskLevelDuringSignIn"),
             "risk_state": record.get("riskState"),
             "risk_events": record.get("riskEventTypes_v2") or [],

@@ -67,7 +67,7 @@ sequenceDiagram
 
 The gateway's catalogue is the source of truth. After every change to a rule, and every minute as a safety net, the gateway compiles the enabled rules whose logic the engine can run and sends the whole set to `PUT /rules/managed/gateway`; the engine replaces its copies of the gateway's rules with it, leaving its built-in rules alone. Rules the engine cannot run yet stay in the catalogue, marked with the reason. An alert from one of these rules carries the gateway's rule id, and the dashboard links to the rule.
 
-Organisations connect Microsoft 365 by admin consent or with their own app registration (secrets encrypted with `ENCRYPTION_KEY`). The gateway polls Microsoft Graph for sign-ins and directory audit logs, which become events analysed by the engine against built-in Microsoft 365 rules, and for Microsoft Defender alerts, which become alerts directly; response actions act through the same connection.
+Organisations connect Microsoft 365 by admin consent or with their own app registration (secrets encrypted with `ENCRYPTION_KEY`). The gateway polls Microsoft Graph for sign-ins and directory audit logs, which become events analysed by the engine against built-in Microsoft 365 rules and its identity correlations (impossible travel, password spraying, password guessing, success after failures, MFA fatigue), and for Microsoft Defender alerts, which become alerts directly; response actions act through the same connection.
 
 A new alert is first checked against the organisation's suppressions; a suppressed alert is kept but reaches nobody. Analysts' verdicts on alerts show which detectors are noisy and are kept as labels for retraining the models.
 
