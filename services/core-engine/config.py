@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     ENABLE_CORRELATION: bool = True
     CORRELATION_WINDOW: int = 60  # minutes
     ANOMALY_BASELINE_DAYS: int = 7
+    # How long the engine keeps its own copy of events (for correlation and anomaly
+    # baselines). The gateway keeps the organisation's events for as long as it chooses.
+    EVENT_RETENTION_DAYS: int = 30
 
 
 settings = Settings()

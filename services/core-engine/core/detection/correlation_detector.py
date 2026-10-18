@@ -727,7 +727,8 @@ class CorrelationDetector:
         # Store the event
         # Store a copy: insert_one adds an ObjectId "_id" to the dict it is given, which
         # would otherwise leak into the event the other detectors and the alert see.
-        await self.db.events.insert_one(dict(event))
+        # stored_at lets MongoDB expire the copy after EVENT_RETENTION_DAYS (see app.py).
+        await self.db.events.insert_one({**event, "stored_at": utcnow()})
         
         # Correlate recent events
         correlations = await self.correlate_events()

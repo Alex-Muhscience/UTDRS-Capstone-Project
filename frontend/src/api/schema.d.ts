@@ -1609,6 +1609,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/retention/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Retention
+         * @description How long each kind of data is kept, the deployment's defaults and maximum, and the last clean-up.
+         */
+        get: operations["get_retention_api_v1_retention__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Retention
+         * @description Change how long each kind of data is kept, within the deployment's maximum.
+         */
+        patch: operations["update_retention_api_v1_retention__patch"];
+        trace?: never;
+    };
+    "/api/v1/retention/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Now
+         * @description Delete what has passed its time now, rather than at the next hourly clean-up. Returns how much of each kind.
+         */
+        post: operations["run_now_api_v1_retention_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/onboarding/": {
         parameters: {
             query?: never;
@@ -3687,6 +3731,59 @@ export interface components {
             max_actions_per_hour?: number | null;
             /** Protected Accounts */
             protected_accounts?: string[] | null;
+        };
+        /** Retention */
+        Retention: {
+            days: components["schemas"]["RetentionDays"];
+            defaults: components["schemas"]["RetentionDays"];
+            /** Max Days */
+            max_days: number;
+            last_run?: components["schemas"]["RetentionRun"] | null;
+        };
+        /**
+         * RetentionDays
+         * @description Days each kind of data is kept.
+         */
+        RetentionDays: {
+            /** Events */
+            events: number;
+            /** Alerts */
+            alerts: number;
+            /** Cases */
+            cases: number;
+            /** Actions */
+            actions: number;
+            /** Notifications */
+            notifications: number;
+            /** Labels */
+            labels: number;
+        };
+        /** RetentionRun */
+        RetentionRun: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Deleted */
+            deleted: {
+                [key: string]: number;
+            };
+        };
+        /** RetentionUpdate */
+        RetentionUpdate: {
+            /** Events */
+            events?: number | null;
+            /** Alerts */
+            alerts?: number | null;
+            /** Cases */
+            cases?: number | null;
+            /** Actions */
+            actions?: number | null;
+            /** Notifications */
+            notifications?: number | null;
+            /** Labels */
+            labels?: number | null;
         };
         /** RuleEngineStatus */
         RuleEngineStatus: {
@@ -7254,6 +7351,81 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_retention_api_v1_retention__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Retention"];
+                };
+            };
+        };
+    };
+    update_retention_api_v1_retention__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetentionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Retention"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_now_api_v1_retention_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: number;
+                    };
                 };
             };
         };
