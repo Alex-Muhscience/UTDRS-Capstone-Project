@@ -1,5 +1,6 @@
 from typing import List, Literal, Optional
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,6 +26,9 @@ class Settings(BaseSettings):
     # Browser origins allowed to call the API with credentials. Set as a JSON list,
     # e.g. CORS_ORIGINS='["https://dashboard.example.com"]'. Never "*" with credentials.
     CORS_ORIGINS: List[str] = ["http://localhost:3001", "http://localhost:5173"]
+    # Also allowed: origins matching this regular expression, for hosts whose preview
+    # deployments get their own names (e.g. a Vercel project's previews).
+    CORS_ORIGIN_REGEX: Optional[str] = None
 
     # Proxies in front of the gateway whose X-Forwarded-For header is believed, as a
     # JSON list of addresses or networks, e.g. '["10.0.0.0/8"]'. Without them, a client's
@@ -61,6 +65,14 @@ class Settings(BaseSettings):
     # When CORE_ENGINE_URL is set, every ingested event is sent to the core engine for
     # detection, and any threat it finds becomes an alert here.
     CORE_ENGINE_URL: Optional[str] = None
+
+    @field_validator("CORE_ENGINE_URL")
+    @classmethod
+    def _engine_scheme(cls, value: Optional[str]) -> Optional[str]:
+        # Hosts that hand out "host:port" for a private network address (Render) need a scheme.
+        if value and "://" not in value:
+            return f"http://{value}"
+        return value
     CORE_ENGINE_TIMEOUT_SECONDS: float = 10.0
     # Shared secret sent to the core engine as X-Internal-Token (must match its setting).
     INTERNAL_API_TOKEN: Optional[str] = None
