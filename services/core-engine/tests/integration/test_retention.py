@@ -38,3 +38,17 @@ async def test_stored_events_carry_when_they_were_stored(mongo):
     await detector.detect(event)
     stored = await mongo["events"].find_one({"id": "e1"})
     assert isinstance(stored["stored_at"], datetime) and "stored_at" not in event
+
+
+@pytest.mark.asyncio
+async def test_message_text_is_judged_but_not_kept(mongo):
+    from core.detection.correlation_detector import CorrelationDetector
+
+    detector = CorrelationDetector()
+    detector.db = mongo
+    event = {"id": "m1", "event_type": "email", "timestamp": datetime.now(timezone.utc).isoformat(),
+             "data": {"subject": "Invoice", "body": "confirm your password", "sender": "x@evil.example"}}
+    await detector.detect(event)
+    stored = await mongo["events"].find_one({"id": "m1"})
+    assert stored["data"] == {"subject": "Invoice", "sender": "x@evil.example"}
+    assert event["data"]["body"] == "confirm your password"  # the detectors still see it

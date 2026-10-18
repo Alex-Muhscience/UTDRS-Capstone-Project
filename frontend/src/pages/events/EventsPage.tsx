@@ -1,4 +1,4 @@
-import { Send } from "lucide-react"
+import { MailSearch, Send } from "lucide-react"
 import { useState } from "react"
 import { Link, useNavigate } from "react-router"
 
@@ -17,6 +17,7 @@ import { formatDateTime, formatRelative, humanize } from "@/lib/format"
 import { useUrlFilters } from "@/lib/useUrlFilters"
 
 import { AnalysisBadge } from "./AnalysisBadge"
+import { CheckEmailDialog } from "./CheckEmailDialog"
 import { TestEventDialog } from "./TestEventDialog"
 
 const FILTERS = ["type", "q"] as const
@@ -24,6 +25,7 @@ const FILTERS = ["type", "q"] as const
 export function EventsPage() {
   const navigate = useNavigate()
   const [sending, setSending] = useState(false)
+  const [checking, setChecking] = useState(false)
   const { filters, page, setFilter, setPage } = useUrlFilters(FILTERS)
   const events = useEvents({ eventType: filters.type, search: filters.q, page })
   const filtered = Boolean(filters.type || filters.q)
@@ -34,9 +36,14 @@ export function EventsPage() {
         title="Events"
         description="Security events received by the gateway, newest first, with the core engine's verdict on each."
         actions={
-          <Button variant="primary" onClick={() => setSending(true)}>
-            <Send className="size-4" aria-hidden /> Send test event
-          </Button>
+          <>
+            <Button onClick={() => setChecking(true)}>
+              <MailSearch className="size-4" aria-hidden /> Check an email
+            </Button>
+            <Button variant="primary" onClick={() => setSending(true)}>
+              <Send className="size-4" aria-hidden /> Send test event
+            </Button>
+          </>
         }
       />
 
@@ -119,6 +126,7 @@ export function EventsPage() {
       </Card>
 
       <TestEventDialog open={sending} onClose={() => setSending(false)} />
+      <CheckEmailDialog open={checking} onClose={() => setChecking(false)} />
     </>
   )
 }
