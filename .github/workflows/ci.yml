@@ -29,6 +29,7 @@ jobs:
       frontend: ${{ steps.diff.outputs.frontend }}
       scanner: ${{ steps.diff.outputs.scanner }}
       processor: ${{ steps.diff.outputs.processor }}
+      mcp: ${{ steps.diff.outputs.mcp }}
       stack: ${{ steps.diff.outputs.stack }}
     steps:
       - uses: actions/checkout@v5
@@ -53,6 +54,7 @@ jobs:
           out frontend '^frontend/'
           out scanner '^scanner/'
           out processor '^services/data-processor/'
+          out mcp '^services/mcp-server/'
           # Anything but documentation can change how the stack runs.
           if [ "$all" = true ] || printf '%s\n' "$files" | grep -Evq '(\.md$|^docs/|^LICENSE|^\.gitignore$)'; then
             echo "stack=true" >> "$GITHUB_OUTPUT"
@@ -270,10 +272,28 @@ jobs:
       - run: python -m py_compile data-processor.py config.py scan_delivery.py
       - run: python -m unittest
 
+  mcp-server:
+    name: MCP server tests
+    needs: changes
+    if: needs.changes.outputs.mcp == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/mcp-server
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services/mcp-server/requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+
   compose:
     name: Docker Compose stack
     # The longest job: only once the quicker checks have passed (or were not needed).
-    needs: [changes, api-gateway, core-engine, frontend, scanner, data-processor]
+    needs: [changes, api-gateway, core-engine, frontend, scanner, data-processor, mcp-server]
     if: "!cancelled() && !failure() && needs.changes.outputs.stack == 'true'"
     runs-on: ubuntu-latest
     steps:
@@ -300,6 +320,7 @@ jobs:
           curl -fsS http://localhost:8080/api/v1/health
           curl -fsS http://localhost:8000/api/v1/health
           curl -fsS http://localhost:5000/health
+          curl -fsS http://localhost:8765/health
           reply=$( (printf 'SCAN not-json'; sleep 2) | timeout 10 openssl s_client -quiet -connect localhost:8443 -servername localhost \
             -cert scanner/configs/certs/agent.crt -key scanner/configs/certs/agent.key -CAfile scanner/configs/certs/ca.crt 2>/dev/null || true)
           echo "scanner replied: $reply"
