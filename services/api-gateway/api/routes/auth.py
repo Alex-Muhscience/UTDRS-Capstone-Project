@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime, timedelta
 from typing import Any, List, Optional
 
@@ -7,7 +8,8 @@ from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 from config import settings
 from core.database.repositories.user_repository import UserRepository
-from core.services import account_email, audit, login_throttle, mfa, sessions, tenants
+from core.models.sso import SsoCallback, SsoRedirect, SsoStart
+from core.services import account_email, audit, login_throttle, mfa, sessions, sso, tenants
 from core.tenancy import PLATFORM, set_tenant, tenant_context
 from core.models.common import IdString
 from core.models.user import (
@@ -117,6 +119,8 @@ class AuthConfig(BaseModel):
     password_reset: bool = False
     # Whether people who register must confirm their email address before signing in.
     email_verification_required: bool = False
+    # Whether any organisation signs in with single sign-on (the sign-in page offers it).
+    sso_available: bool = False
 
 
 class AccountLookup(BaseModel):
@@ -152,6 +156,7 @@ async def auth_config() -> Any:
         session_idle_minutes=settings.SESSION_IDLE_MINUTES,
         password_reset=account_email.available(),
         email_verification_required=_verification_required(),
+        sso_available=await sso.any_enabled(),
     )
 
 
@@ -285,6 +290,10 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
             headers={"X-Email-Verification-Required": "true"},
         )
 
+    if await sso.enforced_for(user):
+        await audit.record("auth.login_failed", request, actor=attempted, outcome="denied", details={"reason": "single sign-on required"}, tenant_id=audit_tenant)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your organisation signs in with single sign-on: use \"Sign in with SSO\"")
+
     # From here on, this is the person's organisation's business.
     set_tenant(user["tenant_id"])
 
@@ -320,6 +329,56 @@ def _tokens(user: dict, session_id: str, refresh_token: str) -> dict:
         "access_token": token, "token_type": "bearer", "user": User(**user), "refresh_token": refresh_token,
         "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     }
+
+
+@router.post("/sso/start", response_model=SsoRedirect)
+async def sso_start(body: SsoStart) -> Any:
+    """Where to send someone to sign in with their organisation's identity provider, found from their email's domain."""
+    try:
+        return {"url": await sso.start(body.email, body.redirect_uri)}
+    except sso.SsoError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post("/sso/callback", response_model=Token)
+async def sso_callback(body: SsoCallback, request: Request) -> Any:
+    """
+    Finish signing in with single sign-on: the code and state the provider sent back to the
+    dashboard. The provider's ID token is checked; then the person's account signs in.
+    """
+    try:
+        config, claims = await sso.finish(body.code, body.state)
+    except sso.SsoError as e:
+        await audit.record("auth.sso_failed", request, actor={"type": "anonymous"}, outcome="denied", details={"reason": str(e)}, tenant_id=PLATFORM)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+    email = claims["email"]
+    repo = UserRepository()
+    user = await repo.find_by_email(email)
+    if user and user["tenant_id"] != config["tenant_id"]:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"{email} belongs to another UTDRS organisation")
+    set_tenant(config["tenant_id"])
+    if not user:
+        if not config.get("auto_provision"):
+            await audit.record("auth.sso_failed", request, actor={"type": "anonymous", "name": email}, outcome="denied", details={"reason": "no account"})
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"There is no UTDRS account for {email}: ask an administrator")
+        user = await _provision(email, claims, request)
+    if not user.get("active", True):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been deactivated; ask an administrator")
+    # The provider checked who it is, with its own second factor.
+    return await _signed_in(request, user, {"mfa": "sso", "sso_subject": claims.get("sub")})
+
+
+async def _provision(email: str, claims: dict, request: Request) -> dict:
+    repo = UserRepository()
+    username = email if not await repo.find_by_username(email) else f"{email}-{secrets.token_hex(3)}"
+    account = UserCreate(
+        username=username, email=email, password=secrets.token_urlsafe(32), role="analyst", active=True,
+        firstName=(claims.get("given_name") or None), lastName=(claims.get("family_name") or None),
+    )
+    user_id = await repo.create_user(account, email_verified=True, provisioned_by="sso")
+    await audit.record("auth.sso_provisioned", request, actor={"type": "user", "id": user_id, "name": username},
+                       target={"type": "user", "id": user_id, "name": username})
+    return await repo.find_by_id(user_id)
 
 
 @router.post("/refresh", response_model=Token)

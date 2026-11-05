@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button"
 import { Field, Input } from "@/components/ui/Field"
 
 import { AuthLayout } from "./AuthLayout"
+import { SsoSignIn } from "./SsoPages"
 
 export function LoginPage() {
   const { login, loginWithCode, notice } = useAuth()
@@ -19,6 +20,7 @@ export function LoginPage() {
   // Set when the account must confirm its email address before signing in.
   const [unconfirmed, setUnconfirmed] = useState<string | null>(null)
   const resend = useResendVerification()
+  const [usingSso, setUsingSso] = useState(false)
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -42,6 +44,8 @@ export function LoginPage() {
       // The time for the code ran out: start again from the password.
       if (mfaToken && message.startsWith("Sign in again")) setMfaToken(null)
       if (message.startsWith("Confirm your email address")) setUnconfirmed(String(form.get("username")))
+      // The organisation signs in only with SSO: take them there.
+      if (message.includes("single sign-on")) setUsingSso(true)
       setError(message)
       setPending(false)
     }
@@ -89,7 +93,9 @@ export function LoginPage() {
           </span>
         </p>
       )}
-      {mfaToken ? (
+      {usingSso ? (
+        <SsoSignIn onCancel={() => setUsingSso(false)} />
+      ) : mfaToken ? (
         // Keyed apart from the password form, so no field carries over (the username into the code box).
         <form key="code" onSubmit={onSubmit} className="space-y-4">
           <Field label="Authentication code" hint="From your authenticator app, or one of your recovery codes.">
@@ -128,6 +134,11 @@ export function LoginPage() {
         <Button type="submit" variant="primary" className="w-full" loading={pending}>
           Sign in
         </Button>
+        {config.data?.sso_available && (
+          <Button className="w-full" onClick={() => setUsingSso(true)}>
+            Sign in with SSO
+          </Button>
+        )}
       </form>
       )}
     </AuthLayout>

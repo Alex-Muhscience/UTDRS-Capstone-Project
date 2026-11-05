@@ -135,6 +135,14 @@ async def refresh(token: str) -> Tuple[Dict[str, Any], str]:
     return rotated, new
 
 
+async def method(session_id: str) -> Optional[str]:
+    """How the session's person proved who they are beyond a password: totp, recovery, sso, or None."""
+    if not ObjectId.is_valid(session_id):
+        return None
+    session = await get_database()[COLLECTION].find_one({"_id": ObjectId(session_id)}, {"mfa": 1})
+    return (session or {}).get("mfa")
+
+
 async def is_active(session_id: str) -> Optional[str]:
     """None when the session can be used; otherwise why not."""
     if not ObjectId.is_valid(session_id):

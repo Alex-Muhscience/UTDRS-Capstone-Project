@@ -190,6 +190,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/sso/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sso Start
+         * @description Where to send someone to sign in with their organisation's identity provider, found from their email's domain.
+         */
+        post: operations["sso_start_api_v1_auth_sso_start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/sso/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sso Callback
+         * @description Finish signing in with single sign-on: the code and state the provider sent back to the
+         *     dashboard. The provider's ID token is checked; then the person's account signs in.
+         */
+        post: operations["sso_callback_api_v1_auth_sso_callback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/refresh": {
         parameters: {
             query?: never;
@@ -2775,6 +2816,56 @@ export interface paths {
         patch: operations["update_security_api_v1_tenants_current_security_patch"];
         trace?: never;
     };
+    "/api/v1/tenants/current/sso": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Sso
+         * @description Single sign-on settings (administrators only). The client secret is never shown.
+         */
+        get: operations["get_sso_api_v1_tenants_current_sso_get"];
+        /**
+         * Save Sso
+         * @description Set up or change single sign-on with an OpenID Connect provider (administrators only).
+         *     Register UTDRS at the provider with the dashboard's /sso/callback as its redirect URI.
+         *     Each domain must then be verified with a DNS TXT record before people from it can use it.
+         */
+        put: operations["save_sso_api_v1_tenants_current_sso_put"];
+        post?: never;
+        /**
+         * Remove Sso
+         * @description Turn single sign-on off and forget its settings (administrators only). Passwords work again for everyone.
+         */
+        delete: operations["remove_sso_api_v1_tenants_current_sso_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/current/sso/domains/{domain}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Sso Domain
+         * @description Check the domain's DNS TXT record, so people from it can sign in with SSO (administrators only).
+         */
+        post: operations["verify_sso_domain_api_v1_tenants_current_sso_domains__domain__verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/": {
         parameters: {
             query?: never;
@@ -3399,6 +3490,11 @@ export interface components {
              * @default false
              */
             email_verification_required: boolean;
+            /**
+             * Sso Available
+             * @default false
+             */
+            sso_available: boolean;
         };
         /** BatchItem */
         BatchItem: {
@@ -4914,6 +5010,86 @@ export interface components {
             /** Notes */
             notes?: string | null;
         };
+        /** SsoCallback */
+        SsoCallback: {
+            /** Code */
+            code: string;
+            /** State */
+            state: string;
+        };
+        /** SsoDomain */
+        SsoDomain: {
+            /** Domain */
+            domain: string;
+            /** Verified */
+            verified: boolean;
+            /** Record Name */
+            record_name: string;
+            /** Record Value */
+            record_value: string;
+        };
+        /** SsoRedirect */
+        SsoRedirect: {
+            /** Url */
+            url: string;
+        };
+        /** SsoSettings */
+        SsoSettings: {
+            /** Configured */
+            configured: boolean;
+            /** Issuer */
+            issuer?: string | null;
+            /** Client Id */
+            client_id?: string | null;
+            /**
+             * Domains
+             * @default []
+             */
+            domains: components["schemas"]["SsoDomain"][];
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /**
+             * Enforce
+             * @default false
+             */
+            enforce: boolean;
+            /**
+             * Auto Provision
+             * @default false
+             */
+            auto_provision: boolean;
+            /** Updated At */
+            updated_at?: string | null;
+            /** Encryption Available */
+            encryption_available: boolean;
+        };
+        /** SsoStart */
+        SsoStart: {
+            /** Email */
+            email: string;
+            /** Redirect Uri */
+            redirect_uri: string;
+        };
+        /** SsoUpdate */
+        SsoUpdate: {
+            /** Issuer */
+            issuer?: string | null;
+            /** Client Id */
+            client_id?: string | null;
+            /** Client Secret */
+            client_secret?: string | null;
+            /** Domains */
+            domains?: string[] | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Enforce */
+            enforce?: boolean | null;
+            /** Auto Provision */
+            auto_provision?: boolean | null;
+        };
         /** Step */
         Step: {
             /** Key */
@@ -5621,6 +5797,72 @@ export interface operations {
         requestBody: {
             content: {
                 "application/x-www-form-urlencoded": components["schemas"]["Body_login_api_v1_auth_login_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Token"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sso_start_api_v1_auth_sso_start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SsoStart"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoRedirect"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sso_callback_api_v1_auth_sso_callback_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SsoCallback"];
             };
         };
         responses: {
@@ -10217,6 +10459,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Tenant"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_sso_api_v1_tenants_current_sso_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoSettings"];
+                };
+            };
+        };
+    };
+    save_sso_api_v1_tenants_current_sso_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SsoUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoSettings"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_sso_api_v1_tenants_current_sso_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    verify_sso_domain_api_v1_tenants_current_sso_domains__domain__verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoSettings"];
                 };
             };
             /** @description Validation Error */

@@ -130,6 +130,10 @@ class Settings(BaseSettings):
     ANALYSIS_CONCURRENCY: int = 4
     ANALYSIS_GIVE_UP_HOURS: int = 24
 
+    # Single sign-on (core/services/sso.py): where DNS TXT records are looked up (DNS over
+    # HTTPS, JSON) to check an organisation owns a domain.
+    SSO_DNS_RESOLVER: str = "https://cloudflare-dns.com/dns-query"
+
     # Webhooks (core/services/webhooks.py): how often due deliveries are sent, and whether
     # receivers may be on private networks (only for a deployment's own receivers).
     WEBHOOK_INTERVAL_SECONDS: int = 5

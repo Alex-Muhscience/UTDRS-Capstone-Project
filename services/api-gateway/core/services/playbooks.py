@@ -223,6 +223,21 @@ async def on_alert(alert_id: str) -> None:
             logger.exception(f"Playbook {playbook['name']} failed for alert {alert_id}")
 
 
+async def wait_for_tasks(tasks: set) -> None:
+    """
+    Wait for `tasks` to finish. Only this event loop's: a task left from a loop that has
+    closed can never finish, so it is forgotten rather than waited on for ever.
+    """
+    current = asyncio.get_running_loop()
+    while tasks:
+        for task in [t for t in tasks if t.get_loop() is not current]:
+            tasks.discard(task)
+        ours = [t for t in tasks if t.get_loop() is current]
+        if not ours:
+            return
+        await asyncio.gather(*ours, return_exceptions=True)
+
+
 def start(alert_id: str) -> None:
     """Run the playbooks for a new alert in the background, as the current organisation."""
     task = asyncio.create_task(on_alert(alert_id))  # copies the current tenant with the context
@@ -232,5 +247,4 @@ def start(alert_id: str) -> None:
 
 async def idle() -> None:
     """Wait for playbook runs in progress to finish (for tests and shutdown)."""
-    while _running:
-        await asyncio.gather(*list(_running), return_exceptions=True)
+    await wait_for_tasks(_running)

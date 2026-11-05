@@ -138,7 +138,9 @@ def test_registration_can_be_closed(client, monkeypatch):
     from config import settings
 
     monkeypatch.setattr(settings, "ALLOW_REGISTRATION", False)
-    assert client.get("/api/v1/auth/config").json() == {
+    config = client.get("/api/v1/auth/config").json()
+    config.pop("sso_available")  # whether any organisation has set up SSO: other tests' doing
+    assert config == {
         "allow_registration": False, "registration_mode": "join", "session_idle_minutes": 60,
         "password_reset": False, "email_verification_required": False,
     }

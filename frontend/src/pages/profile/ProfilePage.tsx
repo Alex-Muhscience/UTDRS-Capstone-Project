@@ -15,6 +15,7 @@ import { SecurityCard } from "@/pages/security/SecurityCard"
 
 import { NotificationsCard } from "./NotificationsCard"
 import { SessionsCard } from "./SessionsCard"
+import { SsoCard } from "./SsoCard"
 
 function OrganisationCard() {
   const tenant = useCurrentTenant()
@@ -84,6 +85,7 @@ function RequireMfa({ required, isAdmin }: { required: boolean; isAdmin: boolean
 
 export function ProfilePage() {
   const user = useUser()
+  const isAdmin = useIsAdmin()
   const update = useUpdateProfile()
   const changePassword = useChangePassword()
   const [passwordError, setPasswordError] = useState<string | null>(null)
@@ -197,6 +199,8 @@ export function ProfilePage() {
         <SecurityCard />
 
         <SessionsCard />
+
+        {isAdmin && <SsoCard />}
 
         <NotificationsCard />
       </div>

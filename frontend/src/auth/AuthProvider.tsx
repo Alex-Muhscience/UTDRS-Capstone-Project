@@ -75,6 +75,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [begin],
   )
 
+  const loginWithSso = useCallback(
+    async (code: string, state: string) => {
+      begin(await unwrap(api.POST("/api/v1/auth/sso/callback", { body: { code, state } })))
+    },
+    [begin],
+  )
+
   const loginWithCode = useCallback(
     async (mfaToken: string, code: string) => {
       begin(await unwrap(api.POST("/api/v1/auth/login/mfa", { body: { mfa_token: mfaToken, code } })))
@@ -159,11 +166,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       notice,
       login: start,
       loginWithCode,
+      loginWithSso,
       register,
       logout,
       retry: () => void me.refetch(),
     }),
-    [status, me, notice, start, loginWithCode, register, logout],
+    [status, me, notice, start, loginWithCode, loginWithSso, register, logout],
   )
 
   return <AuthContext value={value}>{children}</AuthContext>
