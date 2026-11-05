@@ -74,6 +74,7 @@ All routes are under `/api/v1`. Interactive documentation is served at `/api/v1/
 | Webhooks | `GET /webhooks/events`, `GET`/`POST /webhooks/`, `PATCH`/`DELETE /webhooks/{id}`, `POST /webhooks/{id}/rotate-secret`, `POST /webhooks/{id}/test`, `GET /webhooks/{id}/deliveries`, `POST /webhooks/deliveries/{id}/redeliver` (administrators) |
 | Account emails | `POST /auth/forgot-password` (`login`), `POST /auth/reset-password` (`token`, `new_password`), `POST /auth/verify-email` (`token`), `POST /auth/resend-verification` (`login`), `POST /auth/me/send-verification` |
 | Sessions | `POST /auth/refresh` (`refresh_token`), `POST /auth/logout`, `GET /auth/sessions`, `DELETE /auth/sessions/{id}`, `POST /auth/sessions/end-others`; `POST /users/{id}/sign-out` (administrators) |
+| Passkeys | `GET /auth/passkeys`, `POST /auth/passkeys/register/options`, `POST /auth/passkeys` (`credential`, `name`), `DELETE /auth/passkeys/{id}`, `POST /auth/passkeys/login/options`, `POST /auth/passkeys/login` (`credential`) |
 | Single sign-on | `POST /auth/sso/start` (`email`, `redirect_uri`), `POST /auth/sso/callback` (`code`, `state`); `GET`/`PUT`/`DELETE /tenants/current/sso`, `POST /tenants/current/sso/domains/{domain}/verify` (administrators) |
 | Multi-factor authentication | `POST /auth/login/mfa` (`mfa_token`, `code`), `GET /auth/mfa`, `POST /auth/mfa/setup`, `/auth/mfa/confirm`, `/auth/mfa/recovery-codes`, `/auth/mfa/disable`; `PATCH /tenants/current/security` (`require_mfa`; administrators); `POST /users/{id}/reset-mfa` (administrators) |
 | Onboarding | `GET /onboarding/` (the checklist and first results), `PATCH /onboarding/` (`dismissed`; administrators) |
@@ -257,6 +258,14 @@ An organisation can sign in with its own identity provider over OpenID Connect: 
 - **Requiring it** (`enforce`): analysts can no longer sign in with a password. Administrators still can, with MFA if they have it, so a broken provider cannot lock everyone out.
 - Every step is in the audit log, including refused sign-ins and accounts created. Not yet: SAML, and SCIM provisioning.
 
+## Passkeys
+
+People can sign in with a passkey (WebAuthn) instead of a password: the device's fingerprint, face or PIN unlocks a key that never leaves it (`core/services/passkeys.py`, with the `webauthn` library).
+
+- **Adding** (signed in; Profile → Passkeys): `POST /auth/passkeys/register/options` gives the options for `navigator.credentials.create()`; `POST /auth/passkeys` (`credential`, `name`) checks what the browser made and keeps its public key. Passkeys are discoverable and need user verification; at most ten per person. `GET /auth/passkeys` lists them, `DELETE /auth/passkeys/{id}` removes one.
+- **Signing in:** `POST /auth/passkeys/login/options`, then `POST /auth/passkeys/login` with what `navigator.credentials.get()` returned. The signature is checked against the kept public key, for this site only: the relying party is `WEBAUTHN_RP_ID` and sign-ins must come from `WEBAUTHN_ORIGINS` (by default, the host and origin of `DASHBOARD_URL`), so a passkey cannot be phished by a look-alike site. Each challenge works once, within five minutes, and an authenticator's counter must go up: one that goes back means the key was copied, and is refused.
+- A passkey sign-in counts as multi-factor (an organisation that requires MFA accepts it, and people it requires can add a passkey as their second factor). Deactivated accounts and organisations that require single sign-on are respected. Every step is in the audit log.
+
 ## Multi-factor authentication
 
 Signing in can need a second factor (`core/services/mfa.py`): a code from an authenticator app (TOTP, RFC 6238: six digits, 30 seconds, what Microsoft, Google and 1Password's apps use), or one of ten single-use recovery codes.
@@ -265,7 +274,7 @@ Signing in can need a second factor (`core/services/mfa.py`): a code from an aut
 - **Signing in.** With MFA on, the password step answers `mfa_required` and a five-minute `mfa_token` instead of a session; `/auth/login/mfa` takes it with a code. Each authenticator code works once (the last step used is recorded), and is accepted 30 seconds either side for clock drift. Wrong codes count towards the same throttle as wrong passwords, and a right password alone does not reset it. The `mfa_token` is not a session: tokens with a purpose are refused everywhere else.
 - **Required by the organisation.** An administrator can require MFA, once they have it themselves. Someone without it then signs in to a session that can only set it up (and read their account and organisation); everything else answers 403 with `X-MFA-Setup-Required`. MFA cannot be turned off while required.
 - **A lost phone.** Recovery codes; or an administrator resets the person's MFA, and they set it up again.
-- Every step is in the audit log. Not yet: passkeys (WebAuthn).
+- Every step is in the audit log. A passkey is a second factor in itself: see [Passkeys](#passkeys).
 
 ## Organisations
 
@@ -319,6 +328,8 @@ Settings come from the environment or a `.env` file in this directory (see [`.en
 | `ADMIN_EMAIL` | `<username>@localhost.localdomain` | |
 | `ALLOW_REGISTRATION` | `true` | Whether anyone can register |
 | `CASE_ATTACHMENT_MAX_MB` | `8` | The largest file that can be attached to a case |
+| `WEBAUTHN_RP_ID` | the host of `DASHBOARD_URL` | The site passkeys belong to |
+| `WEBAUTHN_ORIGINS` | the origin of `DASHBOARD_URL` | Where passkey sign-ins may come from (a JSON list) |
 | `SSO_DNS_RESOLVER` | `https://cloudflare-dns.com/dns-query` | DNS over HTTPS (JSON) for checking single sign-on domains |
 | `REQUIRE_EMAIL_VERIFICATION` | `false` | People who register confirm their email address before signing in (only while email is configured) |
 | `REGISTRATION_MODE` | `join` | `join`: an analyst in the default organisation. `organisation`: a new organisation, with the person as its administrator |
@@ -381,6 +392,7 @@ MONGODB_URI=mongodb://localhost:27017 python -m pytest
 - `tests/e2e/test_cases.py`: grouping by user, address and device and not by destination; old cases not reopened; priority and deadline; working a case (status, owner, notes, closing its alerts); owners must be colleagues; overdue cases; explanations; evidence; cases kept within an organisation; the `cases` scope; open alerts from before cases grouped at start-up.
 - `tests/e2e/test_response.py`: against a stand-in for Microsoft Graph: actions that run, fail and are undone; the last Global Administrator; playbooks proposing, people approving and rejecting, and running once per case; the organisation's mode capping a playbook's; the hourly limit; protected accounts and administrators; steps skipped without their connector; removing an email from every mailbox and putting it back; removing and restoring an inbox rule; running a playbook yourself; API keys asking and people deciding; writing playbooks; disabled playbooks; response kept within an organisation.
 - `tests/e2e/test_notifications.py`: against a small SMTP server run by the test: preferences and their defaults; new cases to those who want them, once per case, with the explanation and link; approvals needed and actions done; failures retried and then given up; the hourly limit; nothing sent without email set up; titles unable to add headers; test emails, including a mail server that cannot be reached; the log for administrators only, and none for API keys.
+- `tests/e2e/test_passkeys.py`: with a software authenticator (real attestation objects and P-256 signatures): adding a passkey and signing in, a challenge used once, a look-alike site refused, a copied key (counter going back) refused, user verification required, a removed passkey no longer working, and a passkey counting as the second factor.
 - `tests/e2e/test_reports.py`: each in an organisation of its own: a month's figures, threats, people and devices involved, actions and open cases, in figures and words; overdue cases and waiting actions called out; comparison with the month before; reports kept, listed and made again; the PDF, with markup in a title; months not started or not real; last month's report made once and administrators told; none for months before an organisation existed; reports kept within an organisation and the `reports` scope.
 - `tests/e2e/test_sso.py`: single sign-on against a stand-in OpenID Connect provider (discovery, keys, token endpoint with PKCE, DNS answers): a domain usable only once verified and only by one organisation, signing in and accounts created, only existing accounts without provisioning, a token signed with another key, a wrong nonce and a replayed state refused, an email outside the domains refused, requiring SSO while administrators keep their password, SSO counting as the second factor, and administrators only.
 - `tests/e2e/test_tuning.py`: verdicts (false positive, benign, real threat), labels and their export, suggestions and case timelines; suppressions by address, title, detector and user, with critical alerts getting through, expiry and turning off; what analysts may and may not suppress; noisy detectors; a false positive by status counting as a verdict; tuning kept within an organisation and the `tuning` scope.

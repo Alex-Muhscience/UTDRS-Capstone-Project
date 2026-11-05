@@ -2,14 +2,14 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Any, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 from config import settings
 from core.database.repositories.user_repository import UserRepository
 from core.models.sso import SsoCallback, SsoRedirect, SsoStart
-from core.services import account_email, audit, login_throttle, mfa, sessions, sso, tenants
+from core.services import account_email, audit, login_throttle, mfa, passkeys, sessions, sso, tenants
 from core.tenancy import PLATFORM, set_tenant, tenant_context
 from core.models.common import IdString
 from core.models.user import (
@@ -379,6 +379,97 @@ async def _provision(email: str, claims: dict, request: Request) -> dict:
     await audit.record("auth.sso_provisioned", request, actor={"type": "user", "id": user_id, "name": username},
                        target={"type": "user", "id": user_id, "name": username})
     return await repo.find_by_id(user_id)
+
+
+# ---------------------------------------------------------------------------- Passkeys
+
+
+class PasskeyInfo(BaseModel):
+    id: str
+    name: str
+    created_at: datetime
+    last_used_at: Optional[datetime] = None
+    # Synced between devices by the person's password manager or platform.
+    backed_up: bool = False
+
+
+class PasskeyRegistration(BaseModel):
+    # What navigator.credentials.create() returned, as JSON (PublicKeyCredential.toJSON()).
+    credential: dict
+    name: str = Field(default="Passkey", max_length=60)
+
+
+class PasskeySignIn(BaseModel):
+    # What navigator.credentials.get() returned, as JSON.
+    credential: dict
+
+
+def _passkey_refused(error: Exception) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error))
+
+
+@router.get("/passkeys", response_model=List[PasskeyInfo])
+async def my_passkeys(request: Request, current_user: User = Depends(get_current_active_user)) -> Any:
+    """Your passkeys."""
+    _person(request)
+    return [passkeys.public(p) for p in (await _me(current_user)).get("passkeys") or []]
+
+
+@router.post("/passkeys/register/options")
+async def passkey_registration_options(request: Request, current_user: User = Depends(get_current_active_user)) -> Any:
+    """Start adding a passkey: the options for navigator.credentials.create(), valid for five minutes."""
+    _person(request)
+    try:
+        return Response(content=await passkeys.registration_options(await _me(current_user)), media_type="application/json")
+    except passkeys.PasskeyError as e:
+        raise _passkey_refused(e)
+
+
+@router.post("/passkeys", response_model=PasskeyInfo, status_code=status.HTTP_201_CREATED)
+async def add_passkey(body: PasskeyRegistration, request: Request, current_user: User = Depends(get_current_active_user)) -> Any:
+    """Finish adding a passkey with what the browser created."""
+    _person(request)
+    try:
+        added = await passkeys.register(await _me(current_user), body.credential, body.name)
+    except passkeys.PasskeyError as e:
+        await audit.record("auth.passkey_refused", request, outcome="denied", details={"reason": str(e)})
+        raise _passkey_refused(e)
+    await audit.record("auth.passkey_added", request, target={"type": "passkey", "id": added["id"], "name": added["name"]})
+    return added
+
+
+@router.delete("/passkeys/{passkey_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_passkey(passkey_id: str, request: Request, current_user: User = Depends(get_current_active_user)) -> None:
+    """Remove one of your passkeys, such as one on a device you no longer have."""
+    _person(request)
+    if not await passkeys.remove(current_user.id, passkey_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Passkey not found")
+    await audit.record("auth.passkey_removed", request, target={"type": "passkey", "id": passkey_id})
+
+
+@router.post("/passkeys/login/options")
+async def passkey_login_options() -> Any:
+    """Start signing in with a passkey: the options for navigator.credentials.get(), valid for five minutes."""
+    return Response(content=await passkeys.authentication_options(), media_type="application/json")
+
+
+@router.post("/passkeys/login", response_model=Token)
+async def passkey_login(body: PasskeySignIn, request: Request) -> Any:
+    """Sign in with a passkey. It counts as multi-factor: the device checked who it is, and the key is bound to this site."""
+    try:
+        user, passkey = await passkeys.authenticate(body.credential)
+    except passkeys.PasskeyError as e:
+        await audit.record("auth.login_failed", request, actor={"type": "anonymous"}, outcome="denied",
+                           details={"reason": str(e), "method": "passkey"}, tenant_id=PLATFORM)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+    attempted = {"type": "anonymous", "name": user["username"]}
+    if not user.get("active", True):
+        await audit.record("auth.login_failed", request, actor=attempted, outcome="denied", details={"reason": "deactivated"}, tenant_id=user["tenant_id"])
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been deactivated; ask an administrator")
+    if await sso.enforced_for(user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your organisation signs in with single sign-on: use \"Sign in with SSO\"")
+    set_tenant(user["tenant_id"])
+    return await _signed_in(request, user, {"mfa": "passkey", "passkey": passkey["name"]})
 
 
 @router.post("/refresh", response_model=Token)

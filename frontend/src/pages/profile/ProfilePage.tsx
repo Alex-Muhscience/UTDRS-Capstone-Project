@@ -11,6 +11,7 @@ import { Field, Input } from "@/components/ui/Field"
 import { PageHeader } from "@/components/ui/PageHeader"
 import { formatDateTime, humanize } from "@/lib/format"
 
+import { PasskeysCard } from "@/pages/security/PasskeysCard"
 import { SecurityCard } from "@/pages/security/SecurityCard"
 
 import { NotificationsCard } from "./NotificationsCard"
@@ -197,6 +198,8 @@ export function ProfilePage() {
         </Card>
 
         <SecurityCard />
+
+        <PasskeysCard />
 
         <SessionsCard />
 

@@ -1,4 +1,4 @@
-import { CircleAlert, Info } from "lucide-react"
+import { CircleAlert, Info, KeyRound } from "lucide-react"
 import { useState, type FormEvent } from "react"
 import { Link } from "react-router"
 
@@ -7,11 +7,13 @@ import { useAuth } from "@/auth/context"
 import { Button } from "@/components/ui/Button"
 import { Field, Input } from "@/components/ui/Field"
 
+import { passkeyErrorMessage, passkeysSupported } from "@/lib/webauthn"
+
 import { AuthLayout } from "./AuthLayout"
 import { SsoSignIn } from "./SsoPages"
 
 export function LoginPage() {
-  const { login, loginWithCode, notice } = useAuth()
+  const { login, loginWithCode, loginWithPasskey, notice } = useAuth()
   const config = useAuthConfig()
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -134,6 +136,22 @@ export function LoginPage() {
         <Button type="submit" variant="primary" className="w-full" loading={pending}>
           Sign in
         </Button>
+        {passkeysSupported() && (
+          <Button
+            className="w-full"
+            loading={pending}
+            onClick={() => {
+              setError(null)
+              setPending(true)
+              loginWithPasskey().catch((caught: unknown) => {
+                setError(passkeyErrorMessage(caught))
+                setPending(false)
+              })
+            }}
+          >
+            <KeyRound className="size-4" aria-hidden /> Sign in with a passkey
+          </Button>
+        )}
         {config.data?.sso_available && (
           <Button className="w-full" onClick={() => setUsingSso(true)}>
             Sign in with SSO
