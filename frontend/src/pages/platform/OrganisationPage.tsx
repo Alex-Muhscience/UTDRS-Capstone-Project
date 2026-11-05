@@ -2,14 +2,22 @@ import { useState } from "react"
 import { useNavigate, useParams } from "react-router"
 import { toast } from "sonner"
 
-import { useAddOrganisationAdmin, useDeleteOrganisation, useOrganisation, useSetOrganisationSuspended } from "@/api/queries"
+import type { OrganisationDetail } from "@/api/client"
+import {
+  useAddOrganisationAdmin,
+  useDeleteOrganisation,
+  useOrganisation,
+  useOrganisations,
+  useSetOrganisationMsp,
+  useSetOrganisationSuspended,
+} from "@/api/queries"
 import { useUser } from "@/auth/context"
 import { BackLink } from "@/components/ui/BackLink"
 import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
 import { Card } from "@/components/ui/Card"
 import { Dialog } from "@/components/ui/Dialog"
-import { Field, Input } from "@/components/ui/Field"
+import { Field, Input, Select } from "@/components/ui/Field"
 import { PageHeader } from "@/components/ui/PageHeader"
 import { SkeletonRows } from "@/components/ui/States"
 import { Table, Td, Th, Tr } from "@/components/ui/Table"
@@ -104,6 +112,53 @@ function DeleteDialog({ tenantId, name, open, onClose }: { tenantId: string; nam
   )
 }
 
+/** Whether the organisation is a managed service provider, or which one manages it. */
+function ServiceProviderCard({ org }: { org: OrganisationDetail }) {
+  const change = useSetOrganisationMsp(org.id)
+  const organisations = useOrganisations()
+  const providers = (organisations.data ?? []).filter((item) => item.msp && item.id !== org.id)
+  const save = (body: { msp?: boolean; managed_by?: string }, done: string) =>
+    change.mutate(body, { onSuccess: () => toast.success(done), onError: (error) => toast.error(error.message) })
+  return (
+    <Card
+      title="Service provider"
+      description="A managed service provider (MSP) looks after other organisations: its people work in them with the same role they have in the MSP."
+    >
+      {org.msp ? (
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <Badge tone="accent">Service provider</Badge>
+          <span className="flex-1 text-muted">It can add clients, and you can assign organisations to it.</span>
+          <Button size="sm" loading={change.isPending} onClick={() => save({ msp: false }, `${org.name} is no longer a service provider`)}>
+            Stop being a service provider
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label="Managed by" className="min-w-56 flex-1">
+            {(id) => (
+              <Select
+                id={id}
+                value={org.managed_by ?? ""}
+                disabled={change.isPending}
+                placeholder="No one"
+                options={providers.map((provider) => ({ value: provider.id, label: provider.name }))}
+                onChange={(event) =>
+                  save({ managed_by: event.target.value }, event.target.value ? `${org.name} is now managed by ${providers.find((p) => p.id === event.target.value)?.name ?? "it"}` : `${org.name} is no longer managed`)
+                }
+              />
+            )}
+          </Field>
+          {!org.managed_by && (
+            <Button loading={change.isPending} onClick={() => save({ msp: true }, `${org.name} is now a service provider`)}>
+              Make it a service provider
+            </Button>
+          )}
+        </div>
+      )}
+    </Card>
+  )
+}
+
 export function OrganisationPage() {
   const { tenantId = "" } = useParams()
   const me = useUser()
@@ -182,6 +237,7 @@ export function OrganisationPage() {
         <Stat label="Open alerts" value={formatNumber(org.open_alerts)} />
         <Stat label="Connectors" value={formatNumber(org.connectors)} />
       </div>
+      <ServiceProviderCard org={org} />
       <Card title="People" description="Their accounts are managed by the organisation's own administrators." bodyClassName="p-0">
         <Table label="People">
           <thead>

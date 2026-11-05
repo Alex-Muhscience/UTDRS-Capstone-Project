@@ -8998,6 +8998,133 @@
         }
       }
     },
+    "/api/v1/msp": {
+      "get": {
+        "tags": [
+          "service providers"
+        ],
+        "summary": "Overview",
+        "description": "Whether you work for a service provider and, if so, the organisations it manages, with their numbers.",
+        "operationId": "overview_api_v1_msp_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MspOverview"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/msp/alerts": {
+      "get": {
+        "tags": [
+          "service providers"
+        ],
+        "summary": "Client Alerts",
+        "description": "Open alerts across every organisation you manage, most severe and newest first.",
+        "operationId": "client_alerts_api_v1_msp_alerts_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ClientAlert"
+                  },
+                  "title": "Response Client Alerts Api V1 Msp Alerts Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/msp/clients": {
+      "post": {
+        "tags": [
+          "service providers"
+        ],
+        "summary": "Create Client",
+        "description": "Create an organisation your service provider manages (its administrators only).",
+        "operationId": "create_client_api_v1_msp_clients_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewClient"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedClient"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/live": {
       "get": {
         "tags": [
@@ -9175,9 +9302,9 @@
         "tags": [
           "platform"
         ],
-        "summary": "Change Status",
-        "description": "Suspend an organisation (its people are signed out, and it can do nothing) or reactivate it.",
-        "operationId": "change_status_api_v1_platform_organisations__tenant_id__patch",
+        "summary": "Change Organisation",
+        "description": "Suspend an organisation (its people are signed out, and it can do nothing) or reactivate it;\nmake it a managed service provider or not; or assign it to one.",
+        "operationId": "change_organisation_api_v1_platform_organisations__tenant_id__patch",
         "security": [
           {
             "OAuth2PasswordBearer": []
@@ -9199,7 +9326,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/StatusChange"
+                "$ref": "#/components/schemas/OrganisationChange"
               }
             }
           }
@@ -9829,7 +9956,7 @@
           "organisations"
         ],
         "summary": "Get Current Tenant",
-        "description": "The organisation you belong to.",
+        "description": "The organisation you belong to (or, for a service provider's people, the one you are working in).",
         "operationId": "get_current_tenant_api_v1_tenants_current_get",
         "responses": {
           "200": {
@@ -9883,6 +10010,33 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tenants/current/msp": {
+      "delete": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Release From Msp",
+        "description": "End your service provider's access (your own administrators only): its people can no longer\nwork in your organisation. A platform administrator can give it back.",
+        "operationId": "release_from_msp_api_v1_tenants_current_msp_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Tenant"
                 }
               }
             }
@@ -12291,6 +12445,91 @@
         ],
         "title": "Check"
       },
+      "ClientAlert": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "organisation_id": {
+            "type": "string",
+            "title": "Organisation Id"
+          },
+          "organisation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organisation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "organisation_id"
+        ],
+        "title": "ClientAlert"
+      },
       "ConsentResult": {
         "properties": {
           "state": {
@@ -12414,6 +12653,39 @@
           "temporary_password"
         ],
         "title": "CreatedAdministrator"
+      },
+      "CreatedClient": {
+        "properties": {
+          "organisation": {
+            "$ref": "#/components/schemas/OrganisationSummary"
+          },
+          "administrator": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Administrator"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "temporary_password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temporary Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organisation"
+        ],
+        "title": "CreatedClient"
       },
       "CreatedOrganisation": {
         "properties": {
@@ -14055,6 +14327,48 @@
         "title": "Microsoft365",
         "description": "The Microsoft 365 connection, as administrators see it. Secrets are never shown."
       },
+      "MspOverview": {
+        "properties": {
+          "msp": {
+            "type": "boolean",
+            "title": "Msp"
+          },
+          "organisation_id": {
+            "type": "string",
+            "title": "Organisation Id"
+          },
+          "organisation": {
+            "type": "string",
+            "title": "Organisation"
+          },
+          "role_in_clients": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role In Clients"
+          },
+          "clients": {
+            "items": {
+              "$ref": "#/components/schemas/OrganisationSummary"
+            },
+            "type": "array",
+            "title": "Clients",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "msp",
+          "organisation_id",
+          "organisation"
+        ],
+        "title": "MspOverview"
+      },
       "NewAdministrator": {
         "properties": {
           "username": {
@@ -14076,6 +14390,47 @@
           "email"
         ],
         "title": "NewAdministrator"
+      },
+      "NewClient": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "admin_username": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 3
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Username"
+          },
+          "admin_email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 254,
+                "minLength": 3
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "NewClient"
       },
       "NewOrganisation": {
         "properties": {
@@ -14430,6 +14785,46 @@
         ],
         "title": "OpenCase"
       },
+      "OrganisationChange": {
+        "properties": {
+          "suspended": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suspended"
+          },
+          "msp": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Msp"
+          },
+          "managed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Managed By"
+          }
+        },
+        "type": "object",
+        "title": "OrganisationChange",
+        "description": "What to change; anything left out stays as it is."
+      },
       "OrganisationDetail": {
         "properties": {
           "id": {
@@ -14508,6 +14903,38 @@
             "type": "boolean",
             "title": "Mfa Required",
             "default": false
+          },
+          "urgent_alerts": {
+            "type": "integer",
+            "title": "Urgent Alerts",
+            "default": 0
+          },
+          "msp": {
+            "type": "boolean",
+            "title": "Msp",
+            "default": false
+          },
+          "managed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Managed By"
+          },
+          "managed_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Managed By Name"
           },
           "users": {
             "items": {
@@ -14609,6 +15036,38 @@
             "type": "boolean",
             "title": "Mfa Required",
             "default": false
+          },
+          "urgent_alerts": {
+            "type": "integer",
+            "title": "Urgent Alerts",
+            "default": 0
+          },
+          "msp": {
+            "type": "boolean",
+            "title": "Msp",
+            "default": false
+          },
+          "managed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Managed By"
+          },
+          "managed_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Managed By Name"
           }
         },
         "type": "object",
@@ -17178,19 +17637,6 @@
         "type": "object",
         "title": "SsoUpdate"
       },
-      "StatusChange": {
-        "properties": {
-          "suspended": {
-            "type": "boolean",
-            "title": "Suspended"
-          }
-        },
-        "type": "object",
-        "required": [
-          "suspended"
-        ],
-        "title": "StatusChange"
-      },
       "Step": {
         "properties": {
           "key": {
@@ -17623,6 +18069,33 @@
             "type": "boolean",
             "title": "Require Mfa",
             "default": false
+          },
+          "msp": {
+            "type": "boolean",
+            "title": "Msp",
+            "default": false
+          },
+          "managed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Managed By"
+          },
+          "managed_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Managed By Name"
           }
         },
         "type": "object",

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import AliasChoices, BaseModel, Field, model_validator
 
@@ -18,6 +18,11 @@ class Tenant(BaseModel):
     updated_at: datetime
     # Everyone must use multi-factor authentication to sign in.
     require_mfa: bool = False
+    # A managed service provider, which looks after other organisations.
+    msp: bool = False
+    # The service provider that manages this organisation: its people can work in it.
+    managed_by: Optional[str] = None
+    managed_by_name: Optional[str] = None
 
     @model_validator(mode="before")
     @classmethod

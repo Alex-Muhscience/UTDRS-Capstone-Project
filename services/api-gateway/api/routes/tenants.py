@@ -5,7 +5,7 @@ from core.models.sso import SsoSettings, SsoUpdate
 from core.models.tenant import Tenant, TenantSecurity, TenantUpdate
 from core.models.user import User
 from core.database.repositories.user_repository import UserRepository
-from core.services import audit, mfa, scim, sso, tenants
+from core.services import audit, mfa, msp, scim, sso, tenants
 from core.tenancy import current_tenant
 from utils.security import get_current_active_user, require_admin
 
@@ -14,11 +14,26 @@ router = APIRouter()
 
 @router.get("/current", response_model=Tenant)
 async def get_current_tenant(current_user: User = Depends(get_current_active_user)):
-    """The organisation you belong to."""
+    """The organisation you belong to (or, for a service provider's people, the one you are working in)."""
     tenant = await tenants.get(current_tenant())
     if not tenant:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organisation not found")
-    return tenant
+    return {**tenant, "managed_by_name": await msp.manager_name(tenant)}
+
+
+@router.delete("/current/msp", response_model=Tenant)
+async def release_from_msp(request: Request, admin: User = Depends(require_admin)):
+    """
+    End your service provider's access (your own administrators only): its people can no longer
+    work in your organisation. A platform administrator can give it back.
+    """
+    if getattr(request.state, "home_tenant_id", None):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the organisation's own administrators can end its service provider's access")
+    try:
+        await msp.release(current_tenant(), request)
+    except msp.MspError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    return await tenants.get(current_tenant())
 
 
 @router.patch("/current", response_model=Tenant)

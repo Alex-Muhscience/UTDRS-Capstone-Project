@@ -45,25 +45,29 @@ async def _record(action: str, request, admin, tenant_id: Optional[str], details
         await audit.record(action, request, actor=_actor(admin), target=target, details=details, tenant_id=tenant_id)
 
 
-async def summaries() -> List[Dict[str, Any]]:
-    """Every organisation, with what a platform administrator needs to see at a glance."""
+async def summaries(ids: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    """Every organisation (or those named), with what a platform administrator or MSP needs to see at a glance."""
     database = get_database()
     week_ago = utcnow() - timedelta(days=7)
+    only: Dict[str, Any] = {"tenant_id": {"$in": ids}} if ids is not None else {}
 
     async def grouped(collection: str, match: Dict[str, Any]) -> Dict[str, int]:
-        rows = await (await database[collection].aggregate([{"$match": match}, {"$group": {"_id": "$tenant_id", "n": {"$sum": 1}}}])).to_list(None)
+        rows = await (await database[collection].aggregate([{"$match": {**match, **only}}, {"$group": {"_id": "$tenant_id", "n": {"$sum": 1}}}])).to_list(None)
         return {row["_id"]: row["n"] for row in rows}
 
     people = await grouped("users", {"active": True})
     admins = await grouped("users", {"active": True, "role": ADMIN})
     events = await grouped("events", {"created_at": {"$gte": week_ago}})
     open_alerts = await grouped("alerts", {"status": {"$nin": ["resolved", "closed", "false_positive", "suppressed"]}})
+    urgent_alerts = await grouped("alerts", {"status": {"$nin": ["resolved", "closed", "false_positive", "suppressed"]}, "severity": {"$in": ["critical", "high"]}})
     connectors = await grouped("connections", {})
     last_sign_in = {row["_id"]: row["at"] for row in await (await database["users"].aggregate(
-        [{"$group": {"_id": "$tenant_id", "at": {"$max": "$lastLogin"}}}])).to_list(None)}
+        [*([{"$match": only}] if only else []), {"$group": {"_id": "$tenant_id", "at": {"$max": "$lastLogin"}}}])).to_list(None)}
     default = await tenants.default_id()
+    all_tenants = await database["tenants"].find({} if ids is None else {"_id": {"$in": [ObjectId(i) for i in ids if ObjectId.is_valid(i)]}}).sort("created_at", 1).to_list(None)
+    names = {str(t["_id"]): t["name"] async for t in database["tenants"].find({"msp": True}, {"name": 1})}
     result = []
-    async for tenant in database["tenants"].find().sort("created_at", 1):
+    for tenant in all_tenants:
         tenant_id = str(tenant["_id"])
         result.append({
             "id": tenant_id, "name": tenant["name"], "slug": tenant.get("slug"), "status": tenant.get("status", "active"),
@@ -71,12 +75,14 @@ async def summaries() -> List[Dict[str, Any]]:
             "people": people.get(tenant_id, 0), "administrators": admins.get(tenant_id, 0), "events_last_week": events.get(tenant_id, 0),
             "open_alerts": open_alerts.get(tenant_id, 0), "connectors": connectors.get(tenant_id, 0), "last_sign_in": last_sign_in.get(tenant_id),
             "mfa_required": bool((tenant.get("security") or {}).get("require_mfa")),
+            "urgent_alerts": urgent_alerts.get(tenant_id, 0), "msp": bool(tenant.get("msp")),
+            "managed_by": tenant.get("managed_by"), "managed_by_name": names.get(tenant.get("managed_by") or ""),
         })
     return result
 
 
 async def detail(tenant_id: str) -> Dict[str, Any]:
-    found = next((t for t in await summaries() if t["id"] == tenant_id), None)
+    found = next(iter(await summaries([tenant_id])), None) if ObjectId.is_valid(tenant_id) else None
     if not found:
         raise LookupError("Organisation not found")
     users = await get_database()["users"].find(
@@ -183,6 +189,24 @@ async def delete_organisation(tenant_id: str, confirm_name: str, request, admin)
     await audit.record("platform.organisation_deleted", request, actor=_actor(admin), target={"type": "tenant", "id": tenant_id, "name": tenant["name"]},
                        details={"deleted": deleted}, tenant_id=PLATFORM)
     return deleted
+
+
+async def set_msp(tenant_id: str, msp: Optional[bool], managed_by: Optional[str], request, admin) -> Dict[str, Any]:
+    """Make an organisation a service provider (or not), or assign it to one (managed_by "" for none)."""
+    from core.services import msp as msp_service
+
+    if not await tenants.get(tenant_id):
+        raise LookupError("Organisation not found")
+    try:
+        if msp is not None:
+            await msp_service.set_msp(tenant_id, msp)
+            await _record("platform.msp_granted" if msp else "platform.msp_removed", request, admin, tenant_id)
+        if managed_by is not None:
+            await msp_service.set_manager(tenant_id, managed_by or None)
+            await _record("platform.manager_changed", request, admin, tenant_id, {"managed_by": managed_by or None})
+    except msp_service.MspError as e:
+        raise PlatformError(str(e))
+    return await detail(tenant_id)
 
 
 async def platform_admins() -> List[Dict[str, Any]]:

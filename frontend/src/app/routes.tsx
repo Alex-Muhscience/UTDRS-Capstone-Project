@@ -30,6 +30,7 @@ import { OverviewPage } from "@/pages/overview/OverviewPage"
 import { ProfilePage } from "@/pages/profile/ProfilePage"
 import { ReportPage } from "@/pages/reports/ReportPage"
 import { ReportsPage } from "@/pages/reports/ReportsPage"
+import { ClientsPage } from "@/pages/msp/ClientsPage"
 import { OrganisationPage } from "@/pages/platform/OrganisationPage"
 import { PlatformPage } from "@/pages/platform/PlatformPage"
 import { PlaybooksPage } from "@/pages/response/PlaybooksPage"
@@ -81,6 +82,7 @@ export const routes: RouteObject[] = [
               { path: "simulations", element: <SimulationsPage /> },
               { path: "tuning", element: <TuningPage /> },
               { path: "profile", element: <ProfilePage /> },
+              { path: "clients", element: <ClientsPage /> },
               {
                 element: <RequirePlatformAdmin />,
                 children: [

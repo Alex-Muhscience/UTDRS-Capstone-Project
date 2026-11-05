@@ -215,6 +215,44 @@ export function useRevokeScimToken() {
   })
 }
 
+// ---------------------------------------------------------------------------- Service providers (MSPs)
+
+/** Whether you work for a service provider, and the organisations it manages (always your own provider's, whichever you are working in). */
+export function useMspOverview() {
+  return useQuery({ queryKey: ["msp", "overview"], queryFn: () => unwrap(api.GET("/api/v1/msp")), staleTime: 60_000, refetchInterval: livePoll })
+}
+
+export function useMspAlerts(enabled = true) {
+  return useQuery({
+    queryKey: ["msp", "alerts"],
+    queryFn: () => unwrap(api.GET("/api/v1/msp/alerts", { params: { query: { limit: 50 } } })),
+    enabled,
+    refetchInterval: POLL_INTERVAL_MS,
+  })
+}
+
+export function useCreateClient() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { name: string; admin_username?: string; admin_email?: string }) => unwrap(api.POST("/api/v1/msp/clients", { body })),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["msp"] }),
+  })
+}
+
+export function useReleaseFromMsp() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => unwrap(api.DELETE("/api/v1/tenants/current/msp")),
+    onSuccess: (tenant) => queryClient.setQueryData(["tenant"], tenant),
+  })
+}
+
+export function useSetOrganisationMsp(tenantId: string) {
+  return usePlatformMutation((body: { msp?: boolean; managed_by?: string }) =>
+    unwrap(api.PATCH("/api/v1/platform/organisations/{tenant_id}", { params: { path: { tenant_id: tenantId } }, body })),
+  )
+}
+
 // ---------------------------------------------------------------------------- Platform console
 
 export function useOrganisations() {

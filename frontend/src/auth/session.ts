@@ -1,3 +1,5 @@
+import { setActiveOrganisation } from "@/lib/organisation"
+
 /**
  * The signed-in session: the gateway's short-lived access token (a JWT) and when it
  * expires, and the refresh token that gets the next one (each works once).
@@ -55,6 +57,7 @@ export function saveSession(token: string, refreshToken: string | null = null): 
 }
 
 export function clearSession(): void {
+  setActiveOrganisation(null) // a new sign-in starts in the person's own organisation
   try {
     sessionStorage.removeItem(KEY)
   } catch {

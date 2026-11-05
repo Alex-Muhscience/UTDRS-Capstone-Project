@@ -28,6 +28,13 @@ class OrganisationSummary(BaseModel):
     connectors: int
     last_sign_in: Optional[datetime] = None
     mfa_required: bool = False
+    # Open critical and high alerts.
+    urgent_alerts: int = 0
+    # A managed service provider, which looks after other organisations.
+    msp: bool = False
+    # The service provider that manages this organisation, if any.
+    managed_by: Optional[str] = None
+    managed_by_name: Optional[str] = None
 
 
 class OrganisationUser(BaseModel):
@@ -72,8 +79,12 @@ class CreatedOrganisation(CreatedAdministrator):
     tenant: OrganisationDetail
 
 
-class StatusChange(BaseModel):
-    suspended: bool
+class OrganisationChange(BaseModel):
+    """What to change; anything left out stays as it is."""
+    suspended: Optional[bool] = None
+    msp: Optional[bool] = None
+    # The service provider's organisation id, or "" for none.
+    managed_by: Optional[str] = None
 
 
 class Deletion(BaseModel):
@@ -133,10 +144,18 @@ async def add_administrator(tenant_id: str, body: NewAdministrator, request: Req
 
 
 @router.patch("/organisations/{tenant_id}", response_model=OrganisationDetail)
-async def change_status(tenant_id: str, body: StatusChange, request: Request, admin: User = Depends(require_platform_admin)):
-    """Suspend an organisation (its people are signed out, and it can do nothing) or reactivate it."""
+async def change_organisation(tenant_id: str, body: OrganisationChange, request: Request, admin: User = Depends(require_platform_admin)):
+    """
+    Suspend an organisation (its people are signed out, and it can do nothing) or reactivate it;
+    make it a managed service provider or not; or assign it to one.
+    """
     try:
-        return await platform.set_status(tenant_id, body.suspended, request, admin)
+        result = None
+        if body.suspended is not None:
+            result = await platform.set_status(tenant_id, body.suspended, request, admin)
+        if body.msp is not None or body.managed_by is not None:
+            result = await platform.set_msp(tenant_id, body.msp, body.managed_by, request, admin)
+        return result or await platform.detail(tenant_id)
     except (platform.PlatformError, LookupError) as e:
         raise _refused(e)
 
