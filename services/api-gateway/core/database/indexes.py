@@ -2,7 +2,7 @@
 from pymongo.errors import OperationFailure
 
 from core.database.connection import get_database
-from core.services import api_keys, audit, case_service, live, roles, login_throttle, m365, sessions, webhooks, notifications, playbooks, reports, response_actions, tuning
+from core.services import api_keys, audit, case_service, inbox, live, roles, login_throttle, m365, sessions, webhooks, notifications, playbooks, reports, response_actions, tuning
 from core.tenancy import TENANT_SCOPED
 from utils.logger import get_logger
 
@@ -34,6 +34,7 @@ async def ensure_indexes() -> None:
     await scim.ensure_indexes()
     await live.ensure_indexes()
     await roles.ensure_indexes()
+    await inbox.ensure_indexes()
 
     database = get_database()
     await database["tenants"].create_index("slug", unique=True)

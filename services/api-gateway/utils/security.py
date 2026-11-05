@@ -72,7 +72,7 @@ def _allowed_before_mfa(request: Request) -> bool:
 
 
 # What a read-only person may still change: their own account, nothing of the organisation's.
-VIEWER_MAY_CHANGE = ("/auth/me", "/auth/mfa", "/auth/passkeys", "/auth/sessions", "/auth/logout", "/notifications/preferences")
+VIEWER_MAY_CHANGE = ("/auth/me", "/auth/mfa", "/auth/passkeys", "/auth/sessions", "/auth/logout", "/notifications/preferences", "/inbox/read")
 
 
 def refuse_viewer_changes(user: User, request: Request) -> None:

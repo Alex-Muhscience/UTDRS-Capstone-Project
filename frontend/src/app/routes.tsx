@@ -32,6 +32,7 @@ import { OverviewPage } from "@/pages/overview/OverviewPage"
 import { ProfilePage } from "@/pages/profile/ProfilePage"
 import { ReportPage } from "@/pages/reports/ReportPage"
 import { ReportsPage } from "@/pages/reports/ReportsPage"
+import { InboxPage } from "@/pages/inbox/InboxPage"
 import { ClientsPage } from "@/pages/msp/ClientsPage"
 import { OrganisationPage } from "@/pages/platform/OrganisationPage"
 import { PlatformPage } from "@/pages/platform/PlatformPage"
@@ -134,6 +135,7 @@ export const routes: RouteObject[] = [
                 ],
               },
               { path: "profile", element: <ProfilePage /> },
+              { path: "inbox", element: <InboxPage /> },
               { path: "clients", element: <ClientsPage /> },
               {
                 element: <RequirePlatformAdmin />,

@@ -60,8 +60,9 @@ const STALE: Record<string, string[][]> = {
   action: [["actions"], ["cases"]],
   report: [["reports"]],
   connector: [["connectors"]],
+  inbox: [["inbox"]],
 }
-const EVERYTHING = [["alerts"], ["cases"], ["actions"], ["reports"], ["connectors"], ["onboarding"]]
+const EVERYTHING = [["alerts"], ["cases"], ["actions"], ["reports"], ["connectors"], ["onboarding"], ["inbox"]]
 
 /** Parse Server-Sent Events from text, returning the complete messages and what is left over. */
 export function parseEvents(buffer: string): { messages: LiveMessage[]; rest: string } {

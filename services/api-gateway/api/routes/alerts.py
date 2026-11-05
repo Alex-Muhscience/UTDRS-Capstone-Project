@@ -169,6 +169,9 @@ async def assign_alert(
         )
 
     updated_alert = await alert_service.get_alert_by_id(alert_id)
+    from core.services import inbox
+
+    await inbox.assigned("alert", alert_id, (updated_alert or {}).get("title") or "", assigned_to, {"id": current_user.id, "name": current_user.username})
     return updated_alert
 
 

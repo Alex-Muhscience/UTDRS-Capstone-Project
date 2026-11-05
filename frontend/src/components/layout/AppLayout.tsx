@@ -37,6 +37,7 @@ import { useLiveUpdates } from "@/lib/live"
 import { ConfirmEmailBanner } from "./ConfirmEmailBanner"
 import { useOrganisationRefused } from "@/lib/useSwitchOrganisation"
 
+import { InboxBell } from "./InboxBell"
 import { ActingBanner, OrganisationSwitcher } from "./OrganisationSwitcher"
 import { Logo } from "./Logo"
 import { SystemStatus } from "./SystemStatus"
@@ -260,8 +261,9 @@ export function AppLayout() {
           <Link to="/" className="lg:hidden" aria-label="UTDRS overview">
             <Logo compact />
           </Link>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
             <SystemStatus />
+            <InboxBell />
           </div>
         </header>
         <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8">
