@@ -25,6 +25,7 @@ from typing import Any, Dict, Set
 from bson import ObjectId
 
 from config import settings
+from core.services import heartbeat
 from core.database.connection import get_database
 from core.services import tenants
 from core.tenancy import current_tenant, scoped, tenant_context
@@ -139,8 +140,11 @@ async def run_all() -> None:
 async def run_periodically() -> None:
     """Run for the life of the process: delete what has passed its time every RETENTION_INTERVAL_SECONDS."""
     while True:
+        error = None
         try:
             await run_all()
         except Exception as e:  # never let the loop die
             logger.error(f"Retention failed: {e}")
+            error = e
+        await heartbeat.beat("retention", settings.RETENTION_INTERVAL_SECONDS, error)
         await asyncio.sleep(settings.RETENTION_INTERVAL_SECONDS)

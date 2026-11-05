@@ -15,7 +15,7 @@ async def _status() -> dict:
     connection = await m365.get_connection() or {}
     return {
         "connected": bool(connection),
-        **{k: connection.get(k) for k in ("status", "mode", "azure_tenant_id", "client_id", "organisation_name", "connected_at", "last_poll_at")},
+        **{k: connection.get(k) for k in ("status", "mode", "azure_tenant_id", "client_id", "organisation_name", "connected_at", "last_poll_at", "last_data_at", "error_since")},
         "last_poll": connection.get("last_poll") or {},
         "errors": connection.get("errors") or {},
         "checks": connection.get("checks") or [],

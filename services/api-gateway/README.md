@@ -246,6 +246,14 @@ An administrator creates a key on the dashboard's *API keys* page, or with `POST
 
 Entries are numbered, and each holds the hash of the one before, so `GET /audit-log/verify` (or *Verify the log* on the dashboard) finds an entry that was altered, inserted or removed. A missing number can also mean a write failed part-way: an audit problem is logged and never blocks the action it records. Each entry has `action` (`auth.login_failed`, `rules.update_rule_status`, `api_key.created`, ...), `outcome` (`success`, `denied` or `failed`), `actor`, `address`, `request_id`, `target`, and `details` with the query and fields sent. Filter with `action=rules` for every rule action, or `action=rules.create_rule` for one.
 
+## Operations: metrics, health and alerts
+
+- **Readiness.** `GET /health/ready` answers 200 while the gateway can serve (its database answers) and 503 when it cannot, for load balancers and uptime monitors. It also lists what is failing on the platform (`problems`), with `status: degraded`.
+- **Metrics.** `GET /metrics` serves Prometheus's text format to a scraper sending `Authorization: Bearer <METRICS_TOKEN>` (without `METRICS_TOKEN`, it does not exist). Requests are counted by method, route template (`/api/v1/alerts/{alert_id}`, never the actual path) and status class, with durations in histogram buckets; each process adds its counts to totals in the database every `METRICS_FLUSH_SECONDS` (15), so every process reports the same totals. The rest is read from the database at each scrape: database ping time, whether the core engine is configured and answers, events waiting for analysis and the oldest's wait, analyses failed in the last day, the email outbox and webhook deliveries (waiting, failed), connectors by kind and status, each background loop's last run and whether it succeeded or has stopped, organisations, active sessions and open alerts by severity. Metrics cover every organisation together and carry none of their data.
+- **Heartbeats.** Each background loop (rule sync, email, reports, Microsoft 365 polling, retention, webhooks, metrics, health checks) records each round (`core/services/heartbeat.py`). One that has not run for three of its rounds (at least five minutes) counts as stopped.
+- **Alerts on the platform's health** (`core/services/platform_health.py`). Every `HEALTH_CHECK_INTERVAL_SECONDS` (60), one process checks: the core engine answers; no event has waited for analysis more than `ANALYSIS_BACKLOG_ALERT_MINUTES` (15); no email failed for good in the last hour; every loop runs. A problem that lasts `HEALTH_ALERT_AFTER_MINUTES` (5) is emailed once to `OPERATOR_EMAILS`, and again when it is over.
+- **Connector health** (FR-ING-11). The connector shows when data last arrived and since when polling has failed. Each organisation's administrators are emailed when a connector has failed for `HEALTH_ALERT_AFTER_MINUTES`, or brought nothing in for `CONNECTOR_SILENT_HOURS` (24), and when it works again; a connector also sends the `connector.unhealthy` webhook as it fails.
+
 ## Configuration
 
 Settings come from the environment or a `.env` file in this directory (see [`.env.example`](.env.example)).
@@ -268,6 +276,13 @@ Settings come from the environment or a `.env` file in this directory (see [`.en
 | `SESSION_MAX_HOURS` | `12` | A session ends this long after signing in, however active |
 | `CORE_ENGINE_URL` | unset | Base URL of the core engine. Unset: events are stored but not analysed. |
 | `CORE_ENGINE_TIMEOUT_SECONDS` | `10` | |
+| `METRICS_TOKEN` | unset | Bearer token for `GET /metrics`; unset, there are no metrics |
+| `METRICS_FLUSH_SECONDS` | `15` | How often each process adds its request counts to the totals |
+| `OPERATOR_EMAILS` | `[]` | Who is emailed about the platform's health (a JSON list) |
+| `HEALTH_CHECK_INTERVAL_SECONDS` | `60` | How often the platform's health is checked |
+| `HEALTH_ALERT_AFTER_MINUTES` | `5` | How long a problem lasts before it is reported |
+| `ANALYSIS_BACKLOG_ALERT_MINUTES` | `15` | How long an event may wait for analysis before that is a problem |
+| `CONNECTOR_SILENT_HOURS` | `24` | A connector that brings nothing in for this long is reported to its organisation |
 | `INTERNAL_API_TOKEN` | unset | Shared secret for the engine, and for the data processor delivering scans |
 | `RULE_SYNC_INTERVAL_SECONDS` | `60` | How often the rules are re-sent to the engine, besides after each change |
 | `CORS_ORIGINS` | `["http://localhost:3001","http://localhost:5173"]` | JSON list of browser origins |
@@ -301,6 +316,7 @@ MONGODB_URI=mongodb://localhost:27017 python -m pytest
 
 - `tests/e2e/test_flows.py`: registration and sign-in, events, alerts (filters, ordering, summary, status errors), assets, rules, role and password rules, response headers. Against a real MongoDB, with no mocks.
 - `tests/e2e/test_users.py`: role checks on rules and simulations, the team directory, account administration (create, role changes, deactivation, password resets), self-lockout protection, closed registration and the startup administrator.
+- `tests/e2e/test_operations.py`: metrics behind their token, requests counted by route template and shared through the database, readiness, a stopped loop noticed, operators told once when the engine is down and when it is back, a short blip not reported, and administrators told when their connector fails, recovers or goes quiet.
 - `tests/e2e/test_detection_pipeline.py`: the event-to-alert pipeline against a fake engine (`httpx.MockTransport`), including an unreachable engine and the detection status.
 - `tests/e2e/test_cases.py`: grouping by user, address and device and not by destination; old cases not reopened; priority and deadline; working a case (status, owner, notes, closing its alerts); owners must be colleagues; overdue cases; explanations; evidence; cases kept within an organisation; the `cases` scope; open alerts from before cases grouped at start-up.
 - `tests/e2e/test_response.py`: against a stand-in for Microsoft Graph: actions that run, fail and are undone; the last Global Administrator; playbooks proposing, people approving and rejecting, and running once per case; the organisation's mode capping a playbook's; the hourly limit; protected accounts and administrators; steps skipped without their connector; removing an email from every mailbox and putting it back; removing and restoring an inbox rule; running a playbook yourself; API keys asking and people deciding; writing playbooks; disabled playbooks; response kept within an organisation.

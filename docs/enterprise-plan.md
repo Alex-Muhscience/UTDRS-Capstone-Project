@@ -236,7 +236,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 | FR-ING-08 | Network sensor package: Zeek (connection logs mapped to the network model's 21 features) and Suricata EVE JSON | P1 | 2 |
 | FR-ING-09 | Cloud audit connectors: AWS CloudTrail and GuardDuty, Azure Activity, GCP Audit Logs | P2 | 3 |
 | FR-ING-10 | Third-party EDR alerts: Microsoft Defender for Endpoint, CrowdStrike, SentinelOne | P2 | 3 |
-| FR-ING-11 | Connector health: last data received, errors, credential expiry, shown to the customer and alerted on | P0 | 1 |
+| FR-ING-11 | Connector health: last data received, errors, credential expiry, shown to the customer and alerted on **Done (#44): last data received and failing since, shown on the connector; administrators emailed when it fails, recovers or goes quiet. Credential expiry remains.** | P0 | 1 |
 | FR-ING-12 | Back-pressure, retries and replay; no event lost when a downstream service is unavailable | P0 | 1 |
 | FR-ING-13 | Enrichment at ingest: GeoIP, ASN, asset and user lookup, threat-intelligence match | P1 | 2 |
 | FR-ING-14 | Per-tenant volume metering for billing and fair use | P1 | 2 |
@@ -563,7 +563,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 
 | ID | Gap | Blocks | Priority |
 |---|---|---|---|
-| GAP-OPS-01 | No metrics, traces or service dashboards (structured logs only); no alerting on the platform's own health | NFR-11 | P0 |
+| GAP-OPS-01 | No metrics, traces or service dashboards (structured logs only); no alerting on the platform's own health **Done (#44): Prometheus metrics (requests by route, queues, outbox, webhooks, connectors, loops), a readiness check, heartbeats for background loops, and emails to operators about the platform's health. Traces remain.** | NFR-11 | P0 |
 | GAP-OPS-02 | No automated backups or restore tests (manual `mongodump` steps in `docs/docker.md`) | NFR-04 | P0 |
 | GAP-OPS-03 | No data retention or deletion jobs **Done (#28), except trimming the audit log, which needs a signed checkpoint.** | FR-PLT-02, NFR-09 | P0 |
 | GAP-OPS-04 | No load or soak tests; throughput unknown | NFR-02 | P1 |

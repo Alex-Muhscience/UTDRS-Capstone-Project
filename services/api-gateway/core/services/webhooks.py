@@ -34,6 +34,7 @@ from bson import ObjectId
 from pymongo import ReturnDocument
 
 from config import settings
+from core.services import heartbeat
 from core.database.connection import get_database
 from core.tenancy import current_tenant_or_none, scoped, tenant_context
 from utils import crypto
@@ -298,10 +299,13 @@ async def deliver_due(limit: int = 100) -> int:
 
 async def deliver_periodically() -> None:
     while True:
+        error = None
         try:
             await deliver_due()
         except Exception as e:  # never let the loop die
             logger.error(f"Webhook delivery failed: {e}")
+            error = e
+        await heartbeat.beat("webhook_delivery", settings.WEBHOOK_INTERVAL_SECONDS, error)
         await asyncio.sleep(settings.WEBHOOK_INTERVAL_SECONDS)
 
 

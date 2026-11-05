@@ -91,6 +91,12 @@ services:
         value: "false"
       - key: REGISTRATION_MODE
         value: organisation
+      # Operations: Prometheus metrics at /api/v1/metrics need this as a bearer token, and
+      # who is emailed about the platform's health (a JSON list, such as ["ops@example.com"]).
+      - key: METRICS_TOKEN
+        generateValue: true
+      - key: OPERATOR_EMAILS
+        sync: false
       # The dashboard on Vercel, and its preview deployments.
       - key: DASHBOARD_URL
         value: https://utdrs-capstone-project.vercel.app

@@ -22,7 +22,7 @@ from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
 from core.database.indexes import ensure_indexes
 from core.services import (
-    case_service, m365_ingest, notifications as notification_service, playbooks as playbook_service,
+    case_service, m365_ingest, metrics, notifications as notification_service, platform_health, playbooks as playbook_service,
     reports as report_service, retention, tenants, webhooks,
 )
 from core.services.bootstrap import ensure_admin
@@ -60,6 +60,8 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(m365_ingest.poll_periodically()),
         asyncio.create_task(retention.run_periodically()),
         asyncio.create_task(webhooks.deliver_periodically()),
+        asyncio.create_task(metrics.flush_periodically()),
+        asyncio.create_task(platform_health.check_periodically()),
     ]
     yield
     for loop in loops:
@@ -69,6 +71,8 @@ async def lifespan(app: FastAPI):
     for loop in loops:
         with suppress(asyncio.CancelledError):
             await loop
+    with suppress(Exception):
+        await metrics.flush()  # what this process counted since the last flush
     await close_mongo_connection()
 
 
@@ -88,6 +92,8 @@ app.add_middleware(
 )
 app.add_middleware(RequestValidationMiddleware)
 app.add_middleware(ErrorHandlerMiddleware)
+# Outside the error handler, so it counts the 500s it answers.
+app.add_middleware(metrics.RequestMetricsMiddleware)
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)

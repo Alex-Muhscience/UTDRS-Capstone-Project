@@ -20,6 +20,7 @@ from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 from config import settings
+from core.services import heartbeat
 from core.database.connection import get_database
 from core.services import case_service, connectors, tenants
 from core.tenancy import current_tenant, scoped, tenant_context
@@ -298,10 +299,13 @@ async def generate_due(now: Optional[datetime] = None) -> int:
 async def generate_periodically() -> None:
     """Run for the life of the process: check every REPORT_CHECK_INTERVAL_SECONDS for reports due."""
     while True:
+        error = None
         try:
             made = await generate_due()
             if made:
                 logger.info(f"Made {made} monthly reports")
         except Exception as e:  # never let the loop die
             logger.error(f"Monthly reports failed: {e}")
+            error = e
+        await heartbeat.beat("monthly_reports", settings.REPORT_CHECK_INTERVAL_SECONDS, error)
         await asyncio.sleep(settings.REPORT_CHECK_INTERVAL_SECONDS)
