@@ -823,19 +823,64 @@ export function useRecentEvents(limit: number) {
 /** How long after creation an event is polled while waiting for the engine's verdict. */
 const ANALYSIS_WAIT_MS = 60_000
 
-export function analysisOf(event: Event): { status?: string; alert_id?: string; error?: string } | undefined {
-  return (event.metadata as { analysis?: { status?: string; alert_id?: string; error?: string } }).analysis
+export type Analysis = {
+  /** queued and analysing: waiting for the engine; then threat, clean or error. */
+  status?: string
+  alert_id?: string
+  error?: string
+  attempts?: number
+  next_attempt_at?: string
+}
+
+export function analysisOf(event: Event): Analysis | undefined {
+  return (event.metadata as { analysis?: Analysis }).analysis
 }
 
 export function isAwaitingAnalysis(event: Event, now = Date.now()): boolean {
-  return !analysisOf(event) && now - new Date(event.created_at).getTime() < ANALYSIS_WAIT_MS
+  const status = analysisOf(event)?.status
+  if (status === "queued" || status === "analysing") return true
+  return !status && now - new Date(event.created_at).getTime() < ANALYSIS_WAIT_MS
+}
+
+/** Queued after the engine could not be reached: the gateway tries again by itself. */
+export function isRetryingAnalysis(event: Event): boolean {
+  const analysis = analysisOf(event)
+  return analysis?.status === "queued" && (analysis.attempts ?? 0) > 0
+}
+
+export function useReanalyseEvent() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (eventId: string) => unwrap(api.POST("/api/v1/events/{event_id}/reanalyse", { params: { path: { event_id: eventId } } })),
+    onSuccess: (event) => {
+      queryClient.setQueryData(["events", "detail", event.id], event)
+      void queryClient.invalidateQueries({ queryKey: ["events"] })
+    },
+  })
+}
+
+/** Administrators: queue every event whose analysis failed to be analysed again. */
+export function useReanalyseFailed() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => unwrap(api.POST("/api/v1/events/reanalyse", { body: {} })),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["events"] })
+      void queryClient.invalidateQueries({ queryKey: ["system", "detection"] })
+    },
+  })
 }
 
 export function useEvent(eventId: string) {
   return useQuery({
     queryKey: ["events", "detail", eventId],
     queryFn: () => unwrap(api.GET("/api/v1/events/{event_id}", { params: { path: { event_id: eventId } } })),
-    refetchInterval: (query) => (query.state.data && isAwaitingAnalysis(query.state.data) ? 1500 : false),
+    // Quickly while the engine is expected any moment; slowly while the gateway retries.
+    refetchInterval: (query) => {
+      const event = query.state.data
+      if (!event || !isAwaitingAnalysis(event)) return false
+      return isRetryingAnalysis(event) ? 10_000 : 1500
+    },
   })
 }
 

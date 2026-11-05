@@ -1013,7 +1013,7 @@
           "users"
         ],
         "summary": "Sign Out Everywhere",
-        "description": "Sign someone out of every session (admins only), for example when a device is lost or stolen.",
+        "description": "Sign someone out of every session (admins only), for example when a device is lost or\nstolen. Administrators signing themselves out keep the session they are using.",
         "operationId": "sign_out_everywhere_api_v1_users__user_id__sign_out_post",
         "security": [
           {
@@ -3057,7 +3057,7 @@
           "events"
         ],
         "summary": "Create Event",
-        "description": "Create a new event.\n\nWhen a core engine is configured, the event is then analysed in the background; the\nresult is recorded on the event (metadata.analysis) and a threat raises an alert.",
+        "description": "Create a new event.\n\nWhen a core engine is configured, the event is queued and analysed in the background;\nif the engine cannot be reached it is tried again until it can (for up to a day). The\nresult is recorded on the event (metadata.analysis) and a threat raises an alert.",
         "operationId": "create_event_api_v1_events__post",
         "security": [
           {
@@ -3076,6 +3076,101 @@
         },
         "responses": {
           "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Event"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/reanalyse": {
+      "post": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Reanalyse Failed",
+        "description": "Queue every event whose analysis failed to be analysed again (administrators): after\nthe core engine was unavailable for longer than the gateway keeps trying.",
+        "operationId": "reanalyse_failed_api_v1_events_reanalyse_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Reanalysis"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Requeued"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/events/{event_id}/reanalyse": {
+      "post": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Reanalyse Event",
+        "description": "Analyse an event again, such as one whose analysis failed. A threat it shows raises an alert once.",
+        "operationId": "reanalyse_event_api_v1_events__event_id__reanalyse_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "The ID of the event to analyse again"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
@@ -8600,6 +8695,36 @@
         "type": "object",
         "title": "AlertUpdate"
       },
+      "AnalysisQueueStatus": {
+        "properties": {
+          "waiting": {
+            "type": "integer",
+            "title": "Waiting"
+          },
+          "oldest_waiting_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest Waiting Since"
+          },
+          "failed_last_day": {
+            "type": "integer",
+            "title": "Failed Last Day"
+          }
+        },
+        "type": "object",
+        "required": [
+          "waiting",
+          "failed_last_day"
+        ],
+        "title": "AnalysisQueueStatus"
+      },
       "ApiKey": {
         "properties": {
           "id": {
@@ -10190,6 +10315,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/RuleSyncStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisQueueStatus"
               },
               {
                 "type": "null"
@@ -11824,6 +11959,24 @@
         ],
         "title": "PollResult"
       },
+      "Reanalysis": {
+        "properties": {
+          "failed_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed Since"
+          }
+        },
+        "type": "object",
+        "title": "Reanalysis"
+      },
       "RecoveryCodes": {
         "properties": {
           "recovery_codes": {
@@ -12112,6 +12265,20 @@
           "generated_at"
         ],
         "title": "ReportSummary"
+      },
+      "Requeued": {
+        "properties": {
+          "queued": {
+            "type": "integer",
+            "title": "Queued",
+            "description": "How many events were queued to be analysed again"
+          }
+        },
+        "type": "object",
+        "required": [
+          "queued"
+        ],
+        "title": "Requeued"
       },
       "ResponseSettings": {
         "properties": {

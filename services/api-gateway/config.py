@@ -110,6 +110,12 @@ class Settings(BaseSettings):
     RETENTION_MAX_DAYS: int = 730
     RETENTION_INTERVAL_SECONDS: int = 3600
 
+    # Analysing events (core/services/detection_pipeline.py): how often queued events are
+    # sent to the core engine, how many at once, and how long to keep trying.
+    ANALYSIS_INTERVAL_SECONDS: int = 5
+    ANALYSIS_CONCURRENCY: int = 4
+    ANALYSIS_GIVE_UP_HOURS: int = 24
+
     # Webhooks (core/services/webhooks.py): how often due deliveries are sent, and whether
     # receivers may be on private networks (only for a deployment's own receivers).
     WEBHOOK_INTERVAL_SECONDS: int = 5

@@ -52,3 +52,17 @@ async def test_message_text_is_judged_but_not_kept(mongo):
     stored = await mongo["events"].find_one({"id": "m1"})
     assert stored["data"] == {"subject": "Invoice", "sender": "x@evil.example"}
     assert event["data"]["body"] == "confirm your password"  # the detectors still see it
+
+
+@pytest.mark.asyncio
+async def test_an_event_the_gateway_sends_again_is_kept_once(mongo):
+    from core.detection.correlation_detector import CorrelationDetector
+
+    detector = CorrelationDetector()
+    detector.db = mongo
+    for attempt in ("first", "second"):
+        event = {"id": attempt, "event_type": "authentication", "timestamp": datetime.now(timezone.utc).isoformat(),
+                 "data": {"gateway_event_id": "665f1c2ab1e2c3d4e5f60aaa"}}
+        await detector.detect(event)
+    stored = await mongo["events"].find({"data.gateway_event_id": "665f1c2ab1e2c3d4e5f60aaa"}).to_list(10)
+    assert [e["id"] for e in stored] == ["second"]
