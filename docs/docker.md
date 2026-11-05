@@ -254,7 +254,9 @@ services:
       - "127.0.0.1:27017:27017"
 ```
 
-**Back up and restore** (every database, compressed, in one file)
+**Automatic backups.** `docker compose --profile backup up -d backup` backs up every day to `./backups`, checks each backup and tests restoring it, keeps two weeks, and has the gateway email `OPERATOR_EMAILS` if backups stop. See [ops/backup](../ops/backup/README.md), which also covers restoring and MongoDB Atlas.
+
+**Back up and restore by hand** (every database, compressed, in one file)
 
 ```bash
 docker compose exec -T mongodb mongodump --archive --gzip > utdrs-backup.gz

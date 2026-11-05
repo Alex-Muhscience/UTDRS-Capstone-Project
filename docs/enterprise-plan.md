@@ -564,7 +564,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 | ID | Gap | Blocks | Priority |
 |---|---|---|---|
 | GAP-OPS-01 | No metrics, traces or service dashboards (structured logs only); no alerting on the platform's own health **Done (#44): Prometheus metrics (requests by route, queues, outbox, webhooks, connectors, loops), a readiness check, heartbeats for background loops, and emails to operators about the platform's health. Traces remain.** | NFR-11 | P0 |
-| GAP-OPS-02 | No automated backups or restore tests (manual `mongodump` steps in `docs/docker.md`) | NFR-04 | P0 |
+| GAP-OPS-02 | No automated backups or restore tests (manual `mongodump` steps in `docs/docker.md`) **Done (#46): scheduled, checked, optionally encrypted backups with a restore test each time, kept two weeks, and an alert when they stop (ops/backup).** | NFR-04 | P0 |
 | GAP-OPS-03 | No data retention or deletion jobs **Done (#28), except trimming the audit log, which needs a signed checkpoint.** | FR-PLT-02, NFR-09 | P0 |
 | GAP-OPS-04 | No load or soak tests; throughput unknown | NFR-02 | P1 |
 | GAP-OPS-05 | No staging environment, release process, versioning or changelog per release | NFR-16 | P1 |
