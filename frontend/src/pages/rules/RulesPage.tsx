@@ -94,7 +94,7 @@ function NewRuleDialog({ open, onClose }: { open: boolean; onClose: () => void }
           label="Logic"
           required
           className="sm:col-span-2"
-          hint="Comparisons joined by 'and' (or by 'or'): ==, !=, >, >=, <, <=, in [...], not in [...], matches '<regex>', contains, startswith, endswith, exists. Fields are event_type, source, or anything in the event's data."
+          hint="Comparisons joined by 'and' (or by 'or'): ==, !=, >, >=, <, <=, in [...], not in [...], matches '<regex>', contains, startswith, endswith, exists. Fields are event_type, source, or anything in the event's data. To count over time, end with '| count by user > 50 in 10m'."
         >
           {(id, describedBy) => (
             <Textarea

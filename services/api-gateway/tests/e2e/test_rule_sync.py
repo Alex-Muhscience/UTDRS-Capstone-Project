@@ -96,11 +96,11 @@ def test_a_new_rule_reaches_the_engine(client, admin, engine):
 
 
 def test_a_rule_the_engine_cannot_run_is_kept_but_not_sent(client, admin, engine):
-    response = client.post("/api/v1/detection/rules", json=rule("event_type == 'dns' | count by source_ip > 10 in 5m"), headers=admin)
+    response = client.post("/api/v1/detection/rules", json=rule("event_type == 'dns' | distinct source_ip"), headers=admin)
     assert response.status_code == 201, response.text
     created = response.json()
     assert created["engine"]["runs"] is False
-    assert "Aggregations" in created["engine"]["reason"]
+    assert "'| distinct' is not run" in created["engine"]["reason"]
     assert created["id"] not in engine.rules
 
 
@@ -138,3 +138,13 @@ def test_the_detection_status_reports_the_last_sync(client, admin, engine):
     assert status["rule_sync"]["ok"] is False
     assert "503" in status["rule_sync"]["error"]
     assert status["rule_sync"]["succeeded_at"]  # the last success is still known
+
+
+
+def test_a_counting_rule_goes_to_the_engine_with_its_aggregation(client, admin, engine):
+    response = client.post("/api/v1/detection/rules", json=rule("event_type == 'authentication' and status == 'failed' | count by source_ip > 10 in 5m"), headers=admin)
+    assert response.status_code == 201, response.text
+    created = response.json()
+    assert created["engine"]["runs"] is True
+    sent = engine.rules[created["id"]]
+    assert sent["detection"]["aggregation"] == {"group_by": "data.source_ip", "op": "gt", "threshold": 10, "window_seconds": 300}

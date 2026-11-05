@@ -33,6 +33,14 @@ class SignatureDetector:
         
         for rule in rules:
             if await self._match_rule(event, rule):
+                counted = None
+                if (rule.get('detection') or {}).get('aggregation'):
+                    # A counting rule: this event counts, but fires only once the count is reached.
+                    from core.detection import aggregation
+
+                    counted = await aggregation.reached(rule, event)
+                    if counted is None:
+                        continue
                 logger.info(f"Event matched signature rule: {rule['name']}")
                 
                 # Extract MITRE ATT&CK information if available
@@ -51,7 +59,8 @@ class SignatureDetector:
                     "rule_source_id": rule.get('source_id'),
                     "tags": rule.get('tags', []),
                     "mitre_tactics": mitre_tactics,
-                    "mitre_techniques": mitre_techniques
+                    "mitre_techniques": mitre_techniques,
+                    **({"count": counted} if counted else {}),
                 }
                 
         return None

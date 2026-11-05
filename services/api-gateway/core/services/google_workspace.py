@@ -434,6 +434,13 @@ RULES: List[Dict[str, Any]] = [
         "logic": "source == 'google' and event_type == 'file_sharing' and visibility_change == 'external'",
     },
     {
+        "name": "Google Workspace: many files shared outside",
+        "description": "One person shared more than 20 files outside your organisation within an hour: data may be leaving in bulk.",
+        "severity": "high",
+        "tags": ["data", "exfiltration", "T1567"],
+        "logic": "source == 'google' and event_type == 'file_sharing' and visibility_change == 'external' | count by user > 20 in 1h",
+    },
+    {
         "name": "Google Workspace: file made public on the web",
         "description": "A Drive file was made public on the web: anyone can find and open it, without signing in.",
         "severity": "high",

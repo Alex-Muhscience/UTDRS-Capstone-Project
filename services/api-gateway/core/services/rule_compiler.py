@@ -13,10 +13,17 @@ Comparisons: `==`, `!=`, `>`, `>=`, `<`, `<=`, `in [...]`, `not in [...]`,
 A field is an event's `event_type`, `source` or `timestamp`, or anything in its data
 (`process_name`, `user.name`, ...). A field that is missing never matches.
 
-Logic the engine cannot run yet, such as counting events over a time window
-(`| count by source_ip > 10 in 5m`), is kept in the catalogue but not run: compile()
-raises RuleNotSupported saying why. Logic that is simply malformed raises
-RuleSyntaxError, so it can be refused when it is saved.
+Counting over time: after the comparisons, `| count by <field> > <n> in <window>` (or
+`>=`; `by <field>` is optional; the window in s, m or h, at most 24h) makes the rule fire
+when more than n events matching the comparisons arrive within the window for the same
+value of the field, once per window:
+
+    event_type == 'authentication' and status == 'failure' | count by source_ip > 20 in 10m
+
+Logic the engine cannot run yet, such as other aggregations (`| distinct ...`) or
+functions, is kept in the catalogue but not run: compile() raises RuleNotSupported saying
+why. Logic that is simply malformed raises RuleSyntaxError, so it can be refused when it
+is saved.
 """
 import re
 from typing import Any, Dict, List, Tuple
@@ -150,15 +157,52 @@ def _engine_field(field: str) -> str:
     return f"data.{field}"
 
 
+COUNT = re.compile(r"^\s*count(?:\s+by\s+(?P<field>[A-Za-z_][\w.]*))?\s*(?P<op>>=|>)\s*(?P<n>\d+)\s+in\s+(?P<amount>\d+)\s*(?P<unit>[smh])\s*$", re.IGNORECASE)
+UNIT_SECONDS = {"s": 1, "m": 60, "h": 3600}
+MAX_WINDOW_SECONDS = 24 * 3600
+
+
+def _aggregation(text: str) -> Dict[str, Any]:
+    """The engine's `aggregation` for a `count ...` clause."""
+    match = COUNT.match(text)
+    if not match:
+        if text.strip().lower().startswith("count"):
+            raise RuleSyntaxError("Counting is written '| count by <field> > <number> in <number><s, m or h>', such as '| count by user > 50 in 10m'")
+        raise RuleNotSupported(f"'| {text.strip().split(' ')[0]}' is not run by the engine yet; '| count' is")
+    seconds = int(match.group("amount")) * UNIT_SECONDS[match.group("unit").lower()]
+    if not 0 < seconds <= MAX_WINDOW_SECONDS:
+        raise RuleSyntaxError("The counting window must be between 1 second and 24 hours")
+    threshold = int(match.group("n"))
+    field = match.group("field")
+    return {"group_by": _engine_field(field) if field else None, "op": "gte" if match.group("op") == ">=" else "gt",
+            "threshold": threshold, "window_seconds": seconds}
+
+
+def _split_pipe(logic: str) -> Tuple[str, str | None]:
+    """The comparisons, and what follows the one top-level '|' (outside quotes), if any."""
+    unquoted = QUOTED.sub(lambda m: "x" * len(m.group(0)), logic)
+    if unquoted.count("|") > 1:
+        raise RuleNotSupported("Only one '| count ...' is supported")
+    if "|" not in unquoted:
+        return logic, None
+    at = unquoted.index("|")
+    return logic[:at], logic[at + 1:]
+
+
 def compile_logic(logic: str) -> Dict[str, Any]:
     """The engine's `detection` for this logic. Raises RuleSyntaxError or RuleNotSupported."""
+    logic, piped = _split_pipe(logic)
+    aggregation = _aggregation(piped) if piped is not None else None
+    detection = _compile_comparisons(logic)
+    if aggregation:
+        detection["aggregation"] = aggregation
+    return detection
+
+
+def _compile_comparisons(logic: str) -> Dict[str, Any]:
     # Features the engine does not have yet are recognised before parsing, outside
     # quoted strings (a regex may well contain '|' or '('), so such rules are kept.
     unquoted = QUOTED.sub("''", logic)
-    if "|" in unquoted:
-        raise RuleNotSupported(
-            "Aggregations ('| count by ...', '| distinct ...') are not run by the engine yet"
-        )
     function = FUNCTION_CALL.search(unquoted)
     if function:
         raise RuleNotSupported(f"Functions such as '{function.group(1)}(...)' are not supported yet")

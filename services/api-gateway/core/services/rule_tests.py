@@ -8,6 +8,9 @@ rule's tests say what the engine will do with those events.
 
 A test event is written like an event sent to the gateway: `event_type`, `source`,
 `timestamp`, and the rest (`raw_data`, or fields given directly) as the event's data.
+
+For a counting rule (`| count ...`), a test case says whether an event counts towards it:
+one event cannot reach a count, so `counting` is set and the tests check the comparisons.
 """
 import re
 from typing import Any, Dict, List, Optional
@@ -82,12 +85,14 @@ def run(logic: str, cases: List[Dict[str, Any]]) -> Dict[str, Any]:
         detection = compile_logic(logic)
     except (RuleSyntaxError, RuleNotSupported) as e:
         return {"ran": False, "reason": str(e), "passed": False, "results": []}
+    counting = "aggregation" in detection
     results = []
     for case in cases:
         matched = matches(detection, engine_event(case.get("event") or {}))
         expected = case.get("expect", "match") == "match"
         results.append({"name": case.get("name"), "expect": case.get("expect", "match"), "matched": matched, "passed": matched == expected})
-    return {"ran": True, "reason": None, "passed": all(r["passed"] for r in results), "results": results}
+    return {"ran": True, "reason": "Counting rule: the tests check which events count towards it" if counting else None,
+            "passed": all(r["passed"] for r in results), "results": results}
 
 
 def failures(result: Dict[str, Any]) -> Optional[str]:

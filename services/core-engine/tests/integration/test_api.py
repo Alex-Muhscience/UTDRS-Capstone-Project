@@ -247,3 +247,36 @@ def test_one_failing_event_does_not_fail_the_batch(client, monkeypatch):
     bad = {**good, "data": {"explode": True}}
     results = client.post("/detections/process/batch", json={"events": [good, bad, good]}).json()
     assert [r["error"] for r in results] == [None, "RuntimeError: bad event", None]
+
+
+def test_a_counting_rule_fires_once_the_count_is_reached(client):
+    import uuid
+
+    tenant = f"count-{uuid.uuid4().hex[:6]}"
+    rule = {**managed_rule("downloads"), "detection": {
+        "condition_type": "AND",
+        "conditions": {"event_type": {"eq": "file_sharing"}, "data.activity": {"eq": "download"}},
+        "aggregation": {"group_by": "data.user", "op": "gt", "threshold": 3, "window_seconds": 600},
+    }}
+    assert client.put("/rules/managed/gateway", params={"tenant_id": tenant}, json={"rules": [rule]}).status_code == 200
+
+    def download(user, i, activity="download"):
+        return {"tenant_id": tenant, "source": "google", "event_type": "file_sharing", "timestamp": datetime.now(timezone.utc).isoformat(),
+                "data": {"activity": activity, "user": user, "doc_title": f"file {i}", "gateway_event_id": f"{tenant}-{user}-{i}-{activity}"}}
+
+    fired = []
+    for i in range(6):
+        alert = client.post("/detections/process", json=download("ann", i)).json()
+        fired.append(bool(alert and alert["title"] == rule["name"]))
+    assert fired == [False, False, False, True, False, False]  # the 4th (more than 3), once
+
+    # Another person's count is their own, and events that do not match do not count.
+    for i in range(3):
+        client.post("/detections/process", json=download("bo", i, activity="view"))
+    assert client.post("/detections/process", json=download("bo", 99)).json() is None
+
+    # Another organisation's events never count.
+    assert client.put("/rules/managed/gateway", params={"tenant_id": "default"}, json={"rules": [rule]}).status_code == 200
+    other = {**download("ann", 100), "tenant_id": "default"}
+    assert client.post("/detections/process", json=other).json() is None
+    client.put("/rules/managed/gateway", params={"tenant_id": "default"}, json={"rules": []})
