@@ -1152,10 +1152,52 @@ export interface paths {
          * Create Event
          * @description Create a new event.
          *
-         *     When a core engine is configured, the event is then analysed in the background; the
+         *     When a core engine is configured, the event is queued and analysed in the background;
+         *     if the engine cannot be reached it is tried again until it can (for up to a day). The
          *     result is recorded on the event (metadata.analysis) and a threat raises an alert.
          */
         post: operations["create_event_api_v1_events__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events/reanalyse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reanalyse Failed
+         * @description Queue every event whose analysis failed to be analysed again (administrators): after
+         *     the core engine was unavailable for longer than the gateway keeps trying.
+         */
+        post: operations["reanalyse_failed_api_v1_events_reanalyse_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events/{event_id}/reanalyse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reanalyse Event
+         * @description Analyse an event again, such as one whose analysis failed. A threat it shows raises an alert once.
+         */
+        post: operations["reanalyse_event_api_v1_events__event_id__reanalyse_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3041,6 +3083,15 @@ export interface components {
             /** Assigned To */
             assigned_to?: string | null;
         };
+        /** AnalysisQueueStatus */
+        AnalysisQueueStatus: {
+            /** Waiting */
+            waiting: number;
+            /** Oldest Waiting Since */
+            oldest_waiting_since?: string | null;
+            /** Failed Last Day */
+            failed_last_day: number;
+        };
         /** ApiKey */
         ApiKey: {
             /** Id */
@@ -3637,6 +3688,7 @@ export interface components {
             testing_rules: number;
             core_engine: components["schemas"]["CoreEngineStatus"];
             rule_sync?: components["schemas"]["RuleSyncStatus"] | null;
+            analysis?: components["schemas"]["AnalysisQueueStatus"] | null;
             /**
              * Last Updated
              * Format: date-time
@@ -4272,6 +4324,11 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /** Reanalysis */
+        Reanalysis: {
+            /** Failed Since */
+            failed_since?: string | null;
+        };
         /**
          * RecoveryCodes
          * @description Single-use codes for when the phone is not at hand. Shown once: keep them safe.
@@ -4389,6 +4446,14 @@ export interface components {
              * Format: date-time
              */
             generated_at: string;
+        };
+        /** Requeued */
+        Requeued: {
+            /**
+             * Queued
+             * @description How many events were queued to be analysed again
+             */
+            queued: number;
         };
         /**
          * ResponseSettings
@@ -7215,6 +7280,70 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Event"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reanalyse_failed_api_v1_events_reanalyse_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reanalysis"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Requeued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reanalyse_event_api_v1_events__event_id__reanalyse_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                event_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

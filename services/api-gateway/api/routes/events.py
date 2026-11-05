@@ -1,13 +1,14 @@
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query, Request, status
+from pydantic import BaseModel, Field
 
 from core.models.event import Event, EventCreate, EventUpdate
 from core.models.user import User
-from core.services.detection_pipeline import analyse_event
+from core.services import audit, detection_pipeline
 from core.services.event_service import EventService
-from utils.security import get_current_active_user
+from utils.security import get_current_active_user, require_admin
 
 router = APIRouter()
 
@@ -55,12 +56,14 @@ async def create_event(
     """
     Create a new event.
 
-    When a core engine is configured, the event is then analysed in the background; the
+    When a core engine is configured, the event is queued and analysed in the background;
+    if the engine cannot be reached it is tried again until it can (for up to a day). The
     result is recorded on the event (metadata.analysis) and a threat raises an alert.
     """
     event_service = EventService()
     event_id = await event_service.create_event(event)
-    background_tasks.add_task(analyse_event, event_id, event)
+    if await detection_pipeline.queue(event_id):
+        background_tasks.add_task(detection_pipeline.analyse_queued, event_id)
 
     created_event = await event_service.get_event_by_id(event_id)
     if not created_event:
@@ -70,6 +73,44 @@ async def create_event(
         )
 
     return created_event
+
+
+class Reanalysis(BaseModel):
+    # Only events whose analysis failed at or after this time; all failed ones when absent.
+    failed_since: Optional[datetime] = None
+
+
+class Requeued(BaseModel):
+    queued: int = Field(description="How many events were queued to be analysed again")
+
+
+@router.post("/reanalyse", response_model=Requeued)
+async def reanalyse_failed(request: Request, body: Reanalysis, admin: User = Depends(require_admin)):
+    """
+    Queue every event whose analysis failed to be analysed again (administrators): after
+    the core engine was unavailable for longer than the gateway keeps trying.
+    """
+    queued = await detection_pipeline.requeue(failed_since=body.failed_since)
+    await audit.record("events.reanalyse", request, details={"queued": queued, "failed_since": body.failed_since})
+    return {"queued": queued}
+
+
+@router.post("/{event_id}/reanalyse", response_model=Event)
+async def reanalyse_event(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    event_id: str = Path(..., title="The ID of the event to analyse again"),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Analyse an event again, such as one whose analysis failed. A threat it shows raises an alert once."""
+    event_service = EventService()
+    if not await event_service.get_event_by_id(event_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+    if not await detection_pipeline.requeue([event_id]):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No core engine is configured, or the event is already being analysed")
+    background_tasks.add_task(detection_pipeline.analyse_queued, event_id)
+    await audit.record("events.reanalyse", request, target={"type": "event", "id": event_id})
+    return await event_service.get_event_by_id(event_id)
 
 
 @router.get("/{event_id}", response_model=Event)

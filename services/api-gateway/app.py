@@ -22,7 +22,7 @@ from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
 from core.database.indexes import ensure_indexes
 from core.services import (
-    case_service, m365_ingest, notifications as notification_service, playbooks as playbook_service,
+    case_service, detection_pipeline, m365_ingest, notifications as notification_service, playbooks as playbook_service,
     reports as report_service, retention, tenants, webhooks,
 )
 from core.services.bootstrap import ensure_admin
@@ -60,6 +60,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(m365_ingest.poll_periodically()),
         asyncio.create_task(retention.run_periodically()),
         asyncio.create_task(webhooks.deliver_periodically()),
+        asyncio.create_task(detection_pipeline.analyse_periodically()),
     ]
     yield
     for loop in loops:

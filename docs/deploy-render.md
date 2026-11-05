@@ -45,7 +45,7 @@ The browser calls the gateway directly: the dashboard picks the gateway's addres
 
 `render.yaml` uses Render's **free** plan, which is fine to try it out:
 
-- A free service **sleeps after 15 minutes without requests**; the next request wakes it, taking about a minute. While the gateway sleeps, its scheduled work pauses: Microsoft 365 polling, email, monthly reports, retention, webhooks. While the engine sleeps, the first event analysed after it wakes can time out (it is marked as an analysis error; later events are fine).
+- A free service **sleeps after 15 minutes without requests**; the next request wakes it, taking about a minute. While the gateway sleeps, its scheduled work pauses: Microsoft 365 polling, email, monthly reports, retention, webhooks. While the engine sleeps, the first event analysed after it wakes can time out; it stays queued and is analysed again shortly after.
 - Free services cannot use Render's private network, so the gateway calls the engine at its public address (protected by the internal token).
 - 512 MB of memory: the gateway runs 2 workers (`WEB_CONCURRENCY`).
 

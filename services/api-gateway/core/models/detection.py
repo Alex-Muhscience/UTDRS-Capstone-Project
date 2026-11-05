@@ -142,6 +142,14 @@ class RuleSyncStatus(BaseModel):
     succeeded_at: Optional[datetime] = None
 
 
+class AnalysisQueueStatus(BaseModel):
+    # Events stored but not yet analysed (the engine is busy or unreachable), and since when.
+    waiting: int
+    oldest_waiting_since: Optional[datetime] = None
+    # Events the engine could not analyse within ANALYSIS_GIVE_UP_HOURS, or rejected; replayable.
+    failed_last_day: int
+
+
 class DetectionStatus(BaseModel):
     # standalone: no core engine configured; active: engine reachable; degraded: configured but unreachable
     status: str
@@ -152,4 +160,6 @@ class DetectionStatus(BaseModel):
     core_engine: CoreEngineStatus
     # The last time the rules were sent to the core engine; null without an engine.
     rule_sync: Optional[RuleSyncStatus] = None
+    # Events waiting for, or failed in, analysis; null without an engine.
+    analysis: Optional[AnalysisQueueStatus] = None
     last_updated: datetime

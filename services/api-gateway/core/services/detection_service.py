@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 from bson import ObjectId
 
 from core.database.repositories.detection_repository import DetectionRepository
-from core.services import core_engine_client, rule_sync
+from core.services import core_engine_client, detection_pipeline, rule_sync
 from core.models.detection import (
     DetectionRule,
     DetectionRuleCreate,
@@ -176,5 +176,6 @@ class DetectionService:
             "testing_rules": by_status.get("testing", 0),
             "core_engine": {"configured": client is not None, "reachable": reachable},
             "rule_sync": await rule_sync.last_sync() if client else None,
+            "analysis": await detection_pipeline.queue_status() if client else None,
             "last_updated": utcnow(),
         }

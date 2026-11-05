@@ -13,25 +13,32 @@ sequenceDiagram
   participant E as Core engine
   participant DB as Gateway database
   S->>G: POST /api/v1/events/
-  G->>DB: store the event
+  G->>DB: store the event, queued for analysis
   G-->>S: 201 Created (the event)
-  Note over G: background task, after the response
+  Note over G: background task, after the response (or the queue loop, later)
+  G->>DB: claim the event (a two-minute lease)
   G->>E: POST /detections/process (X-Internal-Token)
   E-->>G: an alert, or null
   alt threat
-    G->>DB: create an alert (source "core-engine"), linked to the event
+    G->>DB: create an alert (source "core-engine"), linked to the event, once
   end
-  G->>DB: event.metadata.analysis = threat | clean | error
+  G->>DB: event.metadata.analysis = threat | clean, or queued again after a failure
 ```
 
-Ingestion never waits for or fails because of the engine: the event is stored and returned first, and analysis runs afterwards. The outcome is recorded on the event as `metadata.analysis`:
+Ingestion never waits for or fails because of the engine, and no event is lost to it. The event is stored and returned first, already queued for analysis; the queue is the events themselves (`metadata.analysis`), so it survives restarts and any gateway process can work it. The request tries straight away, in the background. If the engine cannot be reached or answers with an error, the event waits and is tried again by a loop every `ANALYSIS_INTERVAL_SECONDS` (5), waiting 15 seconds after the first failure and doubling to at most ten minutes, for up to `ANALYSIS_GIVE_UP_HOURS` (24). While the engine is down, each round makes one attempt rather than one per event; once it answers, the backlog is worked `ANALYSIS_CONCURRENCY` (4) events at a time. Each attempt holds a two-minute lease, so two processes never analyse an event at once and an attempt lost with its process is taken up again. An event analysed twice raises its alert once, and the engine stores each event once (by `gateway_event_id`), so its correlations do not count it twice. An event the engine rejects as invalid (a 4xx answer) is not retried.
+
+The outcome is recorded on the event as `metadata.analysis`:
 
 | `status` | Meaning | Also recorded |
 |---|---|---|
-| `threat` | The engine raised an alert | `alert_id` of the new gateway alert |
-| `clean` | No detector matched | |
-| `error` | The engine could not be reached or failed | `error` |
+| `queued` | Waiting for its first attempt, or for the next after a failure | `queued_at`, `attempts`, `next_attempt_at`, the last `error` |
+| `analysing` | An attempt is under way | `lease_until` |
+| `threat` | The engine raised an alert | `alert_id` of the gateway alert, `attempts` |
+| `clean` | No detector matched | `attempts` |
+| `error` | The engine rejected the event, or could not analyse it within `ANALYSIS_GIVE_UP_HOURS` | `error`, `attempts` |
 | *(absent)* | No engine is configured (`CORE_ENGINE_URL` unset) | |
+
+`GET /detection/` reports the queue (`analysis`: events waiting and since when, and failures in the last day). Events can be analysed again (replay): one with `POST /events/{id}/reanalyse`, and every failed one with `POST /events/reanalyse` (administrators; `failed_since` limits it to recent failures). The dashboard shows waiting and failed events on the Events page.
 
 The new alert carries the engine's verdict in `metadata`: `detection_type` (signature, ML, anomaly, …), `core_engine_alert_id`, and `details`, which includes the matched MITRE ATT&CK techniques. Its `event_ids` link back to the event, and its tags come from the detection. The mapping lives in `core/services/detection_pipeline.py`.
 
@@ -280,6 +287,9 @@ Settings come from the environment or a `.env` file in this directory (see [`.en
 | `SESSION_MAX_HOURS` | `12` | A session ends this long after signing in, however active |
 | `CORE_ENGINE_URL` | unset | Base URL of the core engine. Unset: events are stored but not analysed. |
 | `CORE_ENGINE_TIMEOUT_SECONDS` | `10` | |
+| `ANALYSIS_INTERVAL_SECONDS` | `5` | How often queued events are sent to the engine |
+| `ANALYSIS_CONCURRENCY` | `4` | Events analysed at once while working through a backlog |
+| `ANALYSIS_GIVE_UP_HOURS` | `24` | How long an event is retried before it is marked `error` (it can still be replayed) |
 | `INTERNAL_API_TOKEN` | unset | Shared secret for the engine, and for the data processor delivering scans |
 | `RULE_SYNC_INTERVAL_SECONDS` | `60` | How often the rules are re-sent to the engine, besides after each change |
 | `CORS_ORIGINS` | `["http://localhost:3001","http://localhost:5173"]` | JSON list of browser origins |
@@ -314,7 +324,7 @@ MONGODB_URI=mongodb://localhost:27017 python -m pytest
 - `tests/e2e/test_flows.py`: registration and sign-in, events, alerts (filters, ordering, summary, status errors), assets, rules, role and password rules, response headers. Against a real MongoDB, with no mocks.
 - `tests/e2e/test_users.py`: role checks on rules and simulations, the team directory, account administration (create, role changes, deactivation, password resets), self-lockout protection, closed registration and the startup administrator.
 - `tests/e2e/test_account_email.py`: a forgotten password reset from an emailed link (sessions ended, once only, the address confirmed by it), the same answer whether or not the account exists, only the newest link working and three an hour, the link not kept once sent, confirming an address at registration and after changing it, requiring it before signing in, and no resetting without email.
-- `tests/e2e/test_detection_pipeline.py`: the event-to-alert pipeline against a fake engine (`httpx.MockTransport`), including an unreachable engine and the detection status.
+- `tests/e2e/test_detection_pipeline.py`: the event-to-alert pipeline against a fake engine (`httpx.MockTransport`): an unreachable engine (the event stays queued and is analysed once the engine is back), a lost attempt taken up again without a second alert, a rejected event, giving up after a day, the back-off, replaying failed events, and the detection status.
 - `tests/e2e/test_cases.py`: grouping by user, address and device and not by destination; old cases not reopened; priority and deadline; working a case (status, owner, notes, closing its alerts); owners must be colleagues; overdue cases; explanations; evidence; cases kept within an organisation; the `cases` scope; open alerts from before cases grouped at start-up.
 - `tests/e2e/test_response.py`: against a stand-in for Microsoft Graph: actions that run, fail and are undone; the last Global Administrator; playbooks proposing, people approving and rejecting, and running once per case; the organisation's mode capping a playbook's; the hourly limit; protected accounts and administrators; steps skipped without their connector; removing an email from every mailbox and putting it back; removing and restoring an inbox rule; running a playbook yourself; API keys asking and people deciding; writing playbooks; disabled playbooks; response kept within an organisation.
 - `tests/e2e/test_notifications.py`: against a small SMTP server run by the test: preferences and their defaults; new cases to those who want them, once per case, with the explanation and link; approvals needed and actions done; failures retried and then given up; the hourly limit; nothing sent without email set up; titles unable to add headers; test emails, including a mail server that cannot be reached; the log for administrators only, and none for API keys.

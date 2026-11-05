@@ -237,7 +237,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 | FR-ING-09 | Cloud audit connectors: AWS CloudTrail and GuardDuty, Azure Activity, GCP Audit Logs | P2 | 3 |
 | FR-ING-10 | Third-party EDR alerts: Microsoft Defender for Endpoint, CrowdStrike, SentinelOne | P2 | 3 |
 | FR-ING-11 | Connector health: last data received, errors, credential expiry, shown to the customer and alerted on | P0 | 1 |
-| FR-ING-12 | Back-pressure, retries and replay; no event lost when a downstream service is unavailable | P0 | 1 |
+| FR-ING-12 | Back-pressure, retries and replay; no event lost when a downstream service is unavailable **Done for analysis (#42): events wait in a durable queue while the engine is unavailable, retried with back-off for a day, then replayable.** | P0 | 1 |
 | FR-ING-13 | Enrichment at ingest: GeoIP, ASN, asset and user lookup, threat-intelligence match | P1 | 2 |
 | FR-ING-14 | Per-tenant volume metering for billing and fair use | P1 | 2 |
 
@@ -463,7 +463,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 | ID | Gap | Blocks | Priority |
 |---|---|---|---|
 | GAP-ARC-01 | No tenancy anywhere: no tenant field on any document, no scoping in repositories (`services/api-gateway/core/database/repositories/`), no tenant in tokens **Done (#19): every organisation-owned collection is scoped through one wrapper that fails closed; the engine scopes history, alerts and rules per organisation; existing data moves to a default organisation at start-up.** | FR-TEN-01 and almost everything | P0 |
-| GAP-ARC-02 | Events go gateway → engine by synchronous HTTP per event (`core/services/detection_pipeline.py`); no queue, no replay, no back-pressure; an engine outage leaves events unanalysed for good (`metadata.analysis.status = error` with no retry) | FR-ING-12, FR-DET-01 | P0 |
+| GAP-ARC-02 | Events go gateway → engine by synchronous HTTP per event (`core/services/detection_pipeline.py`); no queue, no replay, no back-pressure; an engine outage leaves events unanalysed for good (`metadata.analysis.status = error` with no retry) **Done (#42): a durable queue in MongoDB with leases, retries with back-off, back-pressure (one attempt per round while the engine is down) and replay; the engine stores each event once. Still HTTP per event, not a stream (GAP-ENG-01).** | FR-ING-12, FR-DET-01 | P0 |
 | GAP-ARC-03 | No common event schema; events are free-form dicts mapped ad hoc (`DETECTOR_FIELDS` in `detection_pipeline.py`) | FR-ING-01 | P0 |
 | GAP-ARC-04 | MongoDB is the only store, including for high-volume events; the engine's anomaly and correlation detectors query raw event history in MongoDB per event (`anomaly_detector.py`, `correlation_detector.py`), which will not scale | NFR-02, FR-CAS-05 | P1 |
 | GAP-ARC-05 | Two copies of detection rules (gateway catalogue and engine rules) that never sync; dashboard edits have no effect on detection **Done (#17): the gateway compiles its rules and sends them to the engine after each change and every minute; logic the engine cannot run yet is kept and marked. Built-in rules are not yet shown in the dashboard.** | FR-DET-02 | P0 |

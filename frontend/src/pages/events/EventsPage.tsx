@@ -17,6 +17,7 @@ import { formatDateTime, formatRelative, humanize } from "@/lib/format"
 import { useUrlFilters } from "@/lib/useUrlFilters"
 
 import { AnalysisBadge } from "./AnalysisBadge"
+import { AnalysisQueueNotice } from "./AnalysisQueueNotice"
 import { CheckEmailDialog } from "./CheckEmailDialog"
 import { TestEventDialog } from "./TestEventDialog"
 
@@ -46,6 +47,8 @@ export function EventsPage() {
           </>
         }
       />
+
+      <AnalysisQueueNotice />
 
       <Card bodyClassName="p-0">
         <div className="flex flex-col gap-2 border-b border-border p-4 sm:flex-row">

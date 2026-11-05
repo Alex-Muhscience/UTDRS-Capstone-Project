@@ -3,7 +3,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from config import settings
 
 from core.models.scan import ScanReport, ScanResult
-from core.services.detection_pipeline import analyse_event
+from core.services import detection_pipeline
 from core.services import tenants
 from core.services.scan_service import ScanService
 from core.tenancy import set_tenant
@@ -31,5 +31,6 @@ async def record_scan(report: ScanReport, background_tasks: BackgroundTasks):
     set_tenant(str(tenant["_id"]))
     result, event = await ScanService().record_scan(report)
     if event and result.event_id:
-        background_tasks.add_task(analyse_event, result.event_id, event)
+        if await detection_pipeline.queue(result.event_id):
+            background_tasks.add_task(detection_pipeline.analyse_queued, result.event_id)
     return result
