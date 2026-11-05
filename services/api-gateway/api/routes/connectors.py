@@ -2,9 +2,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from api.routes.response import actor_of
-from core.models.connector import Check, ConsentResult, ConsentStart, ConsentUrl, Microsoft365, OwnApp, PollResult
+from core.models.connector import (
+    Check, ConsentResult, ConsentStart, ConsentUrl, GoogleWorkspace, GoogleWorkspaceConnect, Microsoft365, OwnApp, PollResult,
+)
 from core.models.user import User
-from core.services import m365, m365_ingest
+from core.services import google_workspace, m365, m365_ingest
 from utils import crypto
 from utils.security import require_admin
 
@@ -105,3 +107,45 @@ async def disconnect(admin: User = Depends(require_admin)):
     """Disconnect Microsoft 365: its credentials are deleted. Events already brought in, and its detection rules, stay."""
     if not await m365.disconnect():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Microsoft 365 is not connected")
+
+
+# ---------------------------------------------------------------------------- Google Workspace
+
+@router.get("/google-workspace", response_model=GoogleWorkspace)
+async def google_status(admin: User = Depends(require_admin)):
+    """Whether Google Workspace is connected, and how its last poll went."""
+    return google_workspace.public(await google_workspace.get_connection())
+
+
+@router.put("/google-workspace", response_model=GoogleWorkspace)
+async def connect_google(body: GoogleWorkspaceConnect, request: Request, admin: User = Depends(require_admin)):
+    """
+    Connect Google Workspace with a service account given domain-wide delegation (for the
+    scopes listed in the answer), acting as one of its administrators. The key is checked by
+    signing in, stored encrypted, and never shown again; the last day is fetched straight away.
+    """
+    try:
+        connection = await google_workspace.connect(body.service_account_key, body.admin_email, actor_of(request))
+    except google_workspace.GoogleError as e:
+        raise _refused(e)
+    await google_workspace.add_rules(admin.id)
+    google_workspace.start_first_poll()
+    return google_workspace.public(connection)
+
+
+@router.post("/google-workspace/poll", response_model=PollResult)
+async def poll_google(admin: User = Depends(require_admin)):
+    """Fetch what is new from Google Workspace now."""
+    if not await google_workspace.get_connection():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Google Workspace is not connected")
+    result = await google_workspace.poll()
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A fetch is already under way")
+    return result
+
+
+@router.delete("/google-workspace", status_code=status.HTTP_204_NO_CONTENT)
+async def disconnect_google(admin: User = Depends(require_admin)):
+    """Disconnect Google Workspace and forget its key. Events already received are kept."""
+    if not await google_workspace.disconnect():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Google Workspace is not connected")

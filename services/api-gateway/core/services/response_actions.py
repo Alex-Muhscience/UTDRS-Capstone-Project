@@ -178,6 +178,42 @@ async def restore_message(client, message_id, params):
 # ---------------------------------------------------------------------------
 # UTDRS itself
 
+# ---------------------------------------------------------------------------
+# Google Workspace, through the Admin SDK Directory API
+
+async def _google(client: httpx.AsyncClient, method: str, path: str, **kwargs) -> Dict[str, Any]:
+    response = await client.request(method, path, **kwargs)
+    if response.is_error:
+        try:
+            message = response.json()["error"]["message"]
+        except (ValueError, KeyError, TypeError):
+            message = response.text[:200]
+        raise ActionError(f"Google Workspace refused it ({response.status_code}): {message}")
+    return response.json() if response.content else {}
+
+
+def _google_user(value: str) -> str:
+    return f"/users/{quote(value, safe='@')}"
+
+
+async def google_sign_out(client, user, params):
+    await _google(client, "POST", f"{_google_user(user)}/signOut")
+    return {"summary": "Signed out of every Google session on every device; they must sign in again"}, None
+
+
+async def google_suspend(client, user, params):
+    found = await _google(client, "GET", _google_user(user), params={"fields": "isAdmin,suspended"})
+    if found.get("isAdmin"):
+        raise Refused("This is a super administrator: suspend it from the Google Admin console, so nobody is locked out by mistake")
+    await _google(client, "PUT", _google_user(user), json={"suspended": True})
+    return {"summary": "Account suspended; nobody can sign in to it"}, {}
+
+
+async def google_unsuspend(client, user, params):
+    await _google(client, "PUT", _google_user(user), json={"suspended": False})
+    return {"summary": "Account restored"}, None
+
+
 def _priority(params) -> str:
     if params["priority"] not in case_service.PRIORITIES:
         raise ActionError(f"Priority must be one of {', '.join(case_service.PRIORITIES)}")
@@ -215,12 +251,17 @@ CATALOGUE: Dict[str, ActionType] = {a.name: a for a in [
     ActionType("m365.purge_message", "Remove the email from every mailbox", "Move the message out of each recipient's mailbox into their recoverable items, where it can be put back.",
                "m365", "message", purge_message, params=("recipients",), undo="m365.restore_message"),
     ActionType("m365.restore_message", "Put the email back", "Return a removed message to the folders it was in.", "m365", "message", restore_message, params=("moved",)),
+    ActionType("google.sign_out", "Sign out everywhere (Google)", "End all of the user's Google sessions, on every device, so whoever is using them must sign in again.",
+               "google", "user", google_sign_out, disruptive=True),
+    ActionType("google.suspend_user", "Suspend the account (Google)", "Stop anyone signing in to the Google account until it is restored.",
+               "google", "user", google_suspend, undo="google.unsuspend_user", disruptive=True),
+    ActionType("google.unsuspend_user", "Restore the account (Google)", "Let the Google account sign in again.", "google", "user", google_unsuspend),
     ActionType("utdrs.escalate_case", "Raise the case's priority", "Raise the case's priority, so it is due sooner and stands out.",
                "utdrs", "case", escalate_case, params=("priority",), undo="utdrs.set_case_priority"),
     ActionType("utdrs.set_case_priority", "Set the case's priority", "Set the case's priority.", "utdrs", "case", set_case_priority, params=("priority",)),
 ]}
 # Actions offered to people and playbooks; the rest exist only to undo others.
-UNDO_ONLY = {a.undo for a in CATALOGUE.values() if a.undo} - {"m365.enable_account"}
+UNDO_ONLY = {a.undo for a in CATALOGUE.values() if a.undo} - {"m365.enable_account", "google.unsuspend_user"}
 
 
 def catalogue() -> List[Dict[str, Any]]:

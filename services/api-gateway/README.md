@@ -78,6 +78,7 @@ All routes are under `/api/v1`. Interactive documentation is served at `/api/v1/
 | Single sign-on | `POST /auth/sso/start` (`email`, `redirect_uri`), `POST /auth/sso/callback` (`code`, `state`); `GET`/`PUT`/`DELETE /tenants/current/sso`, `POST /tenants/current/sso/domains/{domain}/verify` (administrators) |
 | Multi-factor authentication | `POST /auth/login/mfa` (`mfa_token`, `code`), `GET /auth/mfa`, `POST /auth/mfa/setup`, `/auth/mfa/confirm`, `/auth/mfa/recovery-codes`, `/auth/mfa/disable`; `PATCH /tenants/current/security` (`require_mfa`; administrators); `POST /users/{id}/reset-mfa` (administrators) |
 | Onboarding | `GET /onboarding/` (the checklist and first results), `PATCH /onboarding/` (`dismissed`; administrators) |
+| Google Workspace | `GET /connectors/google-workspace`, `PUT /connectors/google-workspace` (`service_account_key`, `admin_email`), `POST /connectors/google-workspace/poll`, `DELETE /connectors/google-workspace` (administrators) |
 | Connectors | `GET /connectors/microsoft-365`, `PUT /connectors/microsoft-365` (own app registration), `POST /connectors/microsoft-365/consent-url` and `/consent` (admin consent), `POST /connectors/microsoft-365/check`, `POST /connectors/microsoft-365/poll`, `DELETE /connectors/microsoft-365` (administrators) |
 | Tuning | `POST /alerts/{id}/feedback` (`verdict`: `true_positive`, `false_positive` or `benign`; `note`), `GET`/`POST /tuning/suppressions`, `PATCH`/`DELETE /tuning/suppressions/{id}`, `GET /tuning/quality` (`days`), `GET /tuning/labels` (JSON Lines, `since`; administrators) |
 | Reports | `GET /reports/`, `POST /reports/` (`period`, `YYYY-MM`; by default the last full month), `GET /reports/{id}`, `GET /reports/{id}/pdf` |
@@ -184,6 +185,16 @@ UTDRS watches an organisation's Microsoft 365 and acts in it (`core/services/m36
 - **Acting.** Response actions (signing out, disabling accounts, inbox rules, removing email) use the connection through `core.services.connectors`.
 - **Built against Microsoft's formats.** Tests serve sample responses in Graph's documented formats (`tests/fixtures/m365/`) from a stand-in for Microsoft; a real tenant has not been connected yet.
 - Not yet: checking every incoming email (it needs change notifications, rather than checking those Defender names or analysts ask about), Exchange Online message trace, and change notifications instead of polling.
+
+## Google Workspace
+
+An organisation connects Google Workspace with a service account (`core/services/google_workspace.py`); no new dependencies.
+
+- **Connecting** (administrators, Connectors, or `PUT /connectors/google-workspace` with `service_account_key` and `admin_email`). In Google Cloud, create a service account with a JSON key and turn on the Admin SDK API; in the Google Admin console, give its client id domain-wide delegation for the scopes UTDRS lists (`admin.reports.audit.readonly` to read, `admin.directory.user` to act). UTDRS acts as the administrator named. The key is checked by signing in (a JWT signed with it, exchanged for an access token), stored encrypted (`ENCRYPTION_KEY`), and never shown again; the last day is fetched straight away, and the built-in rules are added.
+- **What comes in.** Every `GOOGLE_POLL_INTERVAL_SECONDS` (300), the Admin SDK Reports API for `login` (sign-ins and failures, suspicious sign-ins, government-backed attack warnings, accounts disabled as hijacked, 2-step verification changes), `admin` (roles and privileges granted, accounts changed) and `token` (apps authorised, with their scopes). Google publishes activities with some delay, so each poll reads from an hour before the last it saw; each is stored once. Sign-ins are `authentication` events, so the engine's identity correlations apply to them.
+- **Detections.** Suspicious sign-in, government-backed attack warning, account disabled as hijacked, 2-step verification turned off, administrator privileges granted, and an app given access to Gmail or Drive.
+- **Response actions.** Sign out everywhere (`google.sign_out`), suspend the account (`google.suspend_user`, undone by `google.unsuspend_user`; super administrators are refused, so nobody is locked out by mistake).
+- Its health is watched like Microsoft 365's: last data received, failing since, and emails to administrators when it fails or goes quiet. Not yet: Gmail message checks and Drive activity.
 
 ## Detection tuning
 
@@ -328,6 +339,7 @@ Settings come from the environment or a `.env` file in this directory (see [`.en
 | `ADMIN_EMAIL` | `<username>@localhost.localdomain` | |
 | `ALLOW_REGISTRATION` | `true` | Whether anyone can register |
 | `CASE_ATTACHMENT_MAX_MB` | `8` | The largest file that can be attached to a case |
+| `GOOGLE_POLL_INTERVAL_SECONDS` | `300` | How often Google Workspace's Reports API is read |
 | `WEBAUTHN_RP_ID` | the host of `DASHBOARD_URL` | The site passkeys belong to |
 | `WEBAUTHN_ORIGINS` | the origin of `DASHBOARD_URL` | Where passkey sign-ins may come from (a JSON list) |
 | `SSO_DNS_RESOLVER` | `https://cloudflare-dns.com/dns-query` | DNS over HTTPS (JSON) for checking single sign-on domains |
@@ -407,6 +419,7 @@ MONGODB_URI=mongodb://localhost:27017 python -m pytest
 - `tests/e2e/test_retention.py`: defaults and the maximum; old events, alerts and cases deleted while open cases, open alerts and their events stay; closed alerts in open cases kept; actions waiting for a decision kept; organisations' settings and clean-ups apart; administrators only.
 - `tests/e2e/test_tenancy.py`: two organisations: lists, search, counts, reads and changes of another organisation's users, events, alerts, assets, rules, simulations and API keys refused; names unique per organisation; API keys confined to their organisation; separate audit chains; rules and events sent to the engine per organisation; organisation registration; scoped collections failing closed.
 - `tests/e2e/test_api_keys_audit.py`: API keys shown once and stored as hashes; scopes allowing and refusing; keys never acting as administrators; revoked, expired and unknown keys refused; sign-ins and changes audited with who made them (people and keys) and refused attempts recorded; no secrets in the log; tampering found by the chain; concurrent entries forming one chain.
+- `tests/e2e/test_google_workspace.py`: against a stand-in for Google (which checks the service account's signed JWT): a key without delegation, or not a service account key, refused; connecting keeps the key secret and adds the rules; activities becoming events once (polls overlap), sign-ins as authentication events; each built-in rule matching what Google reports, and not a plain sign-in; suspending (undone) and signing out, with super administrators refused; disconnecting.
 - `tests/e2e/test_hardening.py`: sign-in throttling per account and address and per address, a correct password clearing the count, identical answers for unknown and wrong passwords, client addresses behind trusted proxies, and unique asset names under concurrent scans.
 - `tests/e2e/test_rule_versions.py`: test cases evaluated as the engine would (and not run for logic it cannot run), a rule whose tests fail refused on creation and on change, every change a version, restoring an earlier one, and versions kept within their organisation.
 - `tests/e2e/test_rule_sync.py`: rules reaching a fake engine on create, edit, disable and tag changes; rules the engine cannot run kept but not sent; malformed logic refused; the sync status, including failure.

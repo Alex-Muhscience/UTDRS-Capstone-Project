@@ -7672,6 +7672,123 @@
         ]
       }
     },
+    "/api/v1/connectors/google-workspace": {
+      "get": {
+        "tags": [
+          "connectors"
+        ],
+        "summary": "Google Status",
+        "description": "Whether Google Workspace is connected, and how its last poll went.",
+        "operationId": "google_status_api_v1_connectors_google_workspace_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleWorkspace"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "connectors"
+        ],
+        "summary": "Connect Google",
+        "description": "Connect Google Workspace with a service account given domain-wide delegation (for the\nscopes listed in the answer), acting as one of its administrators. The key is checked by\nsigning in, stored encrypted, and never shown again; the last day is fetched straight away.",
+        "operationId": "connect_google_api_v1_connectors_google_workspace_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleWorkspaceConnect"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleWorkspace"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "connectors"
+        ],
+        "summary": "Disconnect Google",
+        "description": "Disconnect Google Workspace and forget its key. Events already received are kept.",
+        "operationId": "disconnect_google_api_v1_connectors_google_workspace_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/connectors/google-workspace/poll": {
+      "post": {
+        "tags": [
+          "connectors"
+        ],
+        "summary": "Poll Google",
+        "description": "Fetch what is new from Google Workspace now.",
+        "operationId": "poll_google_api_v1_connectors_google_workspace_poll_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PollResult"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/tuning/suppressions": {
       "get": {
         "tags": [
@@ -12433,6 +12550,178 @@
         },
         "type": "object",
         "title": "Figure"
+      },
+      "GoogleWorkspace": {
+        "properties": {
+          "connected": {
+            "type": "boolean",
+            "title": "Connected"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "connected",
+                  "error"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "client_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Email"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "admin_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Email"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "connected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connected At"
+          },
+          "last_poll_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Poll At"
+          },
+          "last_poll": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Last Poll",
+            "default": {}
+          },
+          "last_data_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Data At"
+          },
+          "error_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Since"
+          },
+          "errors": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Errors",
+            "default": {}
+          },
+          "encryption_available": {
+            "type": "boolean",
+            "title": "Encryption Available"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Scopes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "connected",
+          "encryption_available",
+          "scopes"
+        ],
+        "title": "GoogleWorkspace",
+        "description": "The Google Workspace connection, as administrators see it. The key is never shown."
+      },
+      "GoogleWorkspaceConnect": {
+        "properties": {
+          "service_account_key": {
+            "type": "string",
+            "maxLength": 20000,
+            "minLength": 20,
+            "title": "Service Account Key"
+          },
+          "admin_email": {
+            "type": "string",
+            "maxLength": 254,
+            "minLength": 3,
+            "title": "Admin Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "service_account_key",
+          "admin_email"
+        ],
+        "title": "GoogleWorkspaceConnect"
       },
       "HTTPValidationError": {
         "properties": {

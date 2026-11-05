@@ -12,6 +12,8 @@ import { PageHeader } from "@/components/ui/PageHeader"
 import { ErrorState, SkeletonRows } from "@/components/ui/States"
 import { formatDateTime, formatRelative } from "@/lib/format"
 
+import { GoogleWorkspaceCard } from "./GoogleWorkspaceCard"
+
 const SOURCES: Record<string, string> = { signins: "sign-ins", audits: "audit records", alerts: "Defender alerts", signing_in: "signing in" }
 
 export const CONSENT_PATH = "/connectors/microsoft-365/consented"
@@ -189,6 +191,7 @@ export function ConnectorsPage() {
               ))}
             </ul>
           </Card>
+          <GoogleWorkspaceCard />
         </div>
       )}
     </>

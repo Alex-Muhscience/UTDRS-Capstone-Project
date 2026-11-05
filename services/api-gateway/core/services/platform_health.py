@@ -148,7 +148,9 @@ async def _tell_operators(check: str, problem: Problem, outcome: str) -> None:
 
 async def _tell_organisation(tenant: str, kind: str, problem: Problem, outcome: str) -> None:
     """Email the organisation's administrators (connectors already send webhooks as they fail)."""
-    name = {"m365": "Microsoft 365"}.get(kind, kind)
+    from core.services import connectors
+
+    name = connectors.NAMES.get(kind, kind)
     with tenant_context(tenant):
         admins = await notifications._people(role="admin")
         if outcome == "failing":

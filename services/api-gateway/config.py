@@ -130,6 +130,9 @@ class Settings(BaseSettings):
     ANALYSIS_CONCURRENCY: int = 4
     ANALYSIS_GIVE_UP_HOURS: int = 24
 
+    # Google Workspace (core/services/google_workspace.py): how often the Reports API is read.
+    GOOGLE_POLL_INTERVAL_SECONDS: int = 300
+
     # Passkeys (core/services/passkeys.py): the site they belong to and where sign-ins come
     # from. By default, the dashboard's host and origin (DASHBOARD_URL).
     WEBAUTHN_RP_ID: Optional[str] = None

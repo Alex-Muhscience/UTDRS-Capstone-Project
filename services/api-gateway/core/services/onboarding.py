@@ -38,7 +38,7 @@ async def first_results() -> Dict[str, Any]:
     since = utcnow() - timedelta(days=1)
     return {
         "events": await scoped(database, "events").count_documents({"created_at": {"$gte": since}}),
-        "sign_ins": await scoped(database, "events").count_documents({"created_at": {"$gte": since}, "source": "m365", "event_type": "authentication"}),
+        "sign_ins": await scoped(database, "events").count_documents({"created_at": {"$gte": since}, "source": {"$in": ["m365", "google"]}, "event_type": "authentication"}),
         "alerts": await scoped(database, "alerts").count_documents({"created_at": {"$gte": since}, "status": {"$ne": "suppressed"}}),
         "open_cases": await scoped(database, "cases").count_documents({"status": {"$in": ["open", "investigating", "contained"]}}),
         "reports": await scoped(database, "reports").count_documents({}),
@@ -48,7 +48,10 @@ async def first_results() -> Dict[str, Any]:
 async def status() -> Dict[str, Any]:
     tenant = await tenants.get(current_tenant()) or {}
     state = tenant.get("onboarding") or {}
+    from core.services import google_workspace
+
     connection = await m365.get_connection()
+    google = await google_workspace.get_connection()
     people = await scoped(get_database(), "users").count_documents({"active": True})
     results = await first_results()
 
@@ -60,15 +63,18 @@ async def status() -> Dict[str, Any]:
             "detail": f"Called {tenant.get('name')}" if tenant.get("name") != settings.DEFAULT_TENANT_NAME else "Reports and emails will use this name",
         },
         {
+            # Kept as microsoft_365 for the dashboard; either service completes it.
             "key": "microsoft_365",
-            "title": "Connect Microsoft 365",
-            "done": bool(connection),
+            "title": "Connect Microsoft 365 or Google Workspace",
+            "done": bool(connection or google),
             "detail": (
-                f"Connected{' to ' + connection['organisation_name'] if connection.get('organisation_name') else ''}"
+                f"Microsoft 365 connected{' to ' + connection['organisation_name'] if connection.get('organisation_name') else ''}"
                 + (": needs attention" if connection.get("status") == "error" else "")
-                if connection else "So UTDRS can watch sign-ins and Defender alerts, and act on accounts and email"
+                if connection else
+                f"Google Workspace connected for {google.get('domain')}" + (": needs attention" if google.get("status") == "error" else "")
+                if google else "So UTDRS can watch sign-ins and alerts, and act on accounts and email"
             ),
-            "attention": bool(connection and connection.get("status") == "error"),
+            "attention": bool((connection and connection.get("status") == "error") or (google and google.get("status") == "error")),
         },
         {
             "key": "response",

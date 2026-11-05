@@ -2678,6 +2678,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/connectors/google-workspace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Google Status
+         * @description Whether Google Workspace is connected, and how its last poll went.
+         */
+        get: operations["google_status_api_v1_connectors_google_workspace_get"];
+        /**
+         * Connect Google
+         * @description Connect Google Workspace with a service account given domain-wide delegation (for the
+         *     scopes listed in the answer), acting as one of its administrators. The key is checked by
+         *     signing in, stored encrypted, and never shown again; the last day is fetched straight away.
+         */
+        put: operations["connect_google_api_v1_connectors_google_workspace_put"];
+        post?: never;
+        /**
+         * Disconnect Google
+         * @description Disconnect Google Workspace and forget its key. Events already received are kept.
+         */
+        delete: operations["disconnect_google_api_v1_connectors_google_workspace_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/connectors/google-workspace/poll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Poll Google
+         * @description Fetch what is new from Google Workspace now.
+         */
+        post: operations["poll_google_api_v1_connectors_google_workspace_poll_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tuning/suppressions": {
         parameters: {
             query?: never;
@@ -4408,6 +4458,57 @@ export interface components {
             value?: number | null;
             /** Previous */
             previous?: number | null;
+        };
+        /**
+         * GoogleWorkspace
+         * @description The Google Workspace connection, as administrators see it. The key is never shown.
+         */
+        GoogleWorkspace: {
+            /** Connected */
+            connected: boolean;
+            /** Status */
+            status?: ("connected" | "error") | null;
+            /** Client Email */
+            client_email?: string | null;
+            /** Client Id */
+            client_id?: string | null;
+            /** Admin Email */
+            admin_email?: string | null;
+            /** Domain */
+            domain?: string | null;
+            /** Connected At */
+            connected_at?: string | null;
+            /** Last Poll At */
+            last_poll_at?: string | null;
+            /**
+             * Last Poll
+             * @default {}
+             */
+            last_poll: {
+                [key: string]: number;
+            };
+            /** Last Data At */
+            last_data_at?: string | null;
+            /** Error Since */
+            error_since?: string | null;
+            /**
+             * Errors
+             * @default {}
+             */
+            errors: {
+                [key: string]: string;
+            };
+            /** Encryption Available */
+            encryption_available: boolean;
+            /** Scopes */
+            scopes: string[];
+        };
+        /** GoogleWorkspaceConnect */
+        GoogleWorkspaceConnect: {
+            /** Service Account Key */
+            service_account_key: string;
+            /** Admin Email */
+            admin_email: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -10596,6 +10697,97 @@ export interface operations {
         };
     };
     poll_now_api_v1_connectors_microsoft_365_poll_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PollResult"];
+                };
+            };
+        };
+    };
+    google_status_api_v1_connectors_google_workspace_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleWorkspace"];
+                };
+            };
+        };
+    };
+    connect_google_api_v1_connectors_google_workspace_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleWorkspaceConnect"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleWorkspace"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disconnect_google_api_v1_connectors_google_workspace_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    poll_google_api_v1_connectors_google_workspace_poll_post: {
         parameters: {
             query?: never;
             header?: never;
