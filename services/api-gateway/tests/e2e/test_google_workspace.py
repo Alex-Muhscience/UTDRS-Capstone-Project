@@ -34,7 +34,7 @@ class Google:
         self.key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         self.client_email = f"utdrs@project-{uuid.uuid4().hex[:6]}.iam.gserviceaccount.com"
         self.delegated = True
-        self.activities = {"login": [], "admin": [], "token": []}
+        self.activities = {"login": [], "admin": [], "token": [], "user_accounts": [], "drive": []}
         self.users = {}
         self.calls = []
 
@@ -44,7 +44,8 @@ class Google:
                            "private_key": pem, "token_uri": "https://oauth2.googleapis.com/token"})
 
     def handler(self, request: httpx.Request) -> httpx.Response:
-        self.calls.append(f"{request.method} {request.url.path}")
+        query = request.url.query.decode() if isinstance(request.url.query, bytes) else request.url.query
+        self.calls.append(f"{request.method} {request.url.path}" + (f"?{query}" if query else ""))
         if request.url.host == "oauth2.googleapis.com":
             assertion = parse_qs(request.content.decode())["assertion"][0]
             claims = jwt.decode(assertion, self.key.public_key(), algorithms=["RS256"], audience="https://oauth2.googleapis.com/token")
@@ -55,7 +56,11 @@ class Google:
         assert request.headers["authorization"] == "Bearer ya29.token"
         path = request.url.path
         if "/admin/reports/v1/activity/users/all/applications/" in path:
-            return httpx.Response(200, json={"items": self.activities[path.rsplit("/", 1)[1]]})
+            items = self.activities[path.rsplit("/", 1)[1]]
+            wanted = request.url.params.get("eventName")
+            if wanted:
+                items = [a for a in items if any(e["name"] == wanted for e in a["events"])]
+            return httpx.Response(200, json={"items": items})
         if path.startswith("/admin/directory/v1/users/"):
             email = path.split("/users/", 1)[1]
             if path.endswith("/signOut"):
@@ -123,7 +128,7 @@ def test_connecting_checks_the_key_and_keeps_it_secret(client, admin, google):
     assert body["connected"] and body["domain"] == "contoso.com" and body["client_id"] == "1234567890"
     assert "key" not in body and "private_key" not in json.dumps(body)
     rules = client.get(f"{API}/detection/rules", params={"limit": 500}, headers=admin).json()
-    assert sum(r["name"].startswith("Google Workspace:") for r in rules) == 6
+    assert sum(r["name"].startswith("Google Workspace:") for r in rules) == 9
 
 
 def test_activities_become_events_once_and_raise_alerts(client, admin, google, monkeypatch):
@@ -135,18 +140,31 @@ def test_activities_become_events_once_and_raise_alerts(client, admin, google, m
     google.activities["admin"] = [activity("admin", "ASSIGN_ROLE", "it@contoso.com", [("USER_EMAIL", {"value": "bo@contoso.com"}), ("ROLE_NAME", {"value": "_SEED_ADMIN_ROLE"})])]
     google.activities["token"] = [activity("token", "authorize", "cy@contoso.com", [("app_name", {"value": "Mail Helper"}),
                                                                                       ("scope", {"multiValue": ["https://mail.google.com/"]})])]
+    google.activities["user_accounts"] = [activity("user_accounts", "email_forwarding_out_of_domain", "bo@contoso.com")]
+    google.activities["drive"] = [
+        activity("drive", "change_user_access", "ann@contoso.com", [("doc_title", {"value": "Payroll 2026"}), ("visibility_change", {"value": "external"}),
+                                                                   ("target_user", {"value": "someone@gmail.com"}), ("primary_event", {"boolValue": True})]),
+        # A secondary event of the same action: not kept.
+        activity("drive", "change_user_access", "ann@contoso.com", [("doc_title", {"value": "Payroll 2026"}), ("primary_event", {"boolValue": False})]),
+        # Views are never asked for.
+        activity("drive", "view", "ann@contoso.com", [("doc_title", {"value": "Notes"})]),
+    ]
     connect(client, admin, google)
     status = client.get(f"{API}/connectors/google-workspace", headers=admin).json()
-    assert status["last_poll"] == {"login": 3, "admin": 1, "token": 1} and status["errors"] == {}
+    assert status["last_poll"] == {"login": 3, "admin": 1, "token": 1, "user_accounts": 1, "drive": 1} and status["errors"] == {}
+    drive_calls = [call for call in google.calls if "/applications/drive" in call]
+    assert drive_calls and all("eventName=change_" in call for call in drive_calls)
 
     events = client.get(f"{API}/events/", params={"limit": 50}, headers=admin).json()
     google_events = [e for e in events if e["source"] == "google"]
-    assert len(google_events) == 5
+    assert len(google_events) == 7
+    shared = next(e for e in google_events if e["event_type"] == "file_sharing")
+    assert shared["raw_data"]["visibility_change"] == "external" and "outside your organisation" in shared["description"]
     failure = next(e for e in google_events if e["raw_data"]["activity"] == "login_failure")
     assert failure["event_type"] == "authentication" and failure["raw_data"]["status"] == "failure" and failure["raw_data"]["user"] == "ann@contoso.com"
 
     # The next poll overlaps the last: nothing is stored twice.
-    assert client.post(f"{API}/connectors/google-workspace/poll", headers=admin).json()["counts"] == {"login": 0, "admin": 0, "token": 0}
+    assert client.post(f"{API}/connectors/google-workspace/poll", headers=admin).json()["counts"] == {"login": 0, "admin": 0, "token": 0, "user_accounts": 0, "drive": 0}
 
 
 def test_rules_match_what_google_reports(client, admin, google):
@@ -160,6 +178,10 @@ def test_rules_match_what_google_reports(client, admin, google):
         "Google Workspace: 2-step verification turned off": activity("login", "2sv_disable", "a@contoso.com"),
         "Google Workspace: administrator privileges granted": activity("admin", "ASSIGN_ROLE", "a@contoso.com"),
         "Google Workspace: app given access to mail or files": activity("token", "authorize", "a@contoso.com", [("scope", {"multiValue": ["https://www.googleapis.com/auth/drive"]})]),
+        "Google Workspace: file shared outside": activity("drive", "change_user_access", "a@contoso.com", [("visibility_change", {"value": "external"})]),
+        "Google Workspace: file made public on the web": activity("drive", "change_document_visibility", "a@contoso.com",
+                                                                  [("new_value", {"value": "public_on_the_web"}), ("old_value", {"value": "private"})]),
+        "Google Workspace: mail forwarded outside": activity("user_accounts", "email_forwarding_out_of_domain", "a@contoso.com"),
     }
     for rule in google_workspace.RULES:
         record = examples[rule["name"]]
