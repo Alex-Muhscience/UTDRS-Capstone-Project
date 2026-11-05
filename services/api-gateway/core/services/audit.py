@@ -232,7 +232,8 @@ async def verify() -> Dict[str, Any]:
     return {"ok": True, "checked": checked, "problem": None}
 
 
-SECRET_FIELDS = {"password", "new_password", "current_password", "passwordHash", "key", "token", "client_secret", "secret", "state"}
+SECRET_FIELDS = {"password", "new_password", "current_password", "passwordHash", "key", "token", "client_secret", "secret", "state",
+                 "bot_token", "signing_secret", "webhook_url"}
 MAX_DETAIL_LENGTH = 500
 
 

@@ -43,6 +43,7 @@ export type SessionInfo = Schemas["SessionInfo"]
 export type SsoSettings = Schemas["SsoSettings"]
 export type ClientAlert = Schemas["ClientAlert"]
 export type InboxItem = Schemas["InboxItem"]
+export type ChatChannel = Schemas["ChatChannel"]
 export type Delivery = Schemas["Delivery"]
 export type Role = Schemas["UserAdminUpdate"]["role"]
 

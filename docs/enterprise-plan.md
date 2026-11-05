@@ -301,7 +301,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 | ID | Requirement | Priority | Phase |
 |---|---|---|---|
 | FR-NTF-01 | Email notifications for new cases, actions taken and approvals needed, with per-user preferences **Done (#22).** | P0 | 1 |
-| FR-NTF-02 | Slack and Microsoft Teams, with approve/reject buttons for response actions | P1 | 2 |
+| FR-NTF-02 | Slack and Microsoft Teams, with approve/reject buttons for response actions **Done (#70): Slack (webhook, or the organisation's own app with Approve and Reject, verified by Slack's signature and the person's UTDRS role) and Teams (Adaptive Cards through Workflows, deciding in UTDRS). In-Teams buttons would need an Azure bot.** | P1 | 2 |
 | FR-NTF-03 | SMS and voice escalation for critical cases | P2 | 3 |
 | FR-NTF-04 | Notify the affected end user (for example, "we removed a phishing email from your inbox") | P1 | 2 |
 | FR-NTF-05 | Mobile app or progressive web app with push for approvals | P2 | 3 |

@@ -43,6 +43,8 @@ TENANT_SCOPED = {
     "gateway_state",
     "roles",
     "inbox",
+    "chat_channels",
+    "chat_messages",
 }
 
 # The tenant for entries that belong to no organisation, such as a sign-in attempt with

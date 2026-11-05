@@ -247,6 +247,16 @@ The dashboard hears of changes as they happen, through `GET /api/v1/live` (Serve
 - **Reconnecting.** Each message has an id; a client that reconnects with `Last-Event-ID` gets what it missed, or `resync` (fetch everything again) when that is over 200 changes or older than an hour. A stream ends after five minutes and the client reconnects, so an ended session, a deactivated person or a suspended organisation stops receiving within that time. A comment is sent every 15 seconds to keep proxies from closing the connection.
 - **The dashboard** connects with `fetch` (the access token in a header, never in the address), refreshes alerts, cases and actions as they change, announces critical and high alerts and actions waiting for a decision, and shows "Live" beside the detection status. While connected it polls those lists only every two minutes; while not, every 15 seconds as before.
 
+## Slack and Microsoft Teams
+
+An organisation's administrators send what needs attention to their team's chat (`/api/v1/chat`; `core/services/chat.py`). Each channel chooses its events: new alerts from a minimum severity, new cases, response actions waiting for a decision, failed actions, monthly reports, and connectors that stopped. Three kinds:
+
+- **Microsoft Teams**: a Workflows webhook ("Post to a channel when a webhook request is received"). Adaptive Cards with a button that opens UTDRS. Decisions are made in UTDRS: buttons inside Teams would need an Azure bot registration.
+- **Slack, incoming webhook**: messages with a button that opens UTDRS.
+- **Slack app**: the organisation's own app (bot token with `chat:write` and `users:read.email`, and its signing secret), posting to a channel by id, with **Approve** and **Reject** on actions waiting for a decision. Slack posts clicks to `/api/v1/chat/slack/{channel}/interactions` (shown on the channel, for the app's Interactivity settings). Each click is believed only with Slack's signature for that channel's secret and a recent timestamp. It counts only when the Slack user's email is an active UTDRS account in the organisation whose role may decide (administrators, for a protected account). The decision is made as that person, recorded in the audit log (`via: slack`), and the Slack message is updated to say who decided. Anyone else is told why not, and nothing happens.
+
+Webhook URLs (credentials), bot tokens and signing secrets are stored encrypted and never shown again, nor written to the audit log; Teams and Slack URLs must be theirs (`hooks.slack.com`, Workflows hosts) and are checked like webhooks against private addresses. Messages are queued and sent by a background loop (`CHAT_INTERVAL_SECONDS`), retried for about an hour; each channel shows whether it is delivering, and why not, and can send a test.
+
 ## Notifications centre
 
 Each person has an inbox in the dashboard (`/api/v1/inbox`; `core/services/inbox.py`), kept for 90 days, separate from email notifications (which follow each person's preferences):

@@ -3201,6 +3201,105 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/chat/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Events
+         * @description What a channel can be told about.
+         */
+        get: operations["events_api_v1_chat_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chat/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Channels */
+        get: operations["list_channels_api_v1_chat_channels_get"];
+        put?: never;
+        /**
+         * Create Channel
+         * @description Add a Slack or Teams channel (administrators only). A Slack app's token is checked with Slack first.
+         */
+        post: operations["create_channel_api_v1_chat_channels_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chat/channels/{channel_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Channel */
+        delete: operations["delete_channel_api_v1_chat_channels__channel_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Channel */
+        patch: operations["update_channel_api_v1_chat_channels__channel_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/chat/channels/{channel_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Channel
+         * @description Send a test message now; the answer says why if it does not get through.
+         */
+        post: operations["test_channel_api_v1_chat_channels__channel_id__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chat/channels/{channel_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Channel Messages
+         * @description What was sent to the channel lately, and how it went.
+         */
+        get: operations["channel_messages_api_v1_chat_channels__channel_id__messages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/inbox": {
         parameters: {
             query?: never;
@@ -4756,6 +4855,80 @@ export interface components {
             /** Built In */
             built_in: components["schemas"]["BuiltInRole"][];
         };
+        /** ChatChannel */
+        ChatChannel: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /** Events */
+            events: string[];
+            /**
+             * Min Alert Severity
+             * @default high
+             */
+            min_alert_severity: string;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** Slack Channel */
+            slack_channel?: string | null;
+            /** Last Status */
+            last_status?: string | null;
+            /** Last Error */
+            last_error?: string | null;
+            /** Last Sent At */
+            last_sent_at?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Interactions Url */
+            interactions_url?: string | null;
+        };
+        /** ChatChannelUpdate */
+        ChatChannelUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Events */
+            events?: string[] | null;
+            /** Min Alert Severity */
+            min_alert_severity?: ("critical" | "high" | "medium" | "low" | "info") | null;
+            /** Enabled */
+            enabled?: boolean | null;
+        };
+        /** ChatEvent */
+        ChatEvent: {
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+        };
+        /** ChatMessage */
+        ChatMessage: {
+            /** Id */
+            id: string;
+            /** Event */
+            event: string;
+            /** Status */
+            status: string;
+            /**
+             * Attempts
+             * @default 0
+             */
+            attempts: number;
+            /** Error */
+            error?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Sent At */
+            sent_at?: string | null;
+        };
         /** Check */
         Check: {
             /** Name */
@@ -5539,6 +5712,32 @@ export interface components {
             username: string;
             /** Email */
             email: string;
+        };
+        /** NewChatChannel */
+        NewChatChannel: {
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "slack_webhook" | "slack_app" | "teams";
+            /** Events */
+            events: string[];
+            /**
+             * Min Alert Severity
+             * @default high
+             * @enum {string}
+             */
+            min_alert_severity: "info" | "low" | "medium" | "high" | "critical";
+            /** Webhook Url */
+            webhook_url?: string | null;
+            /** Bot Token */
+            bot_token?: string | null;
+            /** Signing Secret */
+            signing_secret?: string | null;
+            /** Slack Channel */
+            slack_channel?: string | null;
         };
         /** NewClient */
         NewClient: {
@@ -12948,6 +13147,203 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    events_api_v1_chat_events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatEvent"][];
+                };
+            };
+        };
+    };
+    list_channels_api_v1_chat_channels_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatChannel"][];
+                };
+            };
+        };
+    };
+    create_channel_api_v1_chat_channels_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewChatChannel"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatChannel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_channel_api_v1_chat_channels__channel_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_channel_api_v1_chat_channels__channel_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatChannelUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatChannel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_channel_api_v1_chat_channels__channel_id__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    channel_messages_api_v1_chat_channels__channel_id__messages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessage"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

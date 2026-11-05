@@ -17,14 +17,14 @@ from api.middleware.security import (
 )
 from api.routes import (
     alerts, api_keys, platform as platform_routes, scim as scim_routes, assets, audit, auth, cases, connectors as connector_routes, detection, email, events, health,
-    inbox as inbox_routes, platform_auth as platform_auth_routes, live as live_routes, msp as msp_routes, notifications, roles as role_routes, onboarding, playbooks, reports, response, retention as retention_routes, scans, simulation,
+    chat as chat_routes, inbox as inbox_routes, platform_auth as platform_auth_routes, live as live_routes, msp as msp_routes, notifications, roles as role_routes, onboarding, playbooks, reports, response, retention as retention_routes, scans, simulation,
     tenants as tenant_routes, tuning, users, webhooks as webhook_routes,
 )
 from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
 from core.database.indexes import ensure_indexes
 from core.services import (
-    case_service, detection_pipeline, google_workspace, m365_ingest, metrics, notifications as notification_service, operators, platform_health,
+    case_service, chat, detection_pipeline, google_workspace, m365_ingest, metrics, notifications as notification_service, operators, platform_health,
     playbooks as playbook_service,
     reports as report_service, retention, tenants, webhooks,
 )
@@ -66,6 +66,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(google_workspace.poll_periodically()),
         asyncio.create_task(retention.run_periodically()),
         asyncio.create_task(webhooks.deliver_periodically()),
+        asyncio.create_task(chat.deliver_periodically()),
         # Analysis: here, unless dedicated workers (worker.py) do it (ANALYSIS_IN_API false).
         *([asyncio.create_task(detection_pipeline.analyse_periodically())] if settings.ANALYSIS_IN_API else []),
         asyncio.create_task(metrics.flush_periodically()),
@@ -80,6 +81,7 @@ async def lifespan(app: FastAPI):
         with suppress(asyncio.CancelledError):
             await loop
     await playbook_service.idle()
+    await chat.idle()
     await m365_ingest.idle()
     await google_workspace.idle()
     with suppress(Exception):
@@ -169,6 +171,8 @@ app.include_router(api_keys.router, prefix=f"{settings.API_PREFIX}/api-keys", ta
 # SCIM: identity providers, authenticated by the organisation's SCIM token (not a person's or an API key).
 app.include_router(scim_routes.router, prefix=f"{settings.API_PREFIX}/scim/v2", tags=["scim"])
 # The platform console: every organisation, for platform operators only (their own sign-in and tokens).
+app.include_router(chat_routes.router, prefix=f"{settings.API_PREFIX}/chat", tags=["slack and teams"], dependencies=[Depends(audited("chat"))])
+app.include_router(chat_routes.slack_router, prefix=f"{settings.API_PREFIX}/chat", tags=["slack and teams"])
 app.include_router(inbox_routes.router, prefix=f"{settings.API_PREFIX}/inbox", tags=["notifications centre"])
 app.include_router(role_routes.router, prefix=f"{settings.API_PREFIX}/roles", tags=["roles"], dependencies=[Depends(audited("roles"))])
 app.include_router(msp_routes.router, prefix=f"{settings.API_PREFIX}/msp", tags=["service providers"])

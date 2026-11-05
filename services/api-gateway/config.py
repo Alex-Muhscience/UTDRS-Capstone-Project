@@ -181,6 +181,8 @@ class Settings(BaseSettings):
     # Webhooks (core/services/webhooks.py): how often due deliveries are sent, and whether
     # receivers may be on private networks (only for a deployment's own receivers).
     WEBHOOK_INTERVAL_SECONDS: int = 5
+    # How often queued Slack and Teams messages are sent.
+    CHAT_INTERVAL_SECONDS: int = 5
     WEBHOOK_ALLOW_PRIVATE_ADDRESSES: bool = False
 
     # Encrypting secrets stored in the database (utils/crypto.py): 32 random bytes,
