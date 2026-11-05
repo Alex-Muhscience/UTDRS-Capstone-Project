@@ -53,6 +53,7 @@ For real use, change `plan: free` to `plan: starter` (or larger) for both servic
 
 ## Optional
 
+- **Backups**: Atlas's free tier has none. Run the backup container from [ops/backup](../ops/backup/README.md) on any machine with Docker, pointing at the cluster, or use Atlas's own backups on a paid tier. Set `OPERATOR_EMAILS` to hear if they stop.
 - **Email**: in the gateway's environment, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `MAIL_FROM` (see `.env.example`), from any SMTP service. Email also lets people reset a forgotten password and confirm their address; without it, administrators reset passwords from the Users page.
 - **Microsoft 365 "Connect with Microsoft"**: `M365_CLIENT_ID` and `M365_CLIENT_SECRET` of your multi-tenant app registration, with `https://utdrs-capstone-project.vercel.app/connectors/microsoft-365/consented` as a redirect URI. Organisations can always connect with their own app registration without these.
 - **Self-service sign-up** (each new account a new organisation): `ALLOW_REGISTRATION=true` (`REGISTRATION_MODE` is already `organisation`).

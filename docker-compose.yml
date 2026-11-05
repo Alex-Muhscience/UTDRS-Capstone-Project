@@ -155,6 +155,26 @@ services:
       api-gateway:
         condition: service_healthy
 
+  # Backups: a checked, compressed copy of the gateway's and the engine's databases every
+  # BACKUP_INTERVAL_HOURS, with its restore tested, kept BACKUP_KEEP_DAYS, in BACKUP_PATH.
+  # docker compose --profile backup up -d   (see ops/backup/README.md)
+  backup:
+    image: mongo:7
+    profiles: ["backup"]
+    restart: unless-stopped
+    entrypoint: ["bash", "/backup.sh"]
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
+    volumes:
+      - ./ops/backup/backup.sh:/backup.sh:ro
+      - ${BACKUP_PATH:-./backups}:/backups
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
   # Optional, with the scanner: delivers the scans the scanner server stores to the
   # gateway, where they become assets and events.
   data-processor:
