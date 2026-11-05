@@ -10,9 +10,11 @@ from utils.time import utcnow
 
 # Admins manage users and detection content (rules, simulations); analysts triage
 # alerts and work with events and assets. Everyone signed in can read everything.
-Role = Literal["admin", "analyst"]
+# admin: runs the organisation; analyst: investigates and responds; viewer: sees, changes nothing.
+Role = Literal["admin", "analyst", "viewer"]
 ADMIN: Role = "admin"
 ANALYST: Role = "analyst"
+VIEWER: Role = "viewer"
 
 
 class UserBase(BaseModel):
@@ -81,6 +83,8 @@ class User(UserBase):
     email_verified: bool = False
     # Whether a second factor is needed to sign in (the secret itself is never shown).
     mfa_enabled: bool = False
+    # Runs the whole deployment (every organisation), from the platform console.
+    platform_admin: bool = False
     # Signed in, but the organisation requires MFA and this account has none yet: the
     # session can only set it up.
     mfa_setup_required: bool = False

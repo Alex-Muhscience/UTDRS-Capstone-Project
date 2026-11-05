@@ -55,6 +55,10 @@ async def scim_organisation(request: Request) -> str:
     tenant = await scim.tenant_for(token) if token else None
     if not tenant:
         raise ScimError(401, "A valid SCIM token is needed")
+    from core.services import tenants
+
+    if await tenants.is_suspended(tenant):
+        raise ScimError(403, "This organisation has been suspended")
     set_tenant(tenant)
     request.state.principal = ACTOR
     return tenant

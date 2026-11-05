@@ -315,6 +315,9 @@ def _actor(user: dict) -> dict:
 
 
 async def _signed_in(request: Request, user: dict, details: Optional[dict] = None) -> dict:
+    # Every way of signing in ends here: a suspended organisation's people cannot.
+    if await tenants.is_suspended(user["tenant_id"]):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This organisation has been suspended; contact the service's operator")
     await UserRepository().update_last_login(str(user["_id"]))
     session_id, refresh_token = await sessions.start(user, request, (details or {}).get("mfa"))
     await audit.record("auth.login_succeeded", request, actor=_actor(user), details={**(details or {}), "session": session_id})
@@ -510,6 +513,8 @@ async def refresh(body: RefreshRequest) -> Any:
         session, refresh_token = await sessions.refresh(body.refresh_token)
     except sessions.SessionEnded as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e), headers={"WWW-Authenticate": "Bearer"})
+    if await tenants.is_suspended(session["tenant_id"]):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="This organisation has been suspended; contact the service's operator")
     with tenant_context(session["tenant_id"]):
         user = await UserRepository().find_by_id(session["user_id"])
     if not user or not user.get("active", True):

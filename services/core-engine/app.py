@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from fastapi import Depends, FastAPI
 
-from api.routes import detections, health, rules
+from api.routes import detections, health, rules, tenants
 from api.security import require_internal_token
 from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
@@ -75,6 +75,7 @@ internal = [Depends(require_internal_token)]
 app.include_router(health.router, tags=["health"])
 app.include_router(rules.router, prefix="/rules", tags=["rules"], dependencies=internal)
 app.include_router(detections.router, prefix="/detections", tags=["detections"], dependencies=internal)
+app.include_router(tenants.router, prefix="/tenants", tags=["tenants"], dependencies=internal)
 
 
 @app.get("/")

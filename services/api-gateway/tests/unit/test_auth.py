@@ -46,10 +46,11 @@ mock_user_data = {
 
 
 @patch("api.routes.auth.sso.enforced_for", new_callable=AsyncMock, return_value=False)
+@patch("api.routes.auth.tenants.is_suspended", new_callable=AsyncMock, return_value=False)
 @patch("api.routes.auth.sessions.start", new_callable=AsyncMock, return_value=("665f1c2ab1e2c3d4e5f60999", "a-refresh-token"))
 @patch("api.routes.auth.verify_password")
 @patch("api.routes.auth.UserRepository")
-def test_login_success(mock_user_repo_class, mock_verify_password, mock_start_session, mock_sso_enforced):
+def test_login_success(mock_user_repo_class, mock_verify_password, mock_start_session, mock_sso_enforced, mock_suspended):
     # Setup mocks
     mock_user_repo = mock_user_repo_class.return_value
     mock_user_repo.find_by_username = AsyncMock(return_value=mock_user_data)

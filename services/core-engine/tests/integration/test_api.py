@@ -280,3 +280,15 @@ def test_a_counting_rule_fires_once_the_count_is_reached(client):
     other = {**download("ann", 100), "tenant_id": "default"}
     assert client.post("/detections/process", json=other).json() is None
     client.put("/rules/managed/gateway", params={"tenant_id": "default"}, json={"rules": []})
+
+
+
+def test_an_organisations_data_is_deleted(client):
+    import uuid
+
+    tenant = f"gone-{uuid.uuid4().hex[:6]}"
+    client.put("/rules/managed/gateway", params={"tenant_id": tenant}, json={"rules": [managed_rule("x")]})
+    client.post("/detections/process", json={**MARKED_PROCESS, "tenant_id": tenant})
+    deleted = client.delete(f"/tenants/{tenant}").json()["deleted"]
+    assert deleted >= 2  # its event and rule, at least (and its alert)
+    assert client.delete(f"/tenants/{tenant}").json()["deleted"] == 0

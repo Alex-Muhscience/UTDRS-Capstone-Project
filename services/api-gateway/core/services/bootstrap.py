@@ -13,9 +13,9 @@ logger = get_logger(__name__)
 
 async def ensure_admin() -> None:
     """
-    Make ADMIN_USERNAME an active administrator: create the account (with
-    ADMIN_PASSWORD) if it does not exist, otherwise promote and reactivate it.
-    An existing account's password is never changed here.
+    Make ADMIN_USERNAME an active administrator, and a platform administrator (the
+    deployment's own): create the account (with ADMIN_PASSWORD) if it does not exist,
+    otherwise promote and reactivate it. An existing account's password is never changed here.
     """
     username = settings.ADMIN_USERNAME
     if not username:
@@ -28,6 +28,9 @@ async def ensure_admin() -> None:
             with tenant_context(existing["tenant_id"]):
                 await users.update_user(str(existing["_id"]), UserUpdate(role=ADMIN, active=True))
             logger.info(f"Made {username} an active administrator")
+        if not existing.get("platform_admin"):
+            await users.collection.unscoped().update_one({"_id": existing["_id"]}, {"$set": {"platform_admin": True}})
+            logger.info(f"Made {username} a platform administrator")
         return
 
     if not settings.ADMIN_PASSWORD:
@@ -47,5 +50,5 @@ async def ensure_admin() -> None:
         raise RuntimeError(f"Cannot create the administrator from ADMIN_* settings: {problems}") from None
     # The first administrator administers the default tenant.
     with tenant_context(await tenants.default_id()):
-        await users.create_user(admin)
+        await users.create_user(admin, platform_admin=True)
     logger.info(f"Created the administrator {username}")

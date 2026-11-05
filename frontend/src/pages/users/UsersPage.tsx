@@ -20,6 +20,7 @@ import { TemporaryPasswordDialog } from "./TemporaryPasswordDialog"
 
 const ROLES = [
   { value: "analyst", label: "Analyst" },
+  { value: "viewer", label: "Read-only" },
   { value: "admin", label: "Administrator" },
 ]
 

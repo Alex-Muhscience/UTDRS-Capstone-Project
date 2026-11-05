@@ -47,6 +47,18 @@ export function useUser(): User {
   return user
 }
 
+/** Whether the signed-in user runs the platform (the console across organisations). */
+export function useIsPlatformAdmin(): boolean {
+  const { user } = useAuth()
+  return Boolean(user?.platform_admin)
+}
+
+/** Whether the signed-in user can only look (the read-only role). */
+export function useIsReadOnly(): boolean {
+  const { user } = useAuth()
+  return user?.role === "viewer"
+}
+
 /** Whether the signed-in user is an administrator (manages users, rules and simulations). */
 export function useIsAdmin(): boolean {
   const { user } = useAuth()

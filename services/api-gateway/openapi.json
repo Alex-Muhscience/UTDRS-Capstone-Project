@@ -1235,7 +1235,8 @@
                 {
                   "enum": [
                     "admin",
-                    "analyst"
+                    "analyst",
+                    "viewer"
                   ],
                   "type": "string"
                 },
@@ -8997,6 +8998,434 @@
         }
       }
     },
+    "/api/v1/platform/organisations": {
+      "get": {
+        "tags": [
+          "platform"
+        ],
+        "summary": "Organisations",
+        "description": "Every organisation, with its people, activity, open alerts and connectors.",
+        "operationId": "organisations_api_v1_platform_organisations_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OrganisationSummary"
+                  },
+                  "type": "array",
+                  "title": "Response Organisations Api V1 Platform Organisations Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "platform"
+        ],
+        "summary": "Create Organisation",
+        "description": "Create an organisation and its first administrator (a temporary password, shown once).",
+        "operationId": "create_organisation_api_v1_platform_organisations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewOrganisation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedOrganisation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/platform/organisations/{tenant_id}": {
+      "get": {
+        "tags": [
+          "platform"
+        ],
+        "summary": "Organisation",
+        "operationId": "organisation_api_v1_platform_organisations__tenant_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganisationDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "platform"
+        ],
+        "summary": "Change Status",
+        "description": "Suspend an organisation (its people are signed out, and it can do nothing) or reactivate it.",
+        "operationId": "change_status_api_v1_platform_organisations__tenant_id__patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusChange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganisationDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "platform"
+        ],
+        "summary": "Delete Organisation",
+        "description": "Delete an organisation and all its data, here and in the core engine, typing its name to confirm. Cannot be undone.",
+        "operationId": "delete_organisation_api_v1_platform_organisations__tenant_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Deletion"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete Organisation Api V1 Platform Organisations  Tenant Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/organisations/{tenant_id}/administrators": {
+      "post": {
+        "tags": [
+          "platform"
+        ],
+        "summary": "Add Administrator",
+        "description": "Add an administrator to an organisation, such as one locked out of its own.",
+        "operationId": "add_administrator_api_v1_platform_organisations__tenant_id__administrators_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewAdministrator"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedAdministrator"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/admins": {
+      "get": {
+        "tags": [
+          "platform"
+        ],
+        "summary": "Platform Admins",
+        "operationId": "platform_admins_api_v1_platform_admins_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformAdmin"
+                  },
+                  "type": "array",
+                  "title": "Response Platform Admins Api V1 Platform Admins Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "platform"
+        ],
+        "summary": "Set Platform Admin",
+        "description": "Make someone (by username, in any organisation) a platform administrator, or stop.",
+        "operationId": "set_platform_admin_api_v1_platform_admins_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformAdminChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformAdmin"
+                  },
+                  "type": "array",
+                  "title": "Response Set Platform Admin Api V1 Platform Admins Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/platform/audit-log": {
+      "get": {
+        "tags": [
+          "platform"
+        ],
+        "summary": "Platform Audit Log",
+        "description": "The platform's own audit log: sign-ins to unknown accounts, and every platform action.",
+        "operationId": "platform_audit_log_api_v1_platform_audit_log_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Platform Audit Log Api V1 Platform Audit Log Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/audit-log/": {
       "get": {
         "tags": [
@@ -10136,7 +10565,8 @@
             "type": "string",
             "enum": [
               "admin",
-              "analyst"
+              "analyst",
+              "viewer"
             ],
             "title": "Role",
             "default": "analyst"
@@ -10149,6 +10579,29 @@
         ],
         "title": "AdminUserCreate",
         "description": "An account created by an administrator; the password is generated."
+      },
+      "Administrator": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "email"
+        ],
+        "title": "Administrator"
       },
       "Alert": {
         "properties": {
@@ -11894,6 +12347,59 @@
         ],
         "title": "CoreEngineStatus"
       },
+      "CreatedAdministrator": {
+        "properties": {
+          "administrator": {
+            "$ref": "#/components/schemas/Administrator"
+          },
+          "temporary_password": {
+            "type": "string",
+            "title": "Temporary Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "administrator",
+          "temporary_password"
+        ],
+        "title": "CreatedAdministrator"
+      },
+      "CreatedOrganisation": {
+        "properties": {
+          "administrator": {
+            "$ref": "#/components/schemas/Administrator"
+          },
+          "temporary_password": {
+            "type": "string",
+            "title": "Temporary Password"
+          },
+          "tenant": {
+            "$ref": "#/components/schemas/OrganisationDetail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "administrator",
+          "temporary_password",
+          "tenant"
+        ],
+        "title": "CreatedOrganisation"
+      },
+      "Deletion": {
+        "properties": {
+          "confirm_name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Confirm Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirm_name"
+        ],
+        "title": "Deletion"
+      },
       "Delivery": {
         "properties": {
           "id": {
@@ -13498,6 +14004,57 @@
         "title": "Microsoft365",
         "description": "The Microsoft 365 connection, as administrators see it. Secrets are never shown."
       },
+      "NewAdministrator": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 3,
+            "title": "Username"
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "minLength": 3,
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "email"
+        ],
+        "title": "NewAdministrator"
+      },
+      "NewOrganisation": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "admin_username": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 3,
+            "title": "Admin Username"
+          },
+          "admin_email": {
+            "type": "string",
+            "maxLength": 254,
+            "minLength": 3,
+            "title": "Admin Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "admin_username",
+          "admin_email"
+        ],
+        "title": "NewOrganisation"
+      },
       "Notification": {
         "properties": {
           "id": {
@@ -13822,6 +14379,267 @@
         ],
         "title": "OpenCase"
       },
+      "OrganisationDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "default": {
+            "type": "boolean",
+            "title": "Default",
+            "default": false
+          },
+          "people": {
+            "type": "integer",
+            "title": "People"
+          },
+          "administrators": {
+            "type": "integer",
+            "title": "Administrators"
+          },
+          "events_last_week": {
+            "type": "integer",
+            "title": "Events Last Week"
+          },
+          "open_alerts": {
+            "type": "integer",
+            "title": "Open Alerts"
+          },
+          "connectors": {
+            "type": "integer",
+            "title": "Connectors"
+          },
+          "last_sign_in": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Sign In"
+          },
+          "mfa_required": {
+            "type": "boolean",
+            "title": "Mfa Required",
+            "default": false
+          },
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/OrganisationUser"
+            },
+            "type": "array",
+            "title": "Users",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "people",
+          "administrators",
+          "events_last_week",
+          "open_alerts",
+          "connectors"
+        ],
+        "title": "OrganisationDetail"
+      },
+      "OrganisationSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "default": {
+            "type": "boolean",
+            "title": "Default",
+            "default": false
+          },
+          "people": {
+            "type": "integer",
+            "title": "People"
+          },
+          "administrators": {
+            "type": "integer",
+            "title": "Administrators"
+          },
+          "events_last_week": {
+            "type": "integer",
+            "title": "Events Last Week"
+          },
+          "open_alerts": {
+            "type": "integer",
+            "title": "Open Alerts"
+          },
+          "connectors": {
+            "type": "integer",
+            "title": "Connectors"
+          },
+          "last_sign_in": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Sign In"
+          },
+          "mfa_required": {
+            "type": "boolean",
+            "title": "Mfa Required",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "people",
+          "administrators",
+          "events_last_week",
+          "open_alerts",
+          "connectors"
+        ],
+        "title": "OrganisationSummary"
+      },
+      "OrganisationUser": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active"
+          },
+          "last_sign_in": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Sign In"
+          },
+          "platform_admin": {
+            "type": "boolean",
+            "title": "Platform Admin",
+            "default": false
+          },
+          "mfa": {
+            "type": "boolean",
+            "title": "Mfa",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "active"
+        ],
+        "title": "OrganisationUser"
+      },
       "Outstanding": {
         "properties": {
           "open_cases": {
@@ -14022,6 +14840,76 @@
           "used_for"
         ],
         "title": "Permission"
+      },
+      "PlatformAdmin": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "organisation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organisation"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active",
+            "default": true
+          },
+          "mfa": {
+            "type": "boolean",
+            "title": "Mfa",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username"
+        ],
+        "title": "PlatformAdmin"
+      },
+      "PlatformAdminChange": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Username"
+          },
+          "platform_admin": {
+            "type": "boolean",
+            "title": "Platform Admin"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "platform_admin"
+        ],
+        "title": "PlatformAdminChange"
       },
       "Playbook": {
         "properties": {
@@ -16239,6 +17127,19 @@
         "type": "object",
         "title": "SsoUpdate"
       },
+      "StatusChange": {
+        "properties": {
+          "suspended": {
+            "type": "boolean",
+            "title": "Suspended"
+          }
+        },
+        "type": "object",
+        "required": [
+          "suspended"
+        ],
+        "title": "StatusChange"
+      },
       "Step": {
         "properties": {
           "key": {
@@ -16976,6 +17877,11 @@
             "title": "Mfa Enabled",
             "default": false
           },
+          "platform_admin": {
+            "type": "boolean",
+            "title": "Platform Admin",
+            "default": false
+          },
           "mfa_setup_required": {
             "type": "boolean",
             "title": "Mfa Setup Required",
@@ -17016,7 +17922,8 @@
                 "type": "string",
                 "enum": [
                   "admin",
-                  "analyst"
+                  "analyst",
+                  "viewer"
                 ]
               },
               {

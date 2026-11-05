@@ -71,6 +71,26 @@ def _allowed_before_mfa(request: Request) -> bool:
     return any(path.startswith(allowed) for allowed in MFA_SETUP_PATHS) or (path == "/tenants/current" and request.method == "GET")
 
 
+# What a read-only person may still change: their own account, nothing of the organisation's.
+VIEWER_MAY_CHANGE = ("/auth/me", "/auth/mfa", "/auth/passkeys", "/auth/sessions", "/auth/logout", "/notifications/preferences")
+
+
+def refuse_viewer_changes(user: User, request: Request) -> None:
+    if user.role != "viewer" or request.method in ("GET", "HEAD", "OPTIONS"):
+        return
+    path = request.url.path.removeprefix(settings.API_PREFIX)
+    if not any(path.startswith(allowed) for allowed in VIEWER_MAY_CHANGE):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Read-only access: you can look, but not change anything")
+
+
+async def refuse_suspended(tenant_id: str) -> None:
+    """An organisation the platform has suspended can do nothing until it is reactivated."""
+    from core.services import tenants
+
+    if await tenants.is_suspended(tenant_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This organisation has been suspended; contact the service's operator")
+
+
 async def _api_key_user(request: Request, key: str) -> User:
     from core.services import api_keys
 
@@ -82,6 +102,7 @@ async def _api_key_user(request: Request, key: str) -> User:
             headers={"WWW-Authenticate": "Bearer"},
         )
     key_id = str(doc["_id"])
+    await refuse_suspended(doc["tenant_id"])
     # Everything this request does from here on is the key's organisation's.
     set_tenant(doc["tenant_id"])
     request.state.principal = {"type": "api_key", "id": key_id, "name": doc["name"], "scopes": doc["scopes"]}
@@ -156,6 +177,8 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
     current = User(**user)
     set_tenant(user["tenant_id"])
     request.state.principal = {"type": "user", "id": current.id, "name": current.username, "role": current.role}
+    await refuse_suspended(user["tenant_id"])
+    refuse_viewer_changes(current, request)
 
     # The organisation requires MFA and this account has none: set it up, and nothing else.
     from core.services import mfa
@@ -236,3 +259,19 @@ async def require_internal_token(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid internal token"
         )
+
+
+async def require_platform_admin(request: Request, current_user: User = Depends(get_current_active_user)) -> User:
+    """
+    A platform administrator, signed in with a second factor (an authenticator code, a
+    recovery code, a passkey or single sign-on): the platform console reaches every organisation.
+    """
+    if (getattr(request.state, "principal", None) or {}).get("type") != "user" or not current_user.platform_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only platform administrators can do this")
+    from core.services import sessions
+
+    if await sessions.method(getattr(request.state, "session_id", "") or "") not in ("totp", "recovery", "passkey", "sso"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="The platform console needs a sign-in with a second factor: set up multi-factor authentication or a passkey, then sign in again",
+                            headers={"X-Platform-MFA-Required": "true"})
+    return current_user
