@@ -92,6 +92,9 @@ class Settings(BaseSettings):
     # "starttls" (port 587), "ssl" (port 465) or "none" (a local relay only).
     SMTP_SECURITY: Literal["starttls", "ssl", "none"] = "starttls"
     MAIL_FROM: str = "UTDRS <utdrs@localhost>"
+    # Whether people who register must confirm their email address before signing in
+    # (only while email can be sent, SMTP_HOST).
+    REQUIRE_EMAIL_VERIFICATION: bool = False
     # Where the dashboard is, for links in emails.
     DASHBOARD_URL: str = "http://localhost:3001"
     # How often the outbox is checked for email to send, and the most emails one person

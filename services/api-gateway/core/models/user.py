@@ -77,6 +77,8 @@ class User(UserBase):
     createdAt: datetime
     updatedAt: datetime
     preferences: Dict[str, Any] = {}
+    # Whether the person has confirmed, from a link sent to it, that the email address is theirs.
+    email_verified: bool = False
     # Whether a second factor is needed to sign in (the secret itself is never shown).
     mfa_enabled: bool = False
     # Signed in, but the organisation requires MFA and this account has none yet: the
