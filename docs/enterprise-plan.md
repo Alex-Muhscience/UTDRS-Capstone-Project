@@ -218,7 +218,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 | FR-TEN-05 | Single sign-on with OIDC (Entra ID, Google, Okta) and SAML; SCIM user provisioning **SSO with OpenID Connect done (#48): any provider, verified domains, accounts created on first sign-in, enforceable with administrators as the way back in. SAML and SCIM remain.** | P1 | 2 |
 | FR-TEN-06 | Multi-factor authentication (TOTP, WebAuthn passkeys); enforceable per tenant **TOTP with recovery codes, enforceable per organisation, done (#33); passkeys remain.** | P0 | 1 |
 | FR-TEN-07 | Sessions: short-lived access tokens with refresh, revocation, idle timeout, list and end active sessions **Done (#41): 15-minute access tokens, single-use refresh tokens with reuse detection, idle and absolute limits, sign-out everywhere by people and administrators.** | P0 | 1 |
-| FR-TEN-08 | Audit log of every change and every response action, by whom, when, from where; exportable; tamper-evident **Done (#18): every change and sign-in, by whom, when and from where, hash-chained and verifiable (`GET /audit/verify`), listed and searchable through the API; response actions recorded (#21). A file export remains.** | P0 | 1 |
+| FR-TEN-08 | Audit log of every change and every response action, by whom, when, from where; exportable; tamper-evident **Done (#18): every change and sign-in, by whom, when and from where, hash-chained and verifiable (`GET /audit/verify`), listed and searchable through the API; response actions recorded (#21); exported as JSON Lines that can be checked outside UTDRS, or CSV (#49).** | P0 | 1 |
 | FR-TEN-09 | Data residency: choose the region a tenant's data is stored in | P2 | 3 |
 | FR-TEN-10 | Tenant deletion and export of all its data | P1 | 2 |
 

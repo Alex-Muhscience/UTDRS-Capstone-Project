@@ -10,8 +10,9 @@ import asyncio
 import hashlib
 import json
 import random
+import re
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 from fastapi import Request
 from pymongo.errors import DuplicateKeyError
@@ -39,19 +40,31 @@ WRITE_GRACE_SECONDS = 10
 _write_lock = asyncio.Lock()
 
 
-def _canonical(entry: Dict[str, Any]) -> bytes:
-    def default(value):
-        if isinstance(value, datetime):
-            # To the millisecond, in UTC: what MongoDB stores and gives back.
-            if value.tzinfo is None:
-                value = value.replace(tzinfo=timezone.utc)
-            value = value.astimezone(timezone.utc)
-            return value.strftime("%Y-%m-%dT%H:%M:%S.") + f"{value.microsecond // 1000:03d}Z"
-        return str(value)
+def _json_value(value):
+    if isinstance(value, datetime):
+        # To the millisecond, in UTC: what MongoDB stores and gives back.
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        value = value.astimezone(timezone.utc)
+        return value.strftime("%Y-%m-%dT%H:%M:%S.") + f"{value.microsecond // 1000:03d}Z"
+    return str(value)
 
+
+def _canonical(entry: Dict[str, Any]) -> bytes:
+    """
+    What an entry's hash is of: the entry without _id, hash and tenant_id, as compact JSON
+    with sorted keys, times as UTC to the millisecond. An exported entry's line is this JSON
+    plus its hash, so anyone can check an export (scripts/verify_audit_export.py).
+    """
     # The tenant is not hashed: it is where the chain lives, not part of what happened.
     body = {k: v for k, v in entry.items() if k not in ("_id", "hash", "tenant_id")}
-    return json.dumps(body, sort_keys=True, separators=(",", ":"), default=default).encode("utf-8")
+    return json.dumps(body, sort_keys=True, separators=(",", ":"), default=_json_value).encode("utf-8")
+
+
+def export_line(entry: Dict[str, Any]) -> str:
+    """One entry as a line of JSON: exactly what was hashed, with its hash."""
+    body = {k: v for k, v in entry.items() if k not in ("_id", "tenant_id")}
+    return json.dumps(body, sort_keys=True, separators=(",", ":"), default=_json_value)
 
 
 def _digest(entry: Dict[str, Any]) -> str:
@@ -151,6 +164,28 @@ async def _append(entry: Dict[str, Any], action: str) -> None:
     logger.error(f"Could not write audit entry {action}: too much contention")
 
 
+def _query(action, actor_id, target_type, target_id, since, until) -> Dict[str, Any]:
+    query: Dict[str, Any] = {}
+    if action:
+        # "rule" matches every rule action; "rule.created" just that one.
+        query["action"] = action if "." in action else {"$regex": f"^{re.escape(action)}\\."}
+    if actor_id:
+        query["actor.id"] = actor_id
+    if target_type:
+        query["target.type"] = target_type
+    if target_id:
+        query["target.id"] = target_id
+    if since or until:
+        query["at"] = {**({"$gte": since} if since else {}), **({"$lte": until} if until else {})}
+    return query
+
+
+async def entries(*, action=None, actor_id=None, target_type=None, target_id=None, since=None, until=None) -> AsyncIterator[Dict[str, Any]]:
+    """Every matching entry, oldest first, for exporting."""
+    async for entry in _log().find(_query(action, actor_id, target_type, target_id, since, until), {"_id": 0}).sort("seq", 1):
+        yield entry
+
+
 async def search(
     *,
     action: Optional[str] = None,
@@ -162,18 +197,7 @@ async def search(
     limit: int = 100,
     skip: int = 0,
 ) -> List[Dict[str, Any]]:
-    query: Dict[str, Any] = {}
-    if action:
-        # "rule" matches every rule action; "rule.created" just that one.
-        query["action"] = action if "." in action else {"$regex": f"^{action}\\."}
-    if actor_id:
-        query["actor.id"] = actor_id
-    if target_type:
-        query["target.type"] = target_type
-    if target_id:
-        query["target.id"] = target_id
-    if since or until:
-        query["at"] = {**({"$gte": since} if since else {}), **({"$lte": until} if until else {})}
+    query = _query(action, actor_id, target_type, target_id, since, until)
     cursor = _log().find(query, {"_id": 0, "tenant_id": 0}).sort("seq", -1).skip(skip).limit(limit)
     return await cursor.to_list(limit)
 

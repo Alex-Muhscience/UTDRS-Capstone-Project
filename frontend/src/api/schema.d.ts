@@ -2771,6 +2771,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audit-log/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Audit Log
+         * @description Download the audit log, oldest first, as JSON Lines (each line exactly what was
+         *     hashed, with `prev_hash` and `hash`, so the chain can be checked outside UTDRS with
+         *     scripts/verify_audit_export.py) or CSV (for spreadsheets). The same filters as the search.
+         */
+        get: operations["export_audit_log_api_v1_audit_log_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenants/current": {
         parameters: {
             query?: never;
@@ -10382,6 +10404,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditVerification"];
+                };
+            };
+        };
+    };
+    export_audit_log_api_v1_audit_log_export_get: {
+        parameters: {
+            query?: {
+                format?: "jsonl" | "csv";
+                /** @description An action (rule.updated), or a kind of action (rule) */
+                action?: string | null;
+                actor_id?: string | null;
+                target_type?: string | null;
+                target_id?: string | null;
+                since?: string | null;
+                until?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                    "application/x-ndjson": unknown;
+                    "text/csv": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
