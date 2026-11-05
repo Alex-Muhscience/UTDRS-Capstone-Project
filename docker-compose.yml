@@ -80,6 +80,10 @@ services:
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_SECURITY: ${SMTP_SECURITY:-starttls}
+      # Scaling analysis (profile "scale"): Redis Streams hand events to dedicated workers.
+      # Set REDIS_URL=redis://redis:6379/0 and ANALYSIS_IN_API=false to use them.
+      REDIS_URL: ${REDIS_URL:-}
+      ANALYSIS_IN_API: ${ANALYSIS_IN_API:-true}
       # Operations: metrics for Prometheus, and who hears about the platform's health.
       METRICS_TOKEN: ${METRICS_TOKEN:-}
       OPERATOR_EMAILS: ${OPERATOR_EMAILS:-[]}
@@ -153,6 +157,43 @@ services:
     command: ["python", "/scripts/seed-demo.py", "--gateway", "http://api-gateway:8000"]
     depends_on:
       api-gateway:
+        condition: service_healthy
+
+  # Scaling analysis: Redis Streams, and workers that send events to the core engine apart
+  # from the API. docker compose --profile scale up -d --scale analysis-worker=3
+  # (with REDIS_URL=redis://redis:6379/0 and ANALYSIS_IN_API=false in .env).
+  redis:
+    image: redis:7.4
+    profiles: ["scale"]
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  analysis-worker:
+    build: ./services/api-gateway
+    profiles: ["scale"]
+    restart: unless-stopped
+    command: ["python", "worker.py"]
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017
+      DB_NAME: utdrs
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
+      CORE_ENGINE_URL: http://core-engine:8000
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?Set INTERNAL_API_TOKEN in .env (see .env.example)}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      ANALYSIS_WORKERS: ${ANALYSIS_WORKERS:-4}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      core-engine:
         condition: service_healthy
 
   # Backups: a checked, compressed copy of the gateway's and the engine's databases every
@@ -229,3 +270,4 @@ services:
 
 volumes:
   mongo-data:
+  redis-data:

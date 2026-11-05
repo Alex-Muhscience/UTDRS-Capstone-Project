@@ -123,6 +123,9 @@ async def queue(event_id: str) -> bool:
     if core_engine_client.get_core_engine_client() is None:
         return False
     await EventRepository().update_one(event_id, {"metadata.analysis": _queued(utcnow())})
+    from core.services import analysis_stream
+
+    await analysis_stream.publish([event_id])
     return True
 
 
@@ -298,18 +301,66 @@ async def analyse_due(limit: int = 500) -> int:
     return done
 
 
+def _sweep_interval() -> int:
+    """How often the database is swept for due events: often without a stream, as a safety net with one."""
+    from core.services import analysis_stream
+
+    return settings.ANALYSIS_SWEEP_SECONDS if analysis_stream.enabled() else settings.ANALYSIS_INTERVAL_SECONDS
+
+
 async def analyse_periodically() -> None:
     from core.services import heartbeat
 
     while True:
         error = None
+        interval = _sweep_interval()
         try:
             await analyse_due()
         except Exception as e:  # never let the loop die
             logger.error(f"Analysing queued events failed: {e}")
             error = e
-        await heartbeat.beat("analysis", settings.ANALYSIS_INTERVAL_SECONDS, error)
-        await asyncio.sleep(settings.ANALYSIS_INTERVAL_SECONDS)
+        await heartbeat.beat("analysis", interval, error)
+        await asyncio.sleep(interval)
+
+
+async def stream_round(consumer: str, block_ms: int = 2000) -> int:
+    """
+    One round of a stream worker (analysis_stream): take ready events, claim them in the
+    queue, analyse them in a batch, acknowledge. Returns how many were analysed.
+    """
+    from core.services import analysis_stream
+
+    entries = await analysis_stream.take(consumer, max(1, settings.ANALYSIS_BATCH_SIZE), block_ms=block_ms)
+    if not entries:
+        return 0
+    claimed = []
+    for _, event_id in entries:
+        if ObjectId.is_valid(event_id):
+            # Claimed as the queue does: an event already analysed, not yet due, or taken by
+            # the sweep is skipped (the stream entry is only a nudge).
+            doc = await _claim({"_id": ObjectId(event_id)})
+            if doc:
+                claimed.append(doc)
+    done, error = 0, None
+    if claimed and core_engine_client.get_core_engine_client() is not None:
+        done, error = await _attempt_batch(claimed)
+    # Every outcome is recorded on the events by now (analysed, or queued with back-off).
+    await analysis_stream.done([entry_id for entry_id, _ in entries])
+    if error is not None and error.retryable:
+        await asyncio.sleep(5)  # the engine is down; the sweep retries when the back-off is over
+    return done
+
+
+async def analyse_from_stream(consumer: str, stop: Optional[asyncio.Event] = None) -> int:
+    """A worker of the stream's consumer group, until `stop` is set. Returns how many it analysed."""
+    analysed = 0
+    while not (stop and stop.is_set()):
+        try:
+            analysed += await stream_round(consumer)
+        except Exception as e:  # Redis unreachable, or a bad round: wait and carry on
+            logger.warning(f"Analysis stream worker {consumer}: {e}")
+            await asyncio.sleep(5)
+    return analysed
 
 
 async def queue_status() -> Dict[str, Any]:
@@ -341,5 +392,11 @@ async def requeue(event_ids: Optional[List[str]] = None, failed_since: Optional[
         query[STATUS] = "error"
         if failed_since:
             query["metadata.analysis.analysed_at"] = {"$gte": failed_since}
-    result = await _events().update_many(query, {"$set": {"metadata.analysis": _queued(utcnow())}})
+    ids = [str(doc["_id"]) for doc in await _events().find(query, {"_id": 1}).to_list(None)]
+    if not ids:
+        return 0
+    result = await _events().update_many({**query, "_id": {"$in": [ObjectId(i) for i in ids]}}, {"$set": {"metadata.analysis": _queued(utcnow())}})
+    from core.services import analysis_stream
+
+    await analysis_stream.publish(ids)
     return result.modified_count

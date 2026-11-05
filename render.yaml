@@ -124,6 +124,35 @@ services:
       - key: TRUSTED_PROXIES
         value: '["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]'
 
+  # Scaling analysis (paid plans: Render's background workers and Key Value are not free).
+  # Uncomment, then set on the gateway REDIS_URL (from the Key Value) and ANALYSIS_IN_API=false.
+  # - type: keyvalue
+  #   name: utdrs-streams
+  #   plan: starter
+  #   region: frankfurt
+  #   maxmemoryPolicy: noeviction
+  #   ipAllowList: []
+  # - type: worker
+  #   name: utdrs-analysis-worker
+  #   runtime: docker
+  #   plan: starter
+  #   region: frankfurt
+  #   dockerContext: ./services/api-gateway
+  #   dockerfilePath: ./services/api-gateway/Dockerfile
+  #   dockerCommand: python worker.py
+  #   envVars:
+  #     - fromGroup: utdrs-shared
+  #     - key: MONGODB_URI
+  #       sync: false
+  #     - key: DB_NAME
+  #       value: utdrs
+  #     - key: JWT_SECRET
+  #       sync: false
+  #     - key: CORE_ENGINE_URL
+  #       value: https://utdrs-core-engine-vtv2.onrender.com
+  #     - key: REDIS_URL
+  #       fromService: {type: keyvalue, name: utdrs-streams, property: connectionString}
+
   # The MCP server, for AI assistants. Uncomment to deploy it; it needs nothing but the
   # gateway's address, and each client brings its own UTDRS API key.
   # - type: web

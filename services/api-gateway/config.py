@@ -129,6 +129,15 @@ class Settings(BaseSettings):
     ANALYSIS_INTERVAL_SECONDS: int = 5
     ANALYSIS_CONCURRENCY: int = 4
     ANALYSIS_BATCH_SIZE: int = 50
+    # Redis Streams to hand events to analysis workers as they arrive (core/services/analysis_stream.py).
+    # Unset: workers find queued events by sweeping the database every ANALYSIS_INTERVAL_SECONDS.
+    REDIS_URL: Optional[str] = None
+    # With a stream, the database sweep is only a safety net (and finds retries that are due).
+    ANALYSIS_SWEEP_SECONDS: int = 60
+    # Whether the API processes analyse events too; false when dedicated workers (worker.py) do.
+    ANALYSIS_IN_API: bool = True
+    # Stream consumers in each worker process.
+    ANALYSIS_WORKERS: int = 4
     ANALYSIS_GIVE_UP_HOURS: int = 24
 
     # Google Workspace (core/services/google_workspace.py): how often the Reports API is read.

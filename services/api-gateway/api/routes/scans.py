@@ -32,5 +32,6 @@ async def record_scan(report: ScanReport, background_tasks: BackgroundTasks):
     result, event = await ScanService().record_scan(report)
     if event and result.event_id:
         if await detection_pipeline.queue(result.event_id):
-            background_tasks.add_task(detection_pipeline.analyse_queued, result.event_id)
+            if settings.ANALYSIS_IN_API:  # otherwise dedicated workers (worker.py) do it
+                background_tasks.add_task(detection_pipeline.analyse_queued, result.event_id)
     return result

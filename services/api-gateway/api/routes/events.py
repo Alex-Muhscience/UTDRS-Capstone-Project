@@ -7,6 +7,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, ValidationError
 
+from config import settings
 from core.models.event import Event, EventCreate, EventUpdate
 from core.models.user import User
 from core.services import audit, detection_pipeline, idempotency
@@ -57,7 +58,8 @@ async def _store(event: EventCreate, background_tasks: BackgroundTasks) -> Tuple
     """Store an event (once, by its external_id) and queue it for analysis. Returns its id and whether it was already there."""
     event_id, duplicate = await EventService().create_event_once(event)
     if not duplicate and await detection_pipeline.queue(event_id):
-        background_tasks.add_task(detection_pipeline.analyse_queued, event_id)
+        if settings.ANALYSIS_IN_API:  # otherwise dedicated workers (worker.py) do it
+            background_tasks.add_task(detection_pipeline.analyse_queued, event_id)
     return event_id, duplicate
 
 
@@ -194,7 +196,8 @@ async def reanalyse_event(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
     if not await detection_pipeline.requeue([event_id]):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No core engine is configured, or the event is already being analysed")
-    background_tasks.add_task(detection_pipeline.analyse_queued, event_id)
+    if settings.ANALYSIS_IN_API:  # otherwise dedicated workers (worker.py) do it
+        background_tasks.add_task(detection_pipeline.analyse_queued, event_id)
     await audit.record("events.reanalyse", request, target={"type": "event", "id": event_id})
     return await event_service.get_event_by_id(event_id)
 

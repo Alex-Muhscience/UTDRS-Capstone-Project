@@ -35,3 +35,6 @@ webauthn==3.0.1
 # SAML single sign-on: checking identity providers' XML signatures
 signxml==5.2.0
 lxml==6.1.3
+
+# Optional: Redis Streams to hand events to analysis workers (REDIS_URL)
+redis==8.1.0

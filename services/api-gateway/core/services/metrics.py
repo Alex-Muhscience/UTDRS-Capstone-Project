@@ -171,6 +171,13 @@ async def render() -> str:
     out.metric("utdrs_analysis_failed_last_day", "gauge", "Events whose analysis failed for good in the last day.",
                [({}, await _count("events", {"metadata.analysis.status": "error", "metadata.analysis.analysed_at": {"$gte": day_ago}}))])
 
+    from core.services import analysis_stream
+
+    stream = await analysis_stream.status()
+    if stream is not None:
+        out.metric("utdrs_analysis_stream", "gauge", "The analysis stream (Redis): entries kept, and taken by a worker but not yet acknowledged.",
+                   [({"kind": "length"}, stream["length"]), ({"kind": "pending"}, stream["pending"])])
+
     # Email and webhooks.
     out.metric("utdrs_email_outbox", "gauge", "Emails waiting to be sent, and failed for good in the last day.", [
         ({"status": "queued"}, await _count("notifications", {"status": {"$in": ["queued", "sending"]}})),
