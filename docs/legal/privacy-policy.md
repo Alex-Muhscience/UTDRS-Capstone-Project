@@ -33,8 +33,10 @@ data to train models without its agreement.
 
 ## How long we keep it
 
-- Account details: while the account exists; deactivated accounts are kept while your
-  organisation exists, because the audit log refers to them.
+- Account details: while the account exists. Deactivated accounts are kept while your
+  organisation exists, because records refer to them, unless erased: on request, an
+  administrator can erase a person's name, username, email and sign-in methods, which are
+  replaced by placeholders.
 - Ended sessions: 30 days after they would have expired.
 - The audit log: for the life of your organisation (it is tamper-evident, and trimming it
   would break that); your organisation can export it.
@@ -58,7 +60,8 @@ outside `[YOUR REGION]` are protected by `[TRANSFER MECHANISM, e.g. standard con
 
 Depending on where you are, you may have the right to access, correct, delete or export your
 personal data, to object to or restrict its processing, and to complain to a data protection
-authority. Most account details can be seen and corrected in your profile. For anything
+authority. Most account details can be seen and corrected in your profile, and your organisation's
+administrators can erase them. For anything
 else, contact `[PRIVACY CONTACT]`. If your request concerns your organisation's security
 data, we will pass it to your organisation, which decides on it.
 

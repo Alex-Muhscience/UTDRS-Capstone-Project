@@ -135,3 +135,24 @@ describe("closed registration", () => {
     expect(await screen.findByRole("heading", { name: "Registration is closed" })).toBeInTheDocument()
   })
 })
+
+describe("erasing someone", () => {
+  it("asks for the username before erasing", async () => {
+    const { calls } = mockGateway({
+      ...shellRoutes(admin),
+      [`POST /api/v1/users/${colleague.id}/erase`]: { ...colleague, username: "erased-12345678", active: false },
+    })
+    const { user: person } = renderApp("/users")
+    const table = await screen.findByRole("table", { name: "Users" })
+    const row = within(table).getByText("Ben Okoth").closest("tr")!
+    await person.click(within(row).getByRole("button", { name: "Erase" }))
+    const dialog = await screen.findByRole("dialog")
+    const confirm = within(dialog).getByRole("button", { name: "Erase for good" })
+    expect(confirm).toBeDisabled()
+    await person.type(within(dialog).getByLabelText(/to confirm/), colleague.username)
+    expect(confirm).toBeEnabled()
+    await person.click(confirm)
+    await waitFor(() => expect(calls.some((call) => call.path.endsWith("/erase"))).toBe(true))
+    expect(JSON.parse(calls.find((call) => call.path.endsWith("/erase"))?.body ?? "{}")).toEqual({ confirm_username: colleague.username })
+  })
+})

@@ -1606,6 +1606,64 @@
         }
       }
     },
+    "/api/v1/users/{user_id}/erase": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Erase User",
+        "description": "Erase someone's personal data (administrators only), such as on their request: their\nname, username and email become placeholders, their account is deactivated and its sign-in\nmethods removed, their sessions end, and their name is replaced wherever it was copied.\nThe audit log is kept as it is (it is tamper-evident). This cannot be undone.",
+        "operationId": "erase_user_api_v1_users__user_id__erase_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Erasure"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/alerts/": {
       "get": {
         "tags": [
@@ -12494,6 +12552,21 @@
           "value"
         ],
         "title": "Entity"
+      },
+      "Erasure": {
+        "properties": {
+          "confirm_username": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Confirm Username"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirm_username"
+        ],
+        "title": "Erasure"
       },
       "Event": {
         "properties": {

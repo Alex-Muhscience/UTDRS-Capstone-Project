@@ -35,7 +35,8 @@ region of your MongoDB Atlas cluster, and the SMTP provider you choose.
 5. **Liability caps and warranties** suitable for a security product, where a missed threat
    is the kind of loss customers will claim for.
 6. **Security incident notification** times you can meet (the DPA says `[48] hours`).
-7. **Erasing a person's account.** UTDRS can deactivate an account but not yet delete one
-   (the audit log refers to it). Decide whether that is justified or whether account
-   details must be erasable on request (for example replaced by a placeholder, keeping the
-   audit log intact); the second needs a feature.
+7. **Erasing a person.** An administrator can erase someone's personal data on request
+   (`POST /users/{id}/erase`): name, username and email become placeholders, sign-in methods
+   and sessions go, and their name is replaced wherever it was copied. The audit log is
+   kept unchanged, as it is tamper-evident: confirm that keeping it is justified (security,
+   accountability, legal claims) under the law that applies.

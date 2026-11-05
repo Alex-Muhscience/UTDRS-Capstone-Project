@@ -38,7 +38,8 @@ subprocessor data protection obligations equivalent to these, and remain liable 
 Taking into account the nature of the processing, we help you respond to requests from
 people exercising their rights, and with security, impact assessments and consultations
 with authorities. Much of this is self-service in UTDRS (exporting the audit log, retention
-settings, deactivating accounts); for the rest, contact `[PRIVACY CONTACT]`.
+settings, deactivating accounts, erasing a person's account details); for the rest, contact
+`[PRIVACY CONTACT]`.
 
 ## 7. Personal data breaches
 

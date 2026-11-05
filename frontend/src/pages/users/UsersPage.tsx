@@ -2,7 +2,7 @@ import { KeyRound, UserPlus } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 
-import type { UserWithPassword } from "@/api/client"
+import type { User, UserWithPassword } from "@/api/client"
 import { displayName, useCreateUser, useResetMfa, useResetPassword, useSignOutEverywhere, useUpdateUser, useUsers } from "@/api/queries"
 import { useUser } from "@/auth/context"
 import { Badge } from "@/components/ui/Badge"
@@ -15,6 +15,7 @@ import { EmptyState, ErrorState, SkeletonRows } from "@/components/ui/States"
 import { Table, Td, Th, Tr } from "@/components/ui/Table"
 import { formatDateTime, formatRelative } from "@/lib/format"
 
+import { EraseDialog } from "./EraseDialog"
 import { TemporaryPasswordDialog } from "./TemporaryPasswordDialog"
 
 const ROLES = [
@@ -85,6 +86,7 @@ export function UsersPage() {
   const signOut = useSignOutEverywhere()
   const [adding, setAdding] = useState(false)
   const [password, setPassword] = useState<UserWithPassword | null>(null)
+  const [erasing, setErasing] = useState<User | null>(null)
 
   function change(userId: string, name: string, changes: { role?: "admin" | "analyst"; active?: boolean }) {
     update.mutate(
@@ -212,6 +214,11 @@ export function UsersPage() {
                             Sign out everywhere
                           </Button>
                         )}
+                        {!isMe && !user.username.startsWith("erased-") && (
+                          <Button size="sm" variant="ghost" title="Erase their personal data, on their request" onClick={() => setErasing(user)}>
+                            Erase
+                          </Button>
+                        )}
                         {!isMe && (
                           <Button
                             size="sm"
@@ -232,6 +239,7 @@ export function UsersPage() {
         )}
       </Card>
       <NewUserDialog open={adding} onClose={() => setAdding(false)} onCreated={setPassword} />
+      <EraseDialog user={erasing} onClose={() => setErasing(null)} />
       <TemporaryPasswordDialog result={password} onClose={() => setPassword(null)} />
     </>
   )

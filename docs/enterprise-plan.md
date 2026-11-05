@@ -576,7 +576,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 | ID | Gap | Blocks | Priority |
 |---|---|---|---|
 | GAP-BIZ-01 | No customer discovery evidence: which customers, what they pay for today, what would make them switch | Everything commercial | P0 |
-| GAP-BIZ-02 | No terms of service, privacy policy, data processing agreement or acceptable use policy **Drafted (#60) for legal review: terms, privacy policy, DPA with security annex, acceptable use policy and subprocessors (docs/legal), with what a lawyer must decide.** | First customer | P0 |
+| GAP-BIZ-02 | No terms of service, privacy policy, data processing agreement or acceptable use policy **Drafted (#60) for legal review: terms, privacy policy, DPA with security annex, acceptable use policy and subprocessors (docs/legal), with what a lawyer must decide; erasing a person's data on request added (#61).** | First customer | P0 |
 | GAP-BIZ-03 | No company security policies or SOC 2 / ISO 27001 programme | NFR-10, enterprise sales | P1 |
 | GAP-BIZ-04 | Microsoft and Google app verification for production API access (publisher verification, security assessment for restricted Gmail scopes) | FR-ING-02 to 04 | P0, long lead time |
 | GAP-BIZ-05 | Licence of the repository and of third-party datasets (UNSW-NB15 is free for research; check commercial use, or retrain on data you own) | Commercial use of the network model | P1 |
