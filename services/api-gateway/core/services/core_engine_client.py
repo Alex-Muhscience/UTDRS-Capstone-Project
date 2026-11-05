@@ -82,6 +82,18 @@ class CoreEngineClient:
             raise CoreEngineError("The core engine's answer did not match the batch", 502)
         return [(r.get("alert"), r.get("error")) for r in results]
 
+    async def delete_tenant(self, tenant_id: str) -> int:
+        """Delete everything the engine holds for an organisation. Returns how many records went."""
+        try:
+            async with httpx.AsyncClient(base_url=self.base_url, headers=self.headers, timeout=self.timeout, transport=self.transport) as client:
+                response = await client.delete(f"/tenants/{tenant_id}")
+                response.raise_for_status()
+                return int(response.json().get("deleted", 0))
+        except httpx.HTTPStatusError as exc:
+            raise CoreEngineError(f"The core engine answered {exc.response.status_code}", exc.response.status_code) from exc
+        except (httpx.HTTPError, ValueError) as exc:
+            raise CoreEngineError(str(exc) or exc.__class__.__name__) from exc
+
     async def replace_managed_rules(self, tenant_id: str, rules: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Make the engine's gateway-managed rules for this organisation exactly these."""
         try:

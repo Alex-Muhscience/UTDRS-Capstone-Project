@@ -214,6 +214,61 @@ export function useRevokeScimToken() {
   })
 }
 
+// ---------------------------------------------------------------------------- Platform console
+
+export function useOrganisations() {
+  return useQuery({ queryKey: ["platform", "organisations"], queryFn: () => unwrap(api.GET("/api/v1/platform/organisations")), retry: false })
+}
+
+export function useOrganisation(tenantId: string) {
+  return useQuery({
+    queryKey: ["platform", "organisations", tenantId],
+    queryFn: () => unwrap(api.GET("/api/v1/platform/organisations/{tenant_id}", { params: { path: { tenant_id: tenantId } } })),
+    retry: false,
+  })
+}
+
+function usePlatformMutation<TVariables, TResult>(mutationFn: (variables: TVariables) => Promise<TResult>) {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn, onSettled: () => queryClient.invalidateQueries({ queryKey: ["platform"] }) })
+}
+
+export function useCreateOrganisation() {
+  return usePlatformMutation((body: { name: string; admin_username: string; admin_email: string }) =>
+    unwrap(api.POST("/api/v1/platform/organisations", { body })),
+  )
+}
+
+export function useAddOrganisationAdmin(tenantId: string) {
+  return usePlatformMutation((body: { username: string; email: string }) =>
+    unwrap(api.POST("/api/v1/platform/organisations/{tenant_id}/administrators", { params: { path: { tenant_id: tenantId } }, body })),
+  )
+}
+
+export function useSetOrganisationSuspended(tenantId: string) {
+  return usePlatformMutation((suspended: boolean) =>
+    unwrap(api.PATCH("/api/v1/platform/organisations/{tenant_id}", { params: { path: { tenant_id: tenantId } }, body: { suspended } })),
+  )
+}
+
+export function useDeleteOrganisation(tenantId: string) {
+  return usePlatformMutation((confirmName: string) =>
+    unwrap(api.DELETE("/api/v1/platform/organisations/{tenant_id}", { params: { path: { tenant_id: tenantId } }, body: { confirm_name: confirmName } })),
+  )
+}
+
+export function usePlatformAdmins() {
+  return useQuery({ queryKey: ["platform", "admins"], queryFn: () => unwrap(api.GET("/api/v1/platform/admins")), retry: false })
+}
+
+export function useSetPlatformAdmin() {
+  return usePlatformMutation((body: { username: string; platform_admin: boolean }) => unwrap(api.PUT("/api/v1/platform/admins", { body })))
+}
+
+export function usePlatformAuditLog() {
+  return useQuery({ queryKey: ["platform", "audit"], queryFn: () => unwrap(api.GET("/api/v1/platform/audit-log", { params: { query: { limit: 50 } } })), retry: false })
+}
+
 export function useAuthConfig() {
   return useQuery({
     queryKey: ["auth", "config"],

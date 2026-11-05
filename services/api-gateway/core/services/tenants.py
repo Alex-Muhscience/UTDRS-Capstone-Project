@@ -1,6 +1,6 @@
 """Tenants: the organisations whose data UTDRS keeps apart (see core.tenancy)."""
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from bson import ObjectId
 from pymongo.errors import DuplicateKeyError
@@ -98,3 +98,24 @@ async def adopt_untenanted(tenant_id: str) -> None:
     # Singleton documents keyed by _id before tenancy are keyed by kind within a tenant now.
     await database["audit_log_head"].update_many({"_id": "audit_head", "kind": {"$exists": False}}, {"$set": {"kind": "head"}})
     await database["gateway_state"].update_many({"_id": "rule_sync", "kind": {"$exists": False}}, {"$set": {"kind": "rule_sync"}})
+
+
+# Suspension is checked on every request: remembered briefly, so it costs little.
+_suspended: Dict[str, Tuple[bool, float]] = {}
+SUSPENSION_CACHE_SECONDS = 10
+
+
+async def is_suspended(tenant_id: str) -> bool:
+    import time
+
+    cached = _suspended.get(tenant_id)
+    if cached and cached[1] > time.monotonic():
+        return cached[0]
+    tenant = await get(tenant_id) if tenant_id else None
+    suspended = bool(tenant and tenant.get("status") == "suspended")
+    _suspended[tenant_id] = (suspended, time.monotonic() + SUSPENSION_CACHE_SECONDS)
+    return suspended
+
+
+def forget_suspension(tenant_id: str) -> None:
+    _suspended.pop(tenant_id, None)

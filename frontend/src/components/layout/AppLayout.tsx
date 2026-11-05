@@ -3,6 +3,8 @@ import {
   Archive,
   BookOpen,
   Briefcase,
+  Building2,
+  Eye,
   FileText,
   FlaskConical,
   KeyRound,
@@ -26,7 +28,7 @@ import { useEffect, useState } from "react"
 import { Link, NavLink, Outlet, useLocation } from "react-router"
 
 import { useActions, useAlertSummary, useCurrentTenant } from "@/api/queries"
-import { useAuth, useIsAdmin, useUser } from "@/auth/context"
+import { useAuth, useIsAdmin, useIsPlatformAdmin, useIsReadOnly, useUser } from "@/auth/context"
 import { cx } from "@/lib/cx"
 import { humanize } from "@/lib/format"
 
@@ -59,6 +61,18 @@ const ADMIN_NAVIGATION = [
   { to: "/retention", label: "Data retention", icon: Archive },
 ] as const
 
+const PLATFORM_NAVIGATION = [{ to: "/platform", label: "Platform", icon: Building2 }] as const
+
+function ReadOnlyBanner() {
+  if (!useIsReadOnly()) return null
+  return (
+    <p className="mb-6 flex items-center gap-2 rounded-xl border border-border bg-surface-2/60 px-4 py-2.5 text-sm text-muted">
+      <Eye className="size-4 shrink-0" aria-hidden />
+      You have read-only access: you can look at everything here, but not change it. Ask an administrator if you need more.
+    </p>
+  )
+}
+
 function OpenAlertCount() {
   const { data } = useAlertSummary()
   const count = (data?.by_status.open ?? 0) + (data?.by_status.in_progress ?? 0)
@@ -85,7 +99,8 @@ function PendingActionCount() {
 
 function Navigation({ onNavigate }: { onNavigate?: () => void }) {
   const isAdmin = useIsAdmin()
-  const items = isAdmin ? [...NAVIGATION, ...ADMIN_NAVIGATION] : NAVIGATION
+  const isPlatformAdmin = useIsPlatformAdmin()
+  const items = [...NAVIGATION, ...(isAdmin ? ADMIN_NAVIGATION : []), ...(isPlatformAdmin ? PLATFORM_NAVIGATION : [])]
   return (
     <nav aria-label="Main" className="space-y-0.5">
       {items.map(({ to, label, icon: Icon, ...rest }) => (
@@ -244,6 +259,7 @@ export function AppLayout() {
         </header>
         <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8">
           <ConfirmEmailBanner />
+          <ReadOnlyBanner />
           <Outlet />
         </main>
       </div>

@@ -317,6 +317,18 @@ UTDRS keeps each organisation's data apart: a *tenant*. Every user, event, alert
 
 **One organisation, or many.** A deployment starts with one, the default (`DEFAULT_TENANT_SLUG`, `DEFAULT_TENANT_NAME`), which the first administrator administers. Data from before tenancy is moved into it at start-up. With `REGISTRATION_MODE=organisation`, registering creates a new organisation with the person as its administrator; with `join` (the default), registering adds an analyst to the default one. Device scans are recorded in `SCANS_TENANT` (default: the default organisation), as the scanner does not yet tie devices to organisations.
 
+**Roles.** In an organisation, people are *administrators* (manage its people, keys, connectors, webhooks and settings), *analysts* (do the security work: alerts, cases, response, rules) or *read-only* (`viewer`: see everything an analyst sees, change nothing). Read-only access is enforced in one place, `get_current_user` in `utils/security.py`: any request other than a read is refused with 403, except a person's own profile, second factors, passkeys, sessions, notification preferences and signing out.
+
+**The platform console** (`/api/v1/platform`) is for whoever runs the deployment. Its users are *platform administrators*, a flag on an account (`platform_admin`); `ADMIN_USERNAME` is made one at start-up, and platform administrators can make others (never removing themselves or the last one). Every route needs a session signed in with a second factor (an authenticator code, recovery code, passkey or single sign-on); otherwise it answers 403 with `X-Platform-MFA-Required: true`. A platform administrator can:
+
+- see every organisation with its people, administrators, events in the last week, open alerts, connectors and last sign-in;
+- create an organisation with its first administrator, who gets a temporary password shown once;
+- add an administrator to an organisation whose administrators have left or are locked out;
+- suspend an organisation (everyone in it is signed out, and its sign-ins, sessions, API keys and SCIM token are refused, within 10 seconds on every process) and reactivate it;
+- delete an organisation with everything it holds, here and in the core engine, by typing its name (never the default organisation or their own).
+
+Each action is recorded in the platform's audit log (`GET /api/v1/platform/audit-log`) and in the organisation's own, so an organisation sees what was done to it. Platform administrators do not otherwise see into an organisation's alerts or cases; the console shows counts.
+
 **Start-up** tasks (the default organisation, moving old data, indexes, the first administrator) run in every gateway process; a lock in MongoDB (`platform_locks`) makes the processes take turns, so they cannot race.
 
 ## API keys

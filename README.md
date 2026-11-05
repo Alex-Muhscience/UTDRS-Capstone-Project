@@ -132,7 +132,8 @@ Done:
 - [x] Give the engine its own database and load its signature rules; fix rules that flagged all DNS and network traffic
 - [x] Make the scanner's collection server start and run safely, and verify the server's name on the agent
 - [x] One-command local stack (`docker compose up`) with seeded demo data
-- [x] Roles enforced (administrators and analysts), user administration in the dashboard, and the first administrator created from settings
+- [x] Roles enforced (administrators, analysts and read-only), user administration in the dashboard, and the first administrator created from settings
+- [x] Platform console: platform administrators create, rescue, suspend and delete organisations, with a second factor and an audit trail
 - [x] Connect the scanner: one wire format between the agent and the server, and scans delivered through the data processor to the gateway as assets and events
 
 Next:

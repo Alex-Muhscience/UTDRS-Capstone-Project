@@ -3187,6 +3187,116 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/organisations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Organisations
+         * @description Every organisation, with its people, activity, open alerts and connectors.
+         */
+        get: operations["organisations_api_v1_platform_organisations_get"];
+        put?: never;
+        /**
+         * Create Organisation
+         * @description Create an organisation and its first administrator (a temporary password, shown once).
+         */
+        post: operations["create_organisation_api_v1_platform_organisations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/organisations/{tenant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Organisation */
+        get: operations["organisation_api_v1_platform_organisations__tenant_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Organisation
+         * @description Delete an organisation and all its data, here and in the core engine, typing its name to confirm. Cannot be undone.
+         */
+        delete: operations["delete_organisation_api_v1_platform_organisations__tenant_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change Status
+         * @description Suspend an organisation (its people are signed out, and it can do nothing) or reactivate it.
+         */
+        patch: operations["change_status_api_v1_platform_organisations__tenant_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/platform/organisations/{tenant_id}/administrators": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Administrator
+         * @description Add an administrator to an organisation, such as one locked out of its own.
+         */
+        post: operations["add_administrator_api_v1_platform_organisations__tenant_id__administrators_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/admins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Platform Admins */
+        get: operations["platform_admins_api_v1_platform_admins_get"];
+        /**
+         * Set Platform Admin
+         * @description Make someone (by username, in any organisation) a platform administrator, or stop.
+         */
+        put: operations["set_platform_admin_api_v1_platform_admins_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/audit-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Platform Audit Log
+         * @description The platform's own audit log: sign-ins to unknown accounts, and every platform action.
+         */
+        get: operations["platform_audit_log_api_v1_platform_audit_log_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/audit-log/": {
         parameters: {
             query?: never;
@@ -3582,7 +3692,16 @@ export interface components {
              * @default analyst
              * @enum {string}
              */
-            role: "admin" | "analyst";
+            role: "admin" | "analyst" | "viewer";
+        };
+        /** Administrator */
+        Administrator: {
+            /** Id */
+            id: string;
+            /** Username */
+            username: string;
+            /** Email */
+            email: string;
         };
         /**
          * Alert
@@ -4235,6 +4354,24 @@ export interface components {
             /** Reachable */
             reachable: boolean;
         };
+        /** CreatedAdministrator */
+        CreatedAdministrator: {
+            administrator: components["schemas"]["Administrator"];
+            /** Temporary Password */
+            temporary_password: string;
+        };
+        /** CreatedOrganisation */
+        CreatedOrganisation: {
+            administrator: components["schemas"]["Administrator"];
+            /** Temporary Password */
+            temporary_password: string;
+            tenant: components["schemas"]["OrganisationDetail"];
+        };
+        /** Deletion */
+        Deletion: {
+            /** Confirm Name */
+            confirm_name: string;
+        };
         /** Delivery */
         Delivery: {
             /** Id */
@@ -4824,6 +4961,22 @@ export interface components {
             /** Permissions */
             permissions: components["schemas"]["Permission"][];
         };
+        /** NewAdministrator */
+        NewAdministrator: {
+            /** Username */
+            username: string;
+            /** Email */
+            email: string;
+        };
+        /** NewOrganisation */
+        NewOrganisation: {
+            /** Name */
+            name: string;
+            /** Admin Username */
+            admin_username: string;
+            /** Admin Email */
+            admin_email: string;
+        };
         /**
          * Notification
          * @description One email, as the delivery log shows it.
@@ -4942,6 +5095,106 @@ export interface components {
             /** Overdue */
             overdue: boolean;
         };
+        /** OrganisationDetail */
+        OrganisationDetail: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            /** Status */
+            status: string;
+            /** Created At */
+            created_at?: string | null;
+            /**
+             * Default
+             * @default false
+             */
+            default: boolean;
+            /** People */
+            people: number;
+            /** Administrators */
+            administrators: number;
+            /** Events Last Week */
+            events_last_week: number;
+            /** Open Alerts */
+            open_alerts: number;
+            /** Connectors */
+            connectors: number;
+            /** Last Sign In */
+            last_sign_in?: string | null;
+            /**
+             * Mfa Required
+             * @default false
+             */
+            mfa_required: boolean;
+            /**
+             * Users
+             * @default []
+             */
+            users: components["schemas"]["OrganisationUser"][];
+        };
+        /** OrganisationSummary */
+        OrganisationSummary: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            /** Status */
+            status: string;
+            /** Created At */
+            created_at?: string | null;
+            /**
+             * Default
+             * @default false
+             */
+            default: boolean;
+            /** People */
+            people: number;
+            /** Administrators */
+            administrators: number;
+            /** Events Last Week */
+            events_last_week: number;
+            /** Open Alerts */
+            open_alerts: number;
+            /** Connectors */
+            connectors: number;
+            /** Last Sign In */
+            last_sign_in?: string | null;
+            /**
+             * Mfa Required
+             * @default false
+             */
+            mfa_required: boolean;
+        };
+        /** OrganisationUser */
+        OrganisationUser: {
+            /** Id */
+            id: string;
+            /** Username */
+            username: string;
+            /** Email */
+            email?: string | null;
+            /** Role */
+            role?: string | null;
+            /** Active */
+            active: boolean;
+            /** Last Sign In */
+            last_sign_in?: string | null;
+            /**
+             * Platform Admin
+             * @default false
+             */
+            platform_admin: boolean;
+            /**
+             * Mfa
+             * @default false
+             */
+            mfa: boolean;
+        };
         /** Outstanding */
         Outstanding: {
             /** Open Cases */
@@ -5024,6 +5277,34 @@ export interface components {
             name: string;
             /** Used For */
             used_for: string;
+        };
+        /** PlatformAdmin */
+        PlatformAdmin: {
+            /** Id */
+            id: string;
+            /** Username */
+            username: string;
+            /** Email */
+            email?: string | null;
+            /** Organisation */
+            organisation?: string | null;
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+            /**
+             * Mfa
+             * @default false
+             */
+            mfa: boolean;
+        };
+        /** PlatformAdminChange */
+        PlatformAdminChange: {
+            /** Username */
+            username: string;
+            /** Platform Admin */
+            platform_admin: boolean;
         };
         /** Playbook */
         Playbook: {
@@ -5854,6 +6135,11 @@ export interface components {
             /** Auto Provision */
             auto_provision?: boolean | null;
         };
+        /** StatusChange */
+        StatusChange: {
+            /** Suspended */
+            suspended: boolean;
+        };
         /** Step */
         Step: {
             /** Key */
@@ -6157,6 +6443,11 @@ export interface components {
              */
             mfa_enabled: boolean;
             /**
+             * Platform Admin
+             * @default false
+             */
+            platform_admin: boolean;
+            /**
              * Mfa Setup Required
              * @default false
              */
@@ -6168,7 +6459,7 @@ export interface components {
          */
         UserAdminUpdate: {
             /** Role */
-            role?: ("admin" | "analyst") | null;
+            role?: ("admin" | "analyst" | "viewer") | null;
             /** Active */
             active?: boolean | null;
         };
@@ -7277,7 +7568,7 @@ export interface operations {
     list_users_api_v1_users__get: {
         parameters: {
             query?: {
-                role?: ("admin" | "analyst") | null;
+                role?: ("admin" | "analyst" | "viewer") | null;
                 active?: boolean | null;
                 limit?: number;
                 skip?: number;
@@ -11889,6 +12180,283 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    organisations_api_v1_platform_organisations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganisationSummary"][];
+                };
+            };
+        };
+    };
+    create_organisation_api_v1_platform_organisations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewOrganisation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedOrganisation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    organisation_api_v1_platform_organisations__tenant_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganisationDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_organisation_api_v1_platform_organisations__tenant_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Deletion"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_status_api_v1_platform_organisations__tenant_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganisationDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_administrator_api_v1_platform_organisations__tenant_id__administrators_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewAdministrator"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedAdministrator"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    platform_admins_api_v1_platform_admins_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformAdmin"][];
+                };
+            };
+        };
+    };
+    set_platform_admin_api_v1_platform_admins_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformAdminChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformAdmin"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    platform_audit_log_api_v1_platform_audit_log_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
