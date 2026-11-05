@@ -301,6 +301,54 @@ export function useCases({ status, page }: { status?: string; page: number }) {
   })
 }
 
+/** Attach a file to a case: sent as a form, so the browser sets the boundary. */
+export function useAttachFile(caseId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData()
+      form.append("file", file, file.name)
+      return unwrap(
+        api.POST("/api/v1/cases/{case_id}/attachments", {
+          params: { path: { case_id: caseId } },
+          // FormData as it is; the generated type describes the form's fields.
+          body: form as unknown as { file: string },
+          bodySerializer: (body) => body as unknown as FormData,
+        }),
+      )
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cases", "detail", caseId] }),
+  })
+}
+
+export function useDownloadAttachment(caseId: string) {
+  return useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const blob = await unwrap(
+        api.GET("/api/v1/cases/{case_id}/attachments/{attachment_id}", {
+          params: { path: { case_id: caseId, attachment_id: id } },
+          parseAs: "blob",
+        }),
+      )
+      const url = URL.createObjectURL(blob as Blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = name
+      link.click()
+      URL.revokeObjectURL(url)
+    },
+  })
+}
+
+export function useRemoveAttachment(caseId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (attachmentId: string) =>
+      unwrap(api.DELETE("/api/v1/cases/{case_id}/attachments/{attachment_id}", { params: { path: { case_id: caseId, attachment_id: attachmentId } } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cases", "detail", caseId] }),
+  })
+}
+
 export function useCase(caseId: string) {
   return useQuery({
     queryKey: ["cases", "detail", caseId],

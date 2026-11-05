@@ -134,6 +134,9 @@ class Settings(BaseSettings):
     # HTTPS, JSON) to check an organisation owns a domain.
     SSO_DNS_RESOLVER: str = "https://cloudflare-dns.com/dns-query"
 
+    # The largest file that can be attached to a case (core/services/case_files.py).
+    CASE_ATTACHMENT_MAX_MB: int = 8
+
     # Webhooks (core/services/webhooks.py): how often due deliveries are sent, and whether
     # receivers may be on private networks (only for a deployment's own receivers).
     WEBHOOK_INTERVAL_SECONDS: int = 5

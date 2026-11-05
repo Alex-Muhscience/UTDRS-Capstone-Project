@@ -19,7 +19,8 @@ class Entity(BaseModel):
 
 class TimelineEntry(BaseModel):
     at: datetime
-    # created, alert_added, status_changed, owner_changed, priority_changed, note, title_changed
+    # created, alert_added, status_changed, owner_changed, priority_changed, note, title_changed,
+    # attachment_added, attachment_removed
     kind: str
     actor: Optional[Dict[str, Any]] = None
     text: Optional[str] = None
@@ -32,6 +33,18 @@ class Explanation(BaseModel):
     what_happened: str
     why_it_matters: str
     next_steps: List[str]
+
+
+class Attachment(BaseModel):
+    id: str
+    name: str
+    # What the uploader's browser said it is; it is always downloaded, never shown.
+    content_type: str
+    size: int
+    # So the evidence can be shown to be unchanged.
+    sha256: str
+    uploaded_by: Optional[Dict[str, Any]] = None
+    uploaded_at: datetime
 
 
 class Case(BaseModel):
@@ -51,6 +64,7 @@ class Case(BaseModel):
     due_at: datetime
     breached: bool = False
     timeline: List[TimelineEntry] = []
+    attachments: List[Attachment] = []
     explanation: Optional[Explanation] = None
 
 

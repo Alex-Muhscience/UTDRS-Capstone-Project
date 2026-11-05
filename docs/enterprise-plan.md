@@ -276,7 +276,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 | ID | Requirement | Priority | Phase |
 |---|---|---|---|
 | FR-CAS-01 | Alerts grouped into cases (incidents) by entity and time; deduplication **Done (#20): alerts grouped into cases by strong entities within a time window, each alert once.** | P0 | 1 |
-| FR-CAS-02 | Case workflow: status, owner, priority, SLA timers, notes, attachments, timeline **Done (#20) except attachments: status, owner, priority, SLA deadlines, notes and a timeline.** | P0 | 1 |
+| FR-CAS-02 | Case workflow: status, owner, priority, SLA timers, notes, attachments, timeline **Done: status, owner, priority, SLA deadlines, notes and a timeline (#20); files with their hashes (#50).** | P0 | 1 |
 | FR-CAS-03 | Evidence view: the events behind an alert, the entities involved (user, device, IP, message), their history **Done (#20): a case's events, alerts and entities (users, devices, addresses, messages).** | P0 | 1 |
 | FR-CAS-04 | Plain-language explanation of every alert: what happened, why it matters, what was done, what to do next **Done (#20): each case explains what happened, why it matters, what was done and what to do next; explaining model verdicts remains (GAP-ML-05).** | P0 | 1 |
 | FR-CAS-05 | Event search across all retained data with a query language, saved searches and time ranges | P1 | 2 |

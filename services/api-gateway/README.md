@@ -144,6 +144,8 @@ Every alert belongs to a case, so related alerts are worked once (`core/services
 - Owners must be colleagues. API keys need the `cases` scopes. Changes are audited.
 - Open alerts from before cases are put into cases at start-up.
 
+- **Files.** `POST /cases/{id}/attachments` (a multipart form, field `file`) keeps a file with the case, up to `CASE_ATTACHMENT_MAX_MB` (8) and twenty a case, in GridFS (`core/services/case_files.py`), with its SHA-256 so the evidence can be shown to be unchanged. `GET /cases/{id}/attachments/{file}` always downloads it (`application/octet-stream`, `attachment`, `nosniff`, a sandboxing CSP), so an uploaded page or image cannot run in the dashboard; `DELETE` removes it (whoever attached it, or an administrator). Both go on the timeline and in the audit log (with the file's hash), and a case's files are deleted with it by retention.
+
 ## Response and playbooks
 
 UTDRS can act on a threat, not only report it (`core/services/response_actions.py`, `core/services/playbooks.py`).
@@ -311,6 +313,7 @@ Settings come from the environment or a `.env` file in this directory (see [`.en
 | `ADMIN_PASSWORD` | unset | Its password, used only when creating it (8 to 72 bytes) |
 | `ADMIN_EMAIL` | `<username>@localhost.localdomain` | |
 | `ALLOW_REGISTRATION` | `true` | Whether anyone can register |
+| `CASE_ATTACHMENT_MAX_MB` | `8` | The largest file that can be attached to a case |
 | `SSO_DNS_RESOLVER` | `https://cloudflare-dns.com/dns-query` | DNS over HTTPS (JSON) for checking single sign-on domains |
 | `REQUIRE_EMAIL_VERIFICATION` | `false` | People who register confirm their email address before signing in (only while email is configured) |
 | `REGISTRATION_MODE` | `join` | `join`: an analyst in the default organisation. `organisation`: a new organisation, with the person as its administrator |
@@ -368,6 +371,7 @@ MONGODB_URI=mongodb://localhost:27017 python -m pytest
 - `tests/e2e/test_account_email.py`: a forgotten password reset from an emailed link (sessions ended, once only, the address confirmed by it), the same answer whether or not the account exists, only the newest link working and three an hour, the link not kept once sent, confirming an address at registration and after changing it, requiring it before signing in, and no resetting without email.
 - `tests/e2e/test_operations.py`: metrics behind their token, requests counted by route template and shared through the database, readiness, a stopped loop noticed, operators told once when the engine is down and when it is back, a short blip not reported, and administrators told when their connector fails, recovers or goes quiet.
 - `tests/e2e/test_detection_pipeline.py`: the event-to-alert pipeline against a fake engine (`httpx.MockTransport`): an unreachable engine (the event stays queued and is analysed once the engine is back), a lost attempt taken up again without a second alert, a rejected event, giving up after a day, the back-off, replaying failed events, and the detection status.
+- `tests/e2e/test_case_files.py`: a file kept with its hash and downloaded as it was, an uploaded page served so it cannot run, size and count limits, files kept within their organisation, removing one, and retention taking a case's files with it.
 - `tests/e2e/test_cases.py`: grouping by user, address and device and not by destination; old cases not reopened; priority and deadline; working a case (status, owner, notes, closing its alerts); owners must be colleagues; overdue cases; explanations; evidence; cases kept within an organisation; the `cases` scope; open alerts from before cases grouped at start-up.
 - `tests/e2e/test_response.py`: against a stand-in for Microsoft Graph: actions that run, fail and are undone; the last Global Administrator; playbooks proposing, people approving and rejecting, and running once per case; the organisation's mode capping a playbook's; the hourly limit; protected accounts and administrators; steps skipped without their connector; removing an email from every mailbox and putting it back; removing and restoring an inbox rule; running a playbook yourself; API keys asking and people deciding; writing playbooks; disabled playbooks; response kept within an organisation.
 - `tests/e2e/test_notifications.py`: against a small SMTP server run by the test: preferences and their defaults; new cases to those who want them, once per case, with the explanation and link; approvals needed and actions done; failures retried and then given up; the hourly limit; nothing sent without email set up; titles unable to add headers; test emails, including a mail server that cannot be reached; the log for administrators only, and none for API keys.

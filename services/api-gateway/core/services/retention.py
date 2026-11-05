@@ -103,6 +103,16 @@ async def _open_work() -> Dict[str, Set]:
     return {"cases": case_ids, "alerts": {a["_id"] for a in open_alerts}, "events": event_ids}
 
 
+async def _delete_cases(query: Dict[str, Any]) -> int:
+    """Cases, with the files attached to them."""
+    from core.services import case_files
+
+    ids = [str(c["_id"]) for c in await scoped(get_database(), "cases").find(query, {"_id": 1}).to_list(BATCH * MAX_BATCHES)]
+    if ids:
+        await case_files.remove_for_cases(ids)
+    return await _delete("cases", query)
+
+
 async def run(now=None) -> Dict[str, int]:
     """Delete the current organisation's data that has passed its time. Returns how much of each kind."""
     now = now or utcnow()
@@ -115,7 +125,7 @@ async def run(now=None) -> Dict[str, int]:
             "status": {"$in": CLOSED_ALERTS}, "updated_at": {"$lt": cutoff["alerts"]},
             "_id": {"$nin": list(keep["alerts"])}, "case_id": {"$nin": list(keep["cases"])},
         }),
-        "cases": await _delete("cases", {"status": {"$in": CLOSED_CASES}, "updated_at": {"$lt": cutoff["cases"]}}),
+        "cases": await _delete_cases({"status": {"$in": CLOSED_CASES}, "updated_at": {"$lt": cutoff["cases"]}}),
         "actions": await _delete("actions", {"status": {"$ne": "pending"}, "created_at": {"$lt": cutoff["actions"]}}),
         "notifications": await _delete("notifications", {"created_at": {"$lt": cutoff["notifications"]}}),
         "labels": await _delete("labels", {"at": {"$lt": cutoff["labels"]}}),

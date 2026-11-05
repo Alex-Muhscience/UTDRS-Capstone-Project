@@ -973,6 +973,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cases/{case_id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Attachment
+         * @description Attach a file to a case (multipart form, field `file`): up to CASE_ATTACHMENT_MAX_MB,
+         *     twenty a case. Its SHA-256 is recorded, and it is added to the timeline.
+         */
+        post: operations["add_attachment_api_v1_cases__case_id__attachments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/attachments/{attachment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Attachment
+         * @description Download a case's file. Always as a download, never shown in the browser.
+         */
+        get: operations["download_attachment_api_v1_cases__case_id__attachments__attachment_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove Attachment
+         * @description Remove a file from a case: whoever attached it, or an administrator. The timeline keeps that it was there.
+         */
+        delete: operations["remove_attachment_api_v1_cases__case_id__attachments__attachment_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/response/actions/types": {
         parameters: {
             query?: never;
@@ -3423,6 +3468,28 @@ export interface components {
             /** Notes */
             notes?: string | null;
         };
+        /** Attachment */
+        Attachment: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Content Type */
+            content_type: string;
+            /** Size */
+            size: number;
+            /** Sha256 */
+            sha256: string;
+            /** Uploaded By */
+            uploaded_by?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Uploaded At
+             * Format: date-time
+             */
+            uploaded_at: string;
+        };
         /** AuditEntry */
         AuditEntry: {
             /** Seq */
@@ -3521,6 +3588,11 @@ export interface components {
             /** Results */
             results: components["schemas"]["BatchItem"][];
         };
+        /** Body_add_attachment_api_v1_cases__case_id__attachments_post */
+        Body_add_attachment_api_v1_cases__case_id__attachments_post: {
+            /** File */
+            file: string;
+        };
         /** Body_login_api_v1_auth_login_post */
         Body_login_api_v1_auth_login_post: {
             /** Grant Type */
@@ -3607,6 +3679,11 @@ export interface components {
              * @default []
              */
             timeline: components["schemas"]["TimelineEntry"][];
+            /**
+             * Attachments
+             * @default []
+             */
+            attachments: components["schemas"]["Attachment"][];
             explanation?: components["schemas"]["Explanation"] | null;
         };
         /** CaseEvidence */
@@ -7118,6 +7195,103 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CaseEvidence"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_attachment_api_v1_cases__case_id__attachments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_add_attachment_api_v1_cases__case_id__attachments_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_attachment_api_v1_cases__case_id__attachments__attachment_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_attachment_api_v1_cases__case_id__attachments__attachment_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
