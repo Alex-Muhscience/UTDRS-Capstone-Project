@@ -1,9 +1,20 @@
 import { KeyRound, UserPlus } from "lucide-react"
 import { useState } from "react"
+import { Link } from "react-router"
 import { toast } from "sonner"
 
 import type { User, UserWithPassword } from "@/api/client"
-import { displayName, useCreateUser, useResetMfa, useResetPassword, useSignOutEverywhere, useUpdateUser, useUsers } from "@/api/queries"
+import {
+  displayName,
+  useCreateUser,
+  useResetMfa,
+  useResetPassword,
+  useRoles,
+  useSignOutEverywhere,
+  useUpdateUser,
+  useUsers,
+  type RoleChoice,
+} from "@/api/queries"
 import { useUser } from "@/auth/context"
 import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
@@ -18,14 +29,30 @@ import { formatDateTime, formatRelative } from "@/lib/format"
 import { EraseDialog } from "./EraseDialog"
 import { TemporaryPasswordDialog } from "./TemporaryPasswordDialog"
 
-const ROLES = [
+const BUILT_IN = [
   { value: "analyst", label: "Analyst" },
   { value: "viewer", label: "Read-only" },
   { value: "admin", label: "Administrator" },
 ]
 
+/** The built-in roles and the organisation's own, as select options ("custom:<id>" for those). */
+function useRoleOptions() {
+  const roles = useRoles()
+  return [...BUILT_IN, ...(roles.data ?? []).map((role) => ({ value: `custom:${role.id}`, label: role.name }))]
+}
+
+function roleValue(user: User): string {
+  return user.role === "custom" && user.custom_role_id ? `custom:${user.custom_role_id}` : user.role
+}
+
+function roleChoice(value: string): RoleChoice {
+  if (value.startsWith("custom:")) return { role: "custom", custom_role_id: value.slice("custom:".length) }
+  return { role: value === "admin" || value === "viewer" ? value : "analyst" }
+}
+
 function NewUserDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (result: UserWithPassword) => void }) {
   const create = useCreateUser()
+  const options = useRoleOptions()
   return (
     <Dialog
       open={open}
@@ -41,7 +68,7 @@ function NewUserDialog({ open, onClose, onCreated }: { open: boolean; onClose: (
             email: value("email"),
             firstName: value("firstName") || null,
             lastName: value("lastName") || null,
-            role: value("role") === "admin" ? "admin" : "analyst",
+            ...roleChoice(value("role")),
           },
           {
             onSuccess: (result) => {
@@ -68,7 +95,7 @@ function NewUserDialog({ open, onClose, onCreated }: { open: boolean; onClose: (
           {(id) => <Input id={id} name="username" required minLength={3} autoComplete="off" />}
         </Field>
         <Field label="Role" required>
-          {(id) => <Select id={id} name="role" options={ROLES} defaultValue="analyst" />}
+          {(id) => <Select id={id} name="role" options={options} defaultValue="analyst" />}
         </Field>
         <Field label="Email" required className="sm:col-span-2">
           {(id) => <Input id={id} name="email" type="email" required autoComplete="off" />}
@@ -88,17 +115,14 @@ export function UsersPage() {
   const [adding, setAdding] = useState(false)
   const [password, setPassword] = useState<UserWithPassword | null>(null)
   const [erasing, setErasing] = useState<User | null>(null)
+  const options = useRoleOptions()
 
-  function change(userId: string, name: string, changes: { role?: "admin" | "analyst"; active?: boolean }) {
+  function change(userId: string, name: string, changes: Partial<RoleChoice> & { active?: boolean }, roleLabel?: string) {
     update.mutate(
       { userId, ...changes },
       {
         onSuccess: () =>
-          toast.success(
-            changes.role
-              ? `${name} is now ${changes.role === "admin" ? "an administrator" : "an analyst"}`
-              : `${name} is ${changes.active ? "reactivated" : "deactivated"}`,
-          ),
+          toast.success(roleLabel ? `${name}'s role is now ${roleLabel}` : `${name} is ${changes.active ? "reactivated" : "deactivated"}`),
         onError: (error) => toast.error(error.message),
       },
     )
@@ -108,7 +132,12 @@ export function UsersPage() {
     <>
       <PageHeader
         title="Users"
-        description="Who can sign in, and what they can do. Administrators manage users, detection rules and simulations; analysts triage alerts and work with events and assets."
+        description={
+          <>
+            Who can sign in, and what they can do. Administrators run the organisation; analysts investigate and respond; read-only people look. Make
+            roles of your own under <Link to="/roles" className="font-medium text-accent hover:underline">Roles</Link>.
+          </>
+        }
         actions={
           <Button variant="primary" onClick={() => setAdding(true)}>
             <UserPlus className="size-4" aria-hidden /> Add user
@@ -154,11 +183,13 @@ export function UsersPage() {
                     <Td>
                       <Select
                         aria-label={`Role of ${name}`}
-                        value={user.role}
-                        options={ROLES}
+                        value={roleValue(user)}
+                        options={options}
                         disabled={isMe || update.isPending}
                         title={isMe ? "Another administrator can change your role" : undefined}
-                        onChange={(event) => change(user.id, name, { role: event.target.value === "admin" ? "admin" : "analyst" })}
+                        onChange={(event) =>
+                          change(user.id, name, roleChoice(event.target.value), options.find((option) => option.value === event.target.value)?.label)
+                        }
                         className="h-8 w-40 text-xs"
                       />
                     </Td>

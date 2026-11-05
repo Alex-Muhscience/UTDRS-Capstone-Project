@@ -47,6 +47,24 @@ export function useUser(): User {
   return user
 }
 
+/** Whether someone may do this (`<area>:read` or `<area>:write`): by their custom role's permissions, or their built-in role. */
+export function can(user: User | null | undefined, permission: string): boolean {
+  if (!user) return false
+  if (user.permissions) return user.permissions.includes(permission)
+  if (user.role === "viewer") return permission.endsWith(":read")
+  return true
+}
+
+/** A role's name for people: built-in roles by name, custom ones by theirs. */
+export function roleLabel(user: Pick<User, "role" | "custom_role_name">): string {
+  if (user.role === "custom") return user.custom_role_name ?? "Custom role"
+  return { admin: "Administrator", analyst: "Analyst", viewer: "Read-only" }[user.role] ?? user.role
+}
+
+export function useCan(permission: string): boolean {
+  return can(useAuth().user, permission)
+}
+
 /** Whether the signed-in user runs the platform (the console across organisations). */
 export function useIsPlatformAdmin(): boolean {
   const { user } = useAuth()

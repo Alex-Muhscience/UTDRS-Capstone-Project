@@ -8,6 +8,7 @@ deactivate accounts or reset passwords.
 import secrets
 from typing import List, Optional
 
+from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, status
 from pydantic import BaseModel, Field
 
@@ -22,7 +23,7 @@ from core.models.user import (
     UserUpdate,
     UserWithPassword,
 )
-from core.services import sessions
+from core.services import roles, sessions
 from core.services.audit import created
 from utils.security import get_current_active_user, require_admin
 
@@ -67,6 +68,13 @@ async def get_user(
     return User(**await find_user_or_404(UserRepository(), user_id))
 
 
+async def _assignable(role: str, custom_role_id: Optional[str]) -> Optional[str]:
+    try:
+        return await roles.check_assignable(role, custom_role_id)
+    except roles.RoleError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
+
+
 @router.post("/", response_model=UserWithPassword, status_code=status.HTTP_201_CREATED)
 async def create_user(new_user: AdminUserCreate, request: Request, admin: User = Depends(require_admin)):
     """
@@ -79,10 +87,13 @@ async def create_user(new_user: AdminUserCreate, request: Request, admin: User =
     if await user_repo.find_by_email(new_user.email):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
 
+    custom_role_id = await _assignable(new_user.role, new_user.custom_role_id)
     password = temporary_password()
     user_id = await user_repo.create_user(
-        UserCreate(**new_user.model_dump(), active=True, password=password)
+        UserCreate(**new_user.model_dump(exclude={"custom_role_id"}), active=True, password=password)
     )
+    if custom_role_id:
+        await user_repo.collection.update_one({"_id": ObjectId(user_id)}, {"$set": {"custom_role_id": custom_role_id}})
     created(request, "user", user_id, new_user.username)
     return UserWithPassword(
         user=User(**await find_user_or_404(user_repo, user_id)),
@@ -112,7 +123,13 @@ async def update_user(
             detail="You cannot change your own role or deactivate yourself; ask another administrator",
         )
 
-    updated = await user_repo.update_user(user_id, UserUpdate(**changes))
+    custom_role_id = changes.pop("custom_role_id", None)
+    if "role" in changes:
+        stored = await _assignable(changes["role"], custom_role_id)
+        await user_repo.collection.update_one({"_id": user["_id"]}, {"$set": {"custom_role_id": stored}})
+    elif custom_role_id:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail='Give the role "custom" with a custom role')
+    updated = await user_repo.update_user(user_id, UserUpdate(**changes)) if changes else await find_user_or_404(user_repo, user_id)
     if changes.get("active") is False:
             await sessions.end_all(user_id, "This account has been deactivated")
     return User(**updated)

@@ -11,10 +11,12 @@ from utils.time import utcnow
 # Admins manage users and detection content (rules, simulations); analysts triage
 # alerts and work with events and assets. Everyone signed in can read everything.
 # admin: runs the organisation; analyst: investigates and responds; viewer: sees, changes nothing.
-Role = Literal["admin", "analyst", "viewer"]
+# custom: one of the organisation's own roles (custom_role_id), a chosen part of an analyst's permissions.
+Role = Literal["admin", "analyst", "viewer", "custom"]
 ADMIN: Role = "admin"
 ANALYST: Role = "analyst"
 VIEWER: Role = "viewer"
+CUSTOM: Role = "custom"
 
 
 class UserBase(BaseModel):
@@ -85,6 +87,10 @@ class User(UserBase):
     mfa_enabled: bool = False
     # Runs the whole deployment (every organisation), from the platform console.
     platform_admin: bool = False
+    # For the role "custom": which of the organisation's roles, its name, and what it permits.
+    custom_role_id: Optional[str] = None
+    custom_role_name: Optional[str] = None
+    permissions: Optional[List[str]] = None
     # Signed in, but the organisation requires MFA and this account has none yet: the
     # session can only set it up.
     mfa_setup_required: bool = False
@@ -138,6 +144,8 @@ class UserAdminUpdate(BaseModel):
     """What an administrator can change on someone else's account."""
 
     role: Optional[Role] = None
+    # With role "custom": which of the organisation's custom roles.
+    custom_role_id: Optional[str] = None
     active: Optional[bool] = None
 
 
@@ -149,6 +157,8 @@ class AdminUserCreate(BaseModel):
     firstName: Optional[str] = None
     lastName: Optional[str] = None
     role: Role = ANALYST
+    # With role "custom": which of the organisation's custom roles.
+    custom_role_id: Optional[str] = None
 
 
 class UserWithPassword(BaseModel):

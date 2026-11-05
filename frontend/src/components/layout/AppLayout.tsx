@@ -20,6 +20,7 @@ import {
   ShieldAlert,
   SlidersHorizontal,
   UserRound,
+  UserCog,
   Users,
   Webhook as WebhookIcon,
   X,
@@ -29,10 +30,9 @@ import { useEffect, useState } from "react"
 import { Link, NavLink, Outlet, useLocation } from "react-router"
 
 import { useActions, useAlertSummary, useMspOverview } from "@/api/queries"
-import { useAuth, useIsAdmin, useIsPlatformAdmin, useIsReadOnly, useUser } from "@/auth/context"
+import { can, roleLabel, useAuth, useIsAdmin, useIsPlatformAdmin, useIsReadOnly, useUser } from "@/auth/context"
 import { cx } from "@/lib/cx"
 import { useLiveUpdates } from "@/lib/live"
-import { humanize } from "@/lib/format"
 
 import { ConfirmEmailBanner } from "./ConfirmEmailBanner"
 import { useOrganisationRefused } from "@/lib/useSwitchOrganisation"
@@ -44,21 +44,22 @@ import { ThemeSwitcher } from "./ThemeSwitcher"
 
 const NAVIGATION = [
   { to: "/", label: "Overview", icon: LayoutDashboard, end: true },
-  { to: "/cases", label: "Cases", icon: Briefcase },
-  { to: "/response", label: "Response", icon: Zap },
-  { to: "/playbooks", label: "Playbooks", icon: BookOpen },
-  { to: "/reports", label: "Reports", icon: FileText },
-  { to: "/alerts", label: "Alerts", icon: ShieldAlert },
-  { to: "/events", label: "Events", icon: Activity },
-  { to: "/assets", label: "Assets", icon: Server },
-  { to: "/rules", label: "Detection rules", icon: ListChecks },
-  { to: "/tuning", label: "Tuning", icon: SlidersHorizontal },
-  { to: "/simulations", label: "Simulations", icon: FlaskConical },
+  { to: "/cases", label: "Cases", icon: Briefcase, permission: "cases:read" },
+  { to: "/response", label: "Response", icon: Zap, permission: "response:read" },
+  { to: "/playbooks", label: "Playbooks", icon: BookOpen, permission: "playbooks:read" },
+  { to: "/reports", label: "Reports", icon: FileText, permission: "reports:read" },
+  { to: "/alerts", label: "Alerts", icon: ShieldAlert, permission: "alerts:read" },
+  { to: "/events", label: "Events", icon: Activity, permission: "events:read" },
+  { to: "/assets", label: "Assets", icon: Server, permission: "assets:read" },
+  { to: "/rules", label: "Detection rules", icon: ListChecks, permission: "rules:read" },
+  { to: "/tuning", label: "Tuning", icon: SlidersHorizontal, permission: "tuning:read" },
+  { to: "/simulations", label: "Simulations", icon: FlaskConical, permission: "simulations:read" },
 ] as const
 
 const ADMIN_NAVIGATION = [
   { to: "/connectors", label: "Connectors", icon: Plug },
   { to: "/users", label: "Users", icon: Users },
+  { to: "/roles", label: "Roles", icon: UserCog },
   { to: "/api-keys", label: "API keys", icon: KeyRound },
   { to: "/webhooks", label: "Webhooks", icon: WebhookIcon },
   { to: "/audit-log", label: "Audit log", icon: ScrollText },
@@ -108,7 +109,13 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
   const isAdmin = useIsAdmin()
   const isPlatformAdmin = useIsPlatformAdmin()
   const isMsp = Boolean(useMspOverview().data?.msp)
-  const items = [...(isMsp ? MSP_NAVIGATION : []), ...NAVIGATION, ...(isAdmin ? ADMIN_NAVIGATION : []), ...(isPlatformAdmin ? PLATFORM_NAVIGATION : [])]
+  const user = useUser()
+  const items = [
+    ...(isMsp ? MSP_NAVIGATION : []),
+    ...NAVIGATION.filter((item) => !("permission" in item) || can(user, item.permission)),
+    ...(isAdmin ? ADMIN_NAVIGATION : []),
+    ...(isPlatformAdmin ? PLATFORM_NAVIGATION : []),
+  ]
   return (
     <nav aria-label="Main" className="space-y-0.5">
       {items.map(({ to, label, icon: Icon, ...rest }) => (
@@ -157,7 +164,7 @@ function UserPanel({ onNavigate }: { onNavigate?: () => void }) {
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">{name}</p>
-          <p className="truncate text-xs text-subtle">{humanize(user.role)}</p>
+          <p className="truncate text-xs text-subtle">{roleLabel(user)}</p>
         </div>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-1.5">

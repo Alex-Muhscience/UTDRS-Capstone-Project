@@ -17,7 +17,7 @@ from api.middleware.security import (
 )
 from api.routes import (
     alerts, api_keys, platform as platform_routes, scim as scim_routes, assets, audit, auth, cases, connectors as connector_routes, detection, email, events, health,
-    live as live_routes, msp as msp_routes, notifications, onboarding, playbooks, reports, response, retention as retention_routes, scans, simulation,
+    live as live_routes, msp as msp_routes, notifications, roles as role_routes, onboarding, playbooks, reports, response, retention as retention_routes, scans, simulation,
     tenants as tenant_routes, tuning, users, webhooks as webhook_routes,
 )
 from config import settings
@@ -167,6 +167,7 @@ app.include_router(api_keys.router, prefix=f"{settings.API_PREFIX}/api-keys", ta
 # SCIM: identity providers, authenticated by the organisation's SCIM token (not a person's or an API key).
 app.include_router(scim_routes.router, prefix=f"{settings.API_PREFIX}/scim/v2", tags=["scim"])
 # The platform console: every organisation (platform administrators only).
+app.include_router(role_routes.router, prefix=f"{settings.API_PREFIX}/roles", tags=["roles"], dependencies=[Depends(audited("roles"))])
 app.include_router(msp_routes.router, prefix=f"{settings.API_PREFIX}/msp", tags=["service providers"])
 app.include_router(live_routes.router, prefix=f"{settings.API_PREFIX}/live", tags=["live updates"])
 app.include_router(platform_routes.router, prefix=f"{settings.API_PREFIX}/platform", tags=["platform"])

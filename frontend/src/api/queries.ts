@@ -419,10 +419,40 @@ export function displayName(user: Pick<User, "username" | "firstName" | "lastNam
   return [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username
 }
 
+/** A built-in role, or one of the organisation's custom roles. */
+export type RoleChoice = { role: "admin" | "analyst" | "viewer" | "custom"; custom_role_id?: string }
+
+// ---------------------------------------------------------------------------- Custom roles
+
+export function useRoleCatalogue() {
+  return useQuery({ queryKey: ["roles", "catalogue"], queryFn: () => unwrap(api.GET("/api/v1/roles/permissions")), staleTime: Infinity })
+}
+
+export function useRoles() {
+  return useQuery({ queryKey: ["roles", "list"], queryFn: () => unwrap(api.GET("/api/v1/roles")) })
+}
+
+export function useSaveRole() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id?: string; name: string; description: string; permissions: string[] }) =>
+      id ? unwrap(api.PATCH("/api/v1/roles/{role_id}", { params: { path: { role_id: id } }, body })) : unwrap(api.POST("/api/v1/roles", { body })),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["roles"] }),
+  })
+}
+
+export function useDeleteRole() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => unwrap(api.DELETE("/api/v1/roles/{role_id}", { params: { path: { role_id: id } } })),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["roles"] }),
+  })
+}
+
 export function useCreateUser() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (body: { username: string; email: string; firstName?: string | null; lastName?: string | null; role: "admin" | "analyst" }) =>
+    mutationFn: (body: { username: string; email: string; firstName?: string | null; lastName?: string | null } & RoleChoice) =>
       unwrap(api.POST("/api/v1/users/", { body })),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
   })
@@ -431,7 +461,7 @@ export function useCreateUser() {
 export function useUpdateUser() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ userId, ...body }: { userId: string; role?: "admin" | "analyst"; active?: boolean }) =>
+    mutationFn: ({ userId, ...body }: { userId: string; active?: boolean } & Partial<RoleChoice>) =>
       unwrap(api.PATCH("/api/v1/users/{user_id}", { params: { path: { user_id: userId } }, body })),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
   })

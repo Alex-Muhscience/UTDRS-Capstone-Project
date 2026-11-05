@@ -41,6 +41,7 @@ TENANT_SCOPED = {
     "audit_log",
     "audit_log_head",
     "gateway_state",
+    "roles",
 }
 
 # The tenant for entries that belong to no organisation, such as a sign-in attempt with
