@@ -22,6 +22,8 @@ PERMISSION_FOR = {"alert": "alerts:read", "case": "cases:read", "action": "respo
 
 
 def _frame(message: Dict[str, Any]) -> str:
+    if message["event"] == "inbox.created":
+        message = {**message, "data": {}}  # whose inbox it was is not for others to read
     lines = [f"event: {message['event']}"]
     if message.get("id"):
         lines.insert(0, f"id: {message['id']}")
@@ -48,6 +50,8 @@ async def stream(request: Request, current_user: User = Depends(get_current_acti
     allowed = current_user.permissions  # a custom role hears only of what it may see
 
     def may_hear(message: Dict[str, Any]) -> bool:
+        if message["event"] == "inbox.created":
+            return current_user.id in (message.get("data") or {}).get("users", [])
         area = PERMISSION_FOR.get(message["event"].split(".")[0])
         return allowed is None or area is None or area in allowed
 

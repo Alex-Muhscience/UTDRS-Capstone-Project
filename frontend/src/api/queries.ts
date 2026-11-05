@@ -6,7 +6,7 @@
  * more than a page to know whether there is a next page, since the gateway's list
  * endpoints do not return totals.
  */
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { PAGE_SIZE, POLL_INTERVAL_MS, type CaseStatus } from "@/lib/constants"
 import { livePoll } from "@/lib/live"
@@ -212,6 +212,34 @@ export function useRevokeScimToken() {
   return useMutation({
     mutationFn: () => unwrap(api.DELETE("/api/v1/tenants/current/scim/token")),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["scim"] }),
+  })
+}
+
+// ---------------------------------------------------------------------------- Notifications centre
+
+export function useInbox(unreadOnly = false) {
+  return useInfiniteQuery({
+    queryKey: ["inbox", "list", { unreadOnly }],
+    queryFn: ({ pageParam }) =>
+      unwrap(api.GET("/api/v1/inbox", { params: { query: { unread_only: unreadOnly, before: pageParam || undefined, limit: 30 } } })),
+    initialPageParam: "",
+    getNextPageParam: (last) => (last.has_more ? last.items.at(-1)?.id : undefined),
+    refetchInterval: livePoll,
+  })
+}
+
+export function useUnreadCount() {
+  return useQuery({ queryKey: ["inbox", "unread"], queryFn: () => unwrap(api.GET("/api/v1/inbox/unread")), refetchInterval: livePoll })
+}
+
+export function useMarkRead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (ids?: string[]) => unwrap(api.POST("/api/v1/inbox/read", { body: ids ? { ids } : {} })),
+    onSuccess: (result) => {
+      queryClient.setQueryData(["inbox", "unread"], result)
+      void queryClient.invalidateQueries({ queryKey: ["inbox", "list"] })
+    },
   })
 }
 

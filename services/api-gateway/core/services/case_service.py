@@ -280,6 +280,10 @@ async def update_case(case_id: str, changes: Dict[str, Any], actor: Dict[str, An
 
     await webhooks.emit("case.updated", webhooks.case_data({**case, **fields}, {k: {"before": case.get(k), "after": v} for k, v in fields.items() if k != "due_at"}))
     await _cases().update_one({"_id": case["_id"]}, {"$set": {**fields, "updated_at": now}, "$push": {"timeline": {"$each": entries}}})
+    if fields.get("owner_id"):
+        from core.services import inbox
+
+        await inbox.assigned("case", case_id, fields.get("title") or case.get("title") or "", fields["owner_id"], actor)
 
     alert_status = ALERT_STATUS_FOR.get(fields.get("status"))
     if alert_status:

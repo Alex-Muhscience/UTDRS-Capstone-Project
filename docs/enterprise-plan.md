@@ -556,7 +556,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 | GAP-WEB-02 | No cases, investigation graph, search, playbooks, connectors, response approvals, reports or settings pages **Cases (#20), playbooks and response approvals (#21), notification settings (#22) and reports (#23) done.** | Sections 5.5 to 5.8 | P0/P1 |
 | GAP-WEB-03 | No onboarding flow **Done (#27).** | FR-PLT-03 | P0 |
 | GAP-WEB-04 | No MFA, SSO or API-key management screens **Done: API keys (#18), MFA (#33) and SSO (#48).** | FR-TEN-05, FR-TEN-06, FR-API-02 | P0 |
-| GAP-WEB-05 | Polling rather than push; no notifications centre **Push done (#64): alerts, cases and actions refresh as they change, and serious alerts and actions waiting for a decision are announced. A notifications centre remains.** | GAP-ARC-06 | P1 |
+| GAP-WEB-05 | Polling rather than push; no notifications centre **Push done (#64): alerts, cases and actions refresh as they change, and serious alerts and actions waiting for a decision are announced. Notifications centre done (#67): a per-person inbox of serious alerts and cases, decisions, failed actions and assignments, with unread counts, live.** | GAP-ARC-06 | P1 |
 | GAP-WEB-06 | English only; accessibility not audited | FR-PLT-06, NFR-13 | P2 |
 
 ### 8.9 Operations, observability and quality

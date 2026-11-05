@@ -247,6 +247,18 @@ The dashboard hears of changes as they happen, through `GET /api/v1/live` (Serve
 - **Reconnecting.** Each message has an id; a client that reconnects with `Last-Event-ID` gets what it missed, or `resync` (fetch everything again) when that is over 200 changes or older than an hour. A stream ends after five minutes and the client reconnects, so an ended session, a deactivated person or a suspended organisation stops receiving within that time. A comment is sent every 15 seconds to keep proxies from closing the connection.
 - **The dashboard** connects with `fetch` (the access token in a header, never in the address), refreshes alerts, cases and actions as they change, announces critical and high alerts and actions waiting for a decision, and shows "Live" beside the detection status. While connected it polls those lists only every two minutes; while not, every 15 seconds as before.
 
+## Notifications centre
+
+Each person has an inbox in the dashboard (`/api/v1/inbox`; `core/services/inbox.py`), kept for 90 days, separate from email notifications (which follow each person's preferences):
+
+- **Serious alerts and cases**: critical and high alerts, and critical and high priority cases, for those whose role lets them see alerts or cases.
+- **Decisions**: response actions waiting for approval, for those who can approve (administrators only, for protected accounts).
+- **Outcomes**: failed actions for everyone who sees response actions; finished ones for whoever asked for them.
+- **For administrators**: new monthly reports and connectors that stopped bringing data in.
+- **Assignments**: an alert or case someone else assigned to you.
+
+Most come from the same events as webhooks (`webhooks.emit`); assignments come from where they are made, so nobody is told of what they did themselves. `GET /api/v1/inbox` (newest first, `unread_only`, paged with `before`), `GET /api/v1/inbox/unread`, `POST /api/v1/inbox/read` (`{"ids": [...]}`, or `{}` for all). Each new item is announced on the live stream (`inbox.created`) to its recipients only. Inboxes belong to people: API keys have none, read-only people can still mark theirs read, and a service provider's people keep theirs in their own organisation.
+
 ## Forgotten passwords and confirming email addresses
 
 With email configured (`SMTP_HOST`), people manage this themselves (`core/services/account_email.py`):

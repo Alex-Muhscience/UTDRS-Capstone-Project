@@ -194,9 +194,10 @@ def _json(value: Any) -> Any:
 async def emit(event: str, data: Dict[str, Any], only: Optional[str] = None) -> int:
     """Queue `event` for every enabled webhook of the current organisation that wants it, and tell its dashboards. Never raises."""
     if not only:
-        from core.services import live
+        from core.services import inbox, live
 
         await live.publish(event, data)
+        await inbox.from_event(event, data)
     try:
         if current_tenant_or_none() is None:
             return 0
@@ -240,7 +241,8 @@ def action_data(action: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "id": str(action["_id"]), "action": action.get("action"), "target": action.get("target"), "status": action.get("status"),
         "mode": action.get("mode"), "reason": action.get("reason"), "case_id": action.get("case_id"), "error": action.get("error"),
-        "summary": (action.get("result") or {}).get("summary"), "url": _link(f"/cases/{action['case_id']}" if action.get("case_id") else "/response"),
+        "summary": (action.get("result") or {}).get("summary"), "protected": bool(action.get("protected")),
+        "requested_by": {k: v for k, v in (action.get("requested_by") or {}).items() if k in ("type", "id", "name")}, "url": _link(f"/cases/{action['case_id']}" if action.get("case_id") else "/response"),
     }
 
 

@@ -26,7 +26,7 @@ HEADER = "X-UTDRS-Organisation"
 # What MSP staff may do in a client, by their role in the MSP.
 ROLE_IN_CLIENTS = {"admin": "admin", "analyst": "analyst", "viewer": "viewer", "custom": "custom"}
 # Paths that are about the person or the MSP itself, never switched to a client.
-NOT_SWITCHED = ("/auth/", "/notifications/preferences", "/platform", "/msp", "/api-keys")
+NOT_SWITCHED = ("/auth/", "/notifications/preferences", "/platform", "/msp", "/api-keys", "/inbox")
 OPEN_STATUSES = ["open", "in_progress"]
 SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
 
