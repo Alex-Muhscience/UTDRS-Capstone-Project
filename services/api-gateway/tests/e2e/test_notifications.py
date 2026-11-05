@@ -122,8 +122,13 @@ def deliver(client):
     client.portal.call(notifications.deliver_due)
 
 
-def mail_to(mailbox, address):
-    return [message for recipients, message in mailbox.received if address in recipients]
+ACCOUNT_EMAILS = ("[UTDRS] Confirm your email address", "[UTDRS] Reset your password")
+
+
+def mail_to(mailbox, address, account_emails=False):
+    """What `address` was sent; by default, leaving out emails about the account itself."""
+    return [message for recipients, message in mailbox.received
+            if address in recipients and (account_emails or message["Subject"] not in ACCOUNT_EMAILS)]
 
 
 def raise_alert(client, auth, severity="high", tags=(), **raw):
@@ -204,7 +209,7 @@ def test_failures_are_retried_and_then_given_up(client, admin, mailbox):
     deliver(client)
 
     async def mine():
-        return await get_database()["notifications"].find_one({"email": address})
+        return await get_database()["notifications"].find_one({"email": address, "kind": {"$ne": "account"}})
 
     first = client.portal.call(mine)
     assert first["status"] == "queued" and first["attempts"] == 1 and "554 refused for the test" in first["error"]
@@ -241,7 +246,7 @@ def test_nobody_is_flooded(client, admin, mailbox, monkeypatch):
     for _ in range(3):
         raise_alert(client, admin, "low", user=f"flood-{uuid.uuid4().hex[:4]}")
     deliver(client)
-    log = [n for n in client.get(f"{API}/notifications/", params={"limit": 500}, headers=admin).json() if n["email"] == address]
+    log = [n for n in client.get(f"{API}/notifications/", params={"limit": 500}, headers=admin).json() if n["email"] == address and n["kind"] != "account"]
     assert sorted(n["status"] for n in log) == ["sent", "sent", "skipped"]
     assert "More than 2 emails to this person in an hour" in next(n["error"] for n in log if n["status"] == "skipped")
 

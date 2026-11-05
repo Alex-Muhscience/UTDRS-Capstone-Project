@@ -16,6 +16,7 @@ import { AssetDetailPage } from "@/pages/assets/AssetDetailPage"
 import { CaseDetailPage } from "@/pages/cases/CaseDetailPage"
 import { CasesPage } from "@/pages/cases/CasesPage"
 import { AssetsPage } from "@/pages/assets/AssetsPage"
+import { ForgotPasswordPage, ResetPasswordPage, VerifyEmailPage } from "@/pages/auth/AccountPages"
 import { LoginPage } from "@/pages/auth/LoginPage"
 import { RegisterPage } from "@/pages/auth/RegisterPage"
 import { RouteError } from "@/pages/errors/RouteError"
@@ -44,8 +45,12 @@ export const routes: RouteObject[] = [
         children: [
           { path: "/login", element: <LoginPage /> },
           { path: "/register", element: <RegisterPage /> },
+          { path: "/forgot-password", element: <ForgotPasswordPage /> },
+          { path: "/reset-password", element: <ResetPasswordPage /> },
         ],
       },
+      // Signed in or not: the link is opened from an email.
+      { path: "/verify-email", element: <VerifyEmailPage /> },
       {
         element: <RequireAuth />,
         children: [

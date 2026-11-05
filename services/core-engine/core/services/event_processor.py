@@ -34,5 +34,6 @@ async def process_event(event_data):
         return alert
         
     except Exception as e:
+        # An error, not "no threat": the gateway keeps the event and tries again.
         logger.error(f"Error processing event: {str(e)}")
-        return None
+        raise

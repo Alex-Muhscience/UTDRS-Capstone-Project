@@ -7,7 +7,7 @@ from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 from config import settings
 from core.database.repositories.user_repository import UserRepository
-from core.services import audit, login_throttle, mfa, sessions, tenants
+from core.services import account_email, audit, login_throttle, mfa, sessions, tenants
 from core.tenancy import PLATFORM, set_tenant, tenant_context
 from core.models.common import IdString
 from core.models.user import (
@@ -113,6 +113,30 @@ class AuthConfig(BaseModel):
     registration_mode: str
     # Minutes without activity after which a session ends.
     session_idle_minutes: int
+    # Whether a forgotten password can be reset by email, and addresses confirmed (email is configured).
+    password_reset: bool = False
+    # Whether people who register must confirm their email address before signing in.
+    email_verification_required: bool = False
+
+
+class AccountLookup(BaseModel):
+    # A username or an email address.
+    login: str = Field(min_length=1, max_length=254)
+
+
+class PasswordReset(BaseModel):
+    token: str = Field(min_length=10, max_length=200)
+    new_password: str
+
+    _check_new_password = field_validator("new_password")(validate_password_length)
+
+
+class EmailVerification(BaseModel):
+    token: str = Field(min_length=10, max_length=200)
+
+
+class Accepted(BaseModel):
+    message: str
 
 
 class Registration(UserCreate):
@@ -126,7 +150,85 @@ async def auth_config() -> Any:
     return AuthConfig(
         allow_registration=settings.ALLOW_REGISTRATION, registration_mode=settings.REGISTRATION_MODE,
         session_idle_minutes=settings.SESSION_IDLE_MINUTES,
+        password_reset=account_email.available(),
+        email_verification_required=_verification_required(),
     )
+
+
+def _verification_required() -> bool:
+    return settings.REQUIRE_EMAIL_VERIFICATION and account_email.available()
+
+
+async def _account(login: str) -> Optional[dict]:
+    login = login.strip()
+    repo = UserRepository()
+    return await (repo.find_by_email(login) if "@" in login else repo.find_by_username(login))
+
+
+SENT_IF_KNOWN = "If that account exists and has an email address, a link is on its way. It may take a minute."
+
+
+@router.post("/forgot-password", response_model=Accepted, status_code=status.HTTP_202_ACCEPTED)
+async def forgot_password(body: AccountLookup, request: Request) -> Any:
+    """
+    Email a link to choose a new password, valid for 30 minutes and once. The answer is
+    the same whether or not the account exists. At most three emails an hour per account.
+    """
+    if not account_email.available():
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            detail="Email is not set up on this deployment: ask an administrator to reset your password")
+    user = await _account(body.login)
+    if user:
+        sent = await account_email.send_password_reset(user)
+        await audit.record("auth.password_reset_requested", request, actor={"type": "anonymous", "name": body.login},
+                           target={"type": "user", "id": str(user["_id"]), "name": user["username"]},
+                           details={"sent": sent}, tenant_id=user["tenant_id"])
+    return {"message": SENT_IF_KNOWN}
+
+
+@router.post("/reset-password", response_model=Accepted)
+async def reset_password(body: PasswordReset, request: Request) -> Any:
+    """Choose a new password with the link from the email. Every session of the account ends."""
+    try:
+        record = await account_email.use(body.token, account_email.RESET)
+    except account_email.InvalidToken as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    with tenant_context(record["tenant_id"]):
+        repo = UserRepository()
+        user = await repo.find_by_id(record["user_id"])
+        if not user or not user.get("active", True):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This account cannot be used; ask an administrator")
+        await repo.change_password(record["user_id"], body.new_password)
+        ended = await sessions.end_all(record["user_id"], "Signed out because the password was reset")
+        # Following the link proved the address is theirs.
+        await account_email.mark_verified(record["user_id"], record.get("email"))
+        await login_throttle.record_success(user["username"], client_address(request))
+        await audit.record("auth.password_reset", request, actor=_actor(user), target={"type": "user", "id": record["user_id"], "name": user["username"]},
+                           details={"sessions_ended": ended})
+    return {"message": "Your password has been changed. Sign in with it."}
+
+
+@router.post("/verify-email", response_model=Accepted)
+async def verify_email(body: EmailVerification, request: Request) -> Any:
+    """Confirm an email address with the link sent to it."""
+    try:
+        record = await account_email.use(body.token, account_email.VERIFY)
+    except account_email.InvalidToken as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    if not await account_email.mark_verified(record["user_id"], record.get("email")):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The account's email address has changed since; confirm the new one")
+    await audit.record("auth.email_verified", request, actor={"type": "user", "id": record["user_id"]},
+                       target={"type": "user", "id": record["user_id"]}, details={"email": record.get("email")}, tenant_id=record["tenant_id"])
+    return {"message": "Your email address is confirmed."}
+
+
+@router.post("/resend-verification", response_model=Accepted, status_code=status.HTTP_202_ACCEPTED)
+async def resend_verification(body: AccountLookup) -> Any:
+    """Send the link to confirm an email address again (for someone who cannot sign in until they do). The answer never says whether the account exists."""
+    user = await _account(body.login)
+    if user and not user.get("email_verified"):
+        await account_email.send_verification(user)
+    return {"message": SENT_IF_KNOWN}
 
 
 @router.post("/login", response_model=Token)
@@ -173,6 +275,14 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This account has been deactivated; ask an administrator",
+        )
+
+    if _verification_required() and user.get("registered_self") and not user.get("email_verified"):
+        await audit.record("auth.login_failed", request, actor=attempted, outcome="denied", details={"reason": "email not verified"}, tenant_id=audit_tenant)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Confirm your email address first, with the link we sent you",
+            headers={"X-Email-Verification-Required": "true"},
         )
 
     # From here on, this is the person's organisation's business.
@@ -341,7 +451,7 @@ async def register(user_in: Registration, request: Request) -> Any:
         set_tenant(await tenants.default_id())
 
     # Create new user
-    user_id = await user_repo.create_user(new_account)
+    user_id = await user_repo.create_user(new_account, registered_self=True, email_verified=False)
     new_user = await user_repo.find_by_id(user_id)
 
     if not new_user:
@@ -357,6 +467,7 @@ async def register(user_in: Registration, request: Request) -> Any:
         target={"type": "user", "id": user_id, "name": user_in.username},
         details={"created_organisation": user_in.organisation} if creating_organisation else None,
     )
+    await account_email.send_verification(new_user)
     return User(**new_user)
 
 
@@ -370,8 +481,14 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)) -
 async def update_user_me(
     user_update: UserSelfUpdate, request: Request, current_user: User = Depends(get_current_active_user)
 ) -> Any:
-    """Update current user information (not role or account status)."""
+    """Update current user information (not role or account status). A new email address has to be confirmed again."""
     user_repo = UserRepository()
+    changes = user_update.model_dump(exclude_unset=True)
+    email_changed = "email" in changes and changes["email"] != current_user.email
+    if email_changed:
+        taken = await user_repo.find_by_email(changes["email"])
+        if taken and str(taken["_id"]) != current_user.id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
     updated_user = await user_repo.update_user(
         current_user.id, UserUpdate(**user_update.model_dump(exclude_unset=True))
     )
@@ -381,11 +498,25 @@ async def update_user_me(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to update user"
         )
 
+    if email_changed:
+        await user_repo.set_email_verified(current_user.id, False)
+        updated_user = {**updated_user, "email_verified": False}
+        await account_email.send_verification(updated_user)
     await audit.record(
         "auth.profile_updated", request, target={"type": "user", "id": current_user.id, "name": current_user.username},
         details={"fields": sorted(user_update.model_dump(exclude_unset=True))},
     )
     return User(**updated_user)
+
+
+@router.post("/me/send-verification", response_model=Accepted, status_code=status.HTTP_202_ACCEPTED)
+async def send_my_verification(current_user: User = Depends(get_current_active_user)) -> Any:
+    """Send the link to confirm your email address (again)."""
+    if current_user.email_verified:
+        return {"message": "Your email address is already confirmed."}
+    if not await account_email.send_verification(await _me(current_user)):
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Email is not set up on this deployment")
+    return {"message": f"A link is on its way to {current_user.email}."}
 
 
 @router.post("/me/change-password")

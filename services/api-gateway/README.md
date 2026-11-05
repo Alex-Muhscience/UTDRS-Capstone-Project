@@ -13,25 +13,32 @@ sequenceDiagram
   participant E as Core engine
   participant DB as Gateway database
   S->>G: POST /api/v1/events/
-  G->>DB: store the event
+  G->>DB: store the event, queued for analysis
   G-->>S: 201 Created (the event)
-  Note over G: background task, after the response
+  Note over G: background task, after the response (or the queue loop, later)
+  G->>DB: claim the event (a two-minute lease)
   G->>E: POST /detections/process (X-Internal-Token)
   E-->>G: an alert, or null
   alt threat
-    G->>DB: create an alert (source "core-engine"), linked to the event
+    G->>DB: create an alert (source "core-engine"), linked to the event, once
   end
-  G->>DB: event.metadata.analysis = threat | clean | error
+  G->>DB: event.metadata.analysis = threat | clean, or queued again after a failure
 ```
 
-Ingestion never waits for or fails because of the engine: the event is stored and returned first, and analysis runs afterwards. The outcome is recorded on the event as `metadata.analysis`:
+Ingestion never waits for or fails because of the engine, and no event is lost to it. The event is stored and returned first, already queued for analysis; the queue is the events themselves (`metadata.analysis`), so it survives restarts and any gateway process can work it. The request tries straight away, in the background. If the engine cannot be reached or answers with an error, the event waits and is tried again by a loop every `ANALYSIS_INTERVAL_SECONDS` (5), waiting 15 seconds after the first failure and doubling to at most ten minutes, for up to `ANALYSIS_GIVE_UP_HOURS` (24). While the engine is down, each round makes one attempt rather than one per event; once it answers, the backlog is worked `ANALYSIS_CONCURRENCY` (4) events at a time. Each attempt holds a two-minute lease, so two processes never analyse an event at once and an attempt lost with its process is taken up again. An event analysed twice raises its alert once, and the engine stores each event once (by `gateway_event_id`), so its correlations do not count it twice. An event the engine rejects as invalid (a 4xx answer) is not retried.
+
+The outcome is recorded on the event as `metadata.analysis`:
 
 | `status` | Meaning | Also recorded |
 |---|---|---|
-| `threat` | The engine raised an alert | `alert_id` of the new gateway alert |
-| `clean` | No detector matched | |
-| `error` | The engine could not be reached or failed | `error` |
+| `queued` | Waiting for its first attempt, or for the next after a failure | `queued_at`, `attempts`, `next_attempt_at`, the last `error` |
+| `analysing` | An attempt is under way | `lease_until` |
+| `threat` | The engine raised an alert | `alert_id` of the gateway alert, `attempts` |
+| `clean` | No detector matched | `attempts` |
+| `error` | The engine rejected the event, or could not analyse it within `ANALYSIS_GIVE_UP_HOURS` | `error`, `attempts` |
 | *(absent)* | No engine is configured (`CORE_ENGINE_URL` unset) | |
+
+`GET /detection/` reports the queue (`analysis`: events waiting and since when, and failures in the last day). Events can be analysed again (replay): one with `POST /events/{id}/reanalyse`, and every failed one with `POST /events/reanalyse` (administrators; `failed_since` limits it to recent failures). The dashboard shows waiting and failed events on the Events page.
 
 The new alert carries the engine's verdict in `metadata`: `detection_type` (signature, ML, anomaly, …), `core_engine_alert_id`, and `details`, which includes the matched MITRE ATT&CK techniques. Its `event_ids` link back to the event, and its tags come from the detection. The mapping lives in `core/services/detection_pipeline.py`.
 
@@ -51,6 +58,7 @@ All routes are under `/api/v1`. Interactive documentation is served at `/api/v1/
 | Retention | `GET /retention/`, `PATCH /retention/` (days per kind of data), `POST /retention/run` (administrators) |
 | Email | `POST /email/check` (`recipient`, `internet_message_id`): check a delivered email for phishing |
 | Webhooks | `GET /webhooks/events`, `GET`/`POST /webhooks/`, `PATCH`/`DELETE /webhooks/{id}`, `POST /webhooks/{id}/rotate-secret`, `POST /webhooks/{id}/test`, `GET /webhooks/{id}/deliveries`, `POST /webhooks/deliveries/{id}/redeliver` (administrators) |
+| Account emails | `POST /auth/forgot-password` (`login`), `POST /auth/reset-password` (`token`, `new_password`), `POST /auth/verify-email` (`token`), `POST /auth/resend-verification` (`login`), `POST /auth/me/send-verification` |
 | Sessions | `POST /auth/refresh` (`refresh_token`), `POST /auth/logout`, `GET /auth/sessions`, `DELETE /auth/sessions/{id}`, `POST /auth/sessions/end-others`; `POST /users/{id}/sign-out` (administrators) |
 | Multi-factor authentication | `POST /auth/login/mfa` (`mfa_token`, `code`), `GET /auth/mfa`, `POST /auth/mfa/setup`, `/auth/mfa/confirm`, `/auth/mfa/recovery-codes`, `/auth/mfa/disable`; `PATCH /tenants/current/security` (`require_mfa`; administrators); `POST /users/{id}/reset-mfa` (administrators) |
 | Onboarding | `GET /onboarding/` (the checklist and first results), `PATCH /onboarding/` (`dismissed`; administrators) |
@@ -195,6 +203,16 @@ UTDRS tells an organisation's other systems what happens, as it happens (`core/s
 - **Delivered.** Each event is queued per webhook and sent by a background loop; failures are retried at growing intervals for about a day, then marked failed. Every attempt is in the delivery log, and any delivery can be sent again.
 - **Not into private networks.** URLs must be HTTPS, carry no credentials, and resolve only to public addresses: private, loopback, link-local (cloud metadata), reserved and multicast are refused when saved and again before every send; redirects are not followed. `WEBHOOK_ALLOW_PRIVATE_ADDRESSES` allows receivers on a deployment's own network (and plain HTTP).
 
+## Forgotten passwords and confirming email addresses
+
+With email configured (`SMTP_HOST`), people manage this themselves (`core/services/account_email.py`):
+
+- **A forgotten password.** `POST /auth/forgot-password` with a username or an email address sends a link to choose a new one, valid for 30 minutes and once; the answer is the same whether or not the account exists, and an account is sent at most three an hour. `POST /auth/reset-password` takes the link's token and the new password: every session of the account ends, and multi-factor authentication is still asked for at the next sign-in.
+- **Confirming an address.** Registering sends a link to confirm the address (valid for two days); so does changing it, and `POST /auth/me/send-verification`. `POST /auth/verify-email` takes the token. Accounts show `email_verified`, and the dashboard asks people to confirm. With `REQUIRE_EMAIL_VERIFICATION`, people who registered themselves cannot sign in until they confirm (403, `X-Email-Verification-Required`); `POST /auth/resend-verification` sends the link again.
+- Tokens are random, stored only as hashes, and only the newest of each kind works. The link carries the token after `#`, which browsers never send to servers. The email goes through the notification outbox (retried, logged), does not count towards a person's notification limit, and its text, with the link, is removed once sent. Every step is in the audit log.
+
+Without email, `/auth/config` says `password_reset: false`, and administrators reset passwords (`POST /users/{id}/reset-password`).
+
 ## Sessions
 
 Signing in starts a session (`core/services/sessions.py`) and returns two tokens:
@@ -250,7 +268,7 @@ Entries are numbered, and each holds the hash of the one before, so `GET /audit-
 
 - **Readiness.** `GET /health/ready` answers 200 while the gateway can serve (its database answers) and 503 when it cannot, for load balancers and uptime monitors. It also lists what is failing on the platform (`problems`), with `status: degraded`.
 - **Metrics.** `GET /metrics` serves Prometheus's text format to a scraper sending `Authorization: Bearer <METRICS_TOKEN>` (without `METRICS_TOKEN`, it does not exist). Requests are counted by method, route template (`/api/v1/alerts/{alert_id}`, never the actual path) and status class, with durations in histogram buckets; each process adds its counts to totals in the database every `METRICS_FLUSH_SECONDS` (15), so every process reports the same totals. The rest is read from the database at each scrape: database ping time, whether the core engine is configured and answers, events waiting for analysis and the oldest's wait, analyses failed in the last day, the email outbox and webhook deliveries (waiting, failed), connectors by kind and status, each background loop's last run and whether it succeeded or has stopped, organisations, active sessions and open alerts by severity. Metrics cover every organisation together and carry none of their data.
-- **Heartbeats.** Each background loop (rule sync, email, reports, Microsoft 365 polling, retention, webhooks, metrics, health checks) records each round (`core/services/heartbeat.py`). One that has not run for three of its rounds (at least five minutes) counts as stopped.
+- **Heartbeats.** Each background loop (event analysis, rule sync, email, reports, Microsoft 365 polling, retention, webhooks, metrics, health checks) records each round (`core/services/heartbeat.py`). One that has not run for three of its rounds (at least five minutes) counts as stopped.
 - **Alerts on the platform's health** (`core/services/platform_health.py`). Every `HEALTH_CHECK_INTERVAL_SECONDS` (60), one process checks: the core engine answers; no event has waited for analysis more than `ANALYSIS_BACKLOG_ALERT_MINUTES` (15); no email failed for good in the last hour; every loop runs. A problem that lasts `HEALTH_ALERT_AFTER_MINUTES` (5) is emailed once to `OPERATOR_EMAILS`, and again when it is over.
 - **Connector health** (FR-ING-11). The connector shows when data last arrived and since when polling has failed. Each organisation's administrators are emailed when a connector has failed for `HEALTH_ALERT_AFTER_MINUTES`, or brought nothing in for `CONNECTOR_SILENT_HOURS` (24), and when it works again; a connector also sends the `connector.unhealthy` webhook as it fails.
 
@@ -267,6 +285,7 @@ Settings come from the environment or a `.env` file in this directory (see [`.en
 | `ADMIN_PASSWORD` | unset | Its password, used only when creating it (8 to 72 bytes) |
 | `ADMIN_EMAIL` | `<username>@localhost.localdomain` | |
 | `ALLOW_REGISTRATION` | `true` | Whether anyone can register |
+| `REQUIRE_EMAIL_VERIFICATION` | `false` | People who register confirm their email address before signing in (only while email is configured) |
 | `REGISTRATION_MODE` | `join` | `join`: an analyst in the default organisation. `organisation`: a new organisation, with the person as its administrator |
 | `DEFAULT_TENANT_SLUG`, `DEFAULT_TENANT_NAME` | `default`, `Default organisation` | The organisation a single-organisation deployment uses |
 | `SCANS_TENANT` | unset | The organisation (by slug) device scans are recorded in; unset means the default one |
@@ -276,6 +295,9 @@ Settings come from the environment or a `.env` file in this directory (see [`.en
 | `SESSION_MAX_HOURS` | `12` | A session ends this long after signing in, however active |
 | `CORE_ENGINE_URL` | unset | Base URL of the core engine. Unset: events are stored but not analysed. |
 | `CORE_ENGINE_TIMEOUT_SECONDS` | `10` | |
+| `ANALYSIS_INTERVAL_SECONDS` | `5` | How often queued events are sent to the engine |
+| `ANALYSIS_CONCURRENCY` | `4` | Events analysed at once while working through a backlog |
+| `ANALYSIS_GIVE_UP_HOURS` | `24` | How long an event is retried before it is marked `error` (it can still be replayed) |
 | `METRICS_TOKEN` | unset | Bearer token for `GET /metrics`; unset, there are no metrics |
 | `METRICS_FLUSH_SECONDS` | `15` | How often each process adds its request counts to the totals |
 | `OPERATOR_EMAILS` | `[]` | Who is emailed about the platform's health (a JSON list) |
@@ -316,8 +338,9 @@ MONGODB_URI=mongodb://localhost:27017 python -m pytest
 
 - `tests/e2e/test_flows.py`: registration and sign-in, events, alerts (filters, ordering, summary, status errors), assets, rules, role and password rules, response headers. Against a real MongoDB, with no mocks.
 - `tests/e2e/test_users.py`: role checks on rules and simulations, the team directory, account administration (create, role changes, deactivation, password resets), self-lockout protection, closed registration and the startup administrator.
+- `tests/e2e/test_account_email.py`: a forgotten password reset from an emailed link (sessions ended, once only, the address confirmed by it), the same answer whether or not the account exists, only the newest link working and three an hour, the link not kept once sent, confirming an address at registration and after changing it, requiring it before signing in, and no resetting without email.
 - `tests/e2e/test_operations.py`: metrics behind their token, requests counted by route template and shared through the database, readiness, a stopped loop noticed, operators told once when the engine is down and when it is back, a short blip not reported, and administrators told when their connector fails, recovers or goes quiet.
-- `tests/e2e/test_detection_pipeline.py`: the event-to-alert pipeline against a fake engine (`httpx.MockTransport`), including an unreachable engine and the detection status.
+- `tests/e2e/test_detection_pipeline.py`: the event-to-alert pipeline against a fake engine (`httpx.MockTransport`): an unreachable engine (the event stays queued and is analysed once the engine is back), a lost attempt taken up again without a second alert, a rejected event, giving up after a day, the back-off, replaying failed events, and the detection status.
 - `tests/e2e/test_cases.py`: grouping by user, address and device and not by destination; old cases not reopened; priority and deadline; working a case (status, owner, notes, closing its alerts); owners must be colleagues; overdue cases; explanations; evidence; cases kept within an organisation; the `cases` scope; open alerts from before cases grouped at start-up.
 - `tests/e2e/test_response.py`: against a stand-in for Microsoft Graph: actions that run, fail and are undone; the last Global Administrator; playbooks proposing, people approving and rejecting, and running once per case; the organisation's mode capping a playbook's; the hourly limit; protected accounts and administrators; steps skipped without their connector; removing an email from every mailbox and putting it back; removing and restoring an inbox rule; running a playbook yourself; API keys asking and people deciding; writing playbooks; disabled playbooks; response kept within an organisation.
 - `tests/e2e/test_notifications.py`: against a small SMTP server run by the test: preferences and their defaults; new cases to those who want them, once per case, with the explanation and link; approvals needed and actions done; failures retried and then given up; the hourly limit; nothing sent without email set up; titles unable to add headers; test emails, including a mail server that cannot be reached; the log for administrators only, and none for API keys.

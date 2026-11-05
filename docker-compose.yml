@@ -83,6 +83,8 @@ services:
       # Operations: metrics for Prometheus, and who hears about the platform's health.
       METRICS_TOKEN: ${METRICS_TOKEN:-}
       OPERATOR_EMAILS: ${OPERATOR_EMAILS:-[]}
+      # People who register confirm their email address before signing in.
+      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-false}
       MAIL_FROM: ${MAIL_FROM:-UTDRS <utdrs@localhost>}
       DASHBOARD_URL: ${DASHBOARD_URL:-http://localhost:${DASHBOARD_PORT:-8080}}
       # Encrypts secrets stored in the database, such as a Microsoft 365 client secret.

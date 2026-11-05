@@ -92,6 +92,9 @@ class Settings(BaseSettings):
     # "starttls" (port 587), "ssl" (port 465) or "none" (a local relay only).
     SMTP_SECURITY: Literal["starttls", "ssl", "none"] = "starttls"
     MAIL_FROM: str = "UTDRS <utdrs@localhost>"
+    # Whether people who register must confirm their email address before signing in
+    # (only while email can be sent, SMTP_HOST).
+    REQUIRE_EMAIL_VERIFICATION: bool = False
     # Where the dashboard is, for links in emails.
     DASHBOARD_URL: str = "http://localhost:3001"
     # How often the outbox is checked for email to send, and the most emails one person
@@ -121,6 +124,11 @@ class Settings(BaseSettings):
     HEALTH_ALERT_AFTER_MINUTES: int = 5
     ANALYSIS_BACKLOG_ALERT_MINUTES: int = 15
     CONNECTOR_SILENT_HOURS: int = 24
+    # Analysing events (core/services/detection_pipeline.py): how often queued events are
+    # sent to the core engine, how many at once, and how long to keep trying.
+    ANALYSIS_INTERVAL_SECONDS: int = 5
+    ANALYSIS_CONCURRENCY: int = 4
+    ANALYSIS_GIVE_UP_HOURS: int = 24
 
     # Webhooks (core/services/webhooks.py): how often due deliveries are sent, and whether
     # receivers may be on private networks (only for a deployment's own receivers).

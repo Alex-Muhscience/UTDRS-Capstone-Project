@@ -96,6 +96,18 @@ services:
       - key: METRICS_TOKEN
         generateValue: true
       - key: OPERATOR_EMAILS
+      # Email (notifications, password resets, confirming addresses), from any SMTP
+      # service: for example SendGrid, Mailgun, Amazon SES or Postmark. Without SMTP_HOST,
+      # nothing is sent, and administrators reset forgotten passwords.
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: MAIL_FROM
         sync: false
       # The dashboard on Vercel, and its preview deployments.
       - key: DASHBOARD_URL

@@ -30,6 +30,7 @@ import { useAuth, useIsAdmin, useUser } from "@/auth/context"
 import { cx } from "@/lib/cx"
 import { humanize } from "@/lib/format"
 
+import { ConfirmEmailBanner } from "./ConfirmEmailBanner"
 import { Logo } from "./Logo"
 import { SystemStatus } from "./SystemStatus"
 import { ThemeSwitcher } from "./ThemeSwitcher"
@@ -242,6 +243,7 @@ export function AppLayout() {
           </div>
         </header>
         <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8">
+          <ConfirmEmailBanner />
           <Outlet />
         </main>
       </div>

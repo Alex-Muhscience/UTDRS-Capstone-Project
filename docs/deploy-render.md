@@ -45,7 +45,7 @@ The browser calls the gateway directly: the dashboard picks the gateway's addres
 
 `render.yaml` uses Render's **free** plan, which is fine to try it out:
 
-- A free service **sleeps after 15 minutes without requests**; the next request wakes it, taking about a minute. While the gateway sleeps, its scheduled work pauses: Microsoft 365 polling, email, monthly reports, retention, webhooks. While the engine sleeps, the first event analysed after it wakes can time out (it is marked as an analysis error; later events are fine).
+- A free service **sleeps after 15 minutes without requests**; the next request wakes it, taking about a minute. While the gateway sleeps, its scheduled work pauses: Microsoft 365 polling, email, monthly reports, retention, webhooks. While the engine sleeps, the first event analysed after it wakes can time out; it stays queued and is analysed again shortly after.
 - Free services cannot use Render's private network, so the gateway calls the engine at its public address (protected by the internal token).
 - 512 MB of memory: the gateway runs 2 workers (`WEB_CONCURRENCY`).
 
@@ -53,7 +53,7 @@ For real use, change `plan: free` to `plan: starter` (or larger) for both servic
 
 ## Optional
 
-- **Email**: in the gateway's environment, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `MAIL_FROM` (see `.env.example`).
+- **Email**: in the gateway's environment, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `MAIL_FROM` (see `.env.example`), from any SMTP service. Email also lets people reset a forgotten password and confirm their address; without it, administrators reset passwords from the Users page.
 - **Microsoft 365 "Connect with Microsoft"**: `M365_CLIENT_ID` and `M365_CLIENT_SECRET` of your multi-tenant app registration, with `https://utdrs-capstone-project.vercel.app/connectors/microsoft-365/consented` as a redirect URI. Organisations can always connect with their own app registration without these.
 - **Self-service sign-up** (each new account a new organisation): `ALLOW_REGISTRATION=true` (`REGISTRATION_MODE` is already `organisation`).
 - **The MCP server** for AI assistants: uncomment `utdrs-mcp-server` in `render.yaml`; clients connect to `https://utdrs-mcp-server.onrender.com/mcp` with a UTDRS API key.

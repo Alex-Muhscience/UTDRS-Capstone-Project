@@ -93,7 +93,8 @@ async def _enqueue(kind: str, users: List[Dict[str, Any]], subject: str, text: s
         if not user.get("email"):
             continue
         status, error = "queued", None
-        recent = await _outbox().count_documents({"user_id": str(user["_id"]), "created_at": {"$gte": now - timedelta(hours=1)}})
+        # Emails about the account itself (a password reset) do not count.
+        recent = await _outbox().count_documents({"user_id": str(user["_id"]), "kind": {"$ne": "account"}, "created_at": {"$gte": now - timedelta(hours=1)}})
         if recent >= settings.NOTIFY_MAX_PER_USER_PER_HOUR:
             status, error = "skipped", f"More than {settings.NOTIFY_MAX_PER_USER_PER_HOUR} emails to this person in an hour"
         elif not configured():
@@ -106,6 +107,20 @@ async def _enqueue(kind: str, users: List[Dict[str, Any]], subject: str, text: s
         })
         queued += status == "queued"
     return queued
+
+
+async def enqueue_account_email(user: Dict[str, Any], subject: str, text: str) -> None:
+    """
+    An email about the account itself (a password reset, confirming an address): sent
+    whatever the person's notification choices. Its text holds a secret link, so it is
+    removed once sent.
+    """
+    now = utcnow()
+    await _outbox().insert_one({
+        "kind": "account", "user_id": str(user["_id"]), "email": user["email"], "subject": _header(subject),
+        "text": f"{text}\n— UTDRS\n", "link": None, "about": {}, "status": "queued", "error": None, "attempts": 0,
+        "secret": True, "created_at": now, "next_attempt_at": now, "sent_at": None,
+    })
 
 
 async def _people(**query) -> List[Dict[str, Any]]:
@@ -274,10 +289,14 @@ async def deliver_due(limit: int = 50) -> int:
             await outbox.update_one({"_id": claimed["_id"]}, {"$set": {
                 "status": "failed" if done else "queued", "error": _reason(e),
                 "next_attempt_at": now if done else now + RETRY_AFTER[attempts - 1],
+                **({"text": None} if done and claimed.get("secret") else {}),
             }})
             logger.warning(f"Email {claimed['_id']} not sent (attempt {attempts}): {_reason(e)}")
             continue
-        await outbox.update_one({"_id": claimed["_id"]}, {"$set": {"status": "sent", "sent_at": utcnow(), "error": None}})
+        sent_fields: Dict[str, Any] = {"status": "sent", "sent_at": utcnow(), "error": None}
+        if claimed.get("secret"):
+            sent_fields["text"] = None  # the link in it is not kept
+        await outbox.update_one({"_id": claimed["_id"]}, {"$set": sent_fields})
         sent += 1
     return sent
 

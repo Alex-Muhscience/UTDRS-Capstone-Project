@@ -1,7 +1,7 @@
-import { screen } from "@testing-library/react"
+import { screen, waitFor } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 
-import { event, shellRoutes } from "@/test/fixtures"
+import { admin, event, shellRoutes } from "@/test/fixtures"
 import { mockGateway } from "@/test/gateway"
 import { renderApp } from "@/test/render"
 
@@ -26,6 +26,51 @@ describe("event verdicts", () => {
     renderApp(`/events/${ID}`)
     expect(await screen.findByText("Analysis failed")).toBeInTheDocument()
     expect(screen.getByText(/engine unavailable/)).toBeInTheDocument()
+  })
+
+  it("analyses a failed event again", async () => {
+    let analysis: Record<string, unknown> = { status: "error", error: "engine unavailable" }
+    const { calls } = mockGateway({
+      ...shellRoutes(),
+      [`GET /api/v1/events/${ID}`]: () => event({ metadata: { analysis } }),
+      [`POST /api/v1/events/${ID}/reanalyse`]: () => {
+        analysis = { status: "clean" }
+        return event({ metadata: { analysis: { status: "queued", attempts: 0 } } })
+      },
+    })
+    const { user: person } = renderApp(`/events/${ID}`)
+    await person.click(await screen.findByRole("button", { name: /Analyse again/ }))
+    expect(await screen.findByText("No threat detected")).toBeInTheDocument()
+    expect(calls.some((call) => call.method === "POST" && call.path.endsWith("/reanalyse"))).toBe(true)
+  })
+
+  it("says the gateway keeps trying while the engine is unavailable", async () => {
+    mockGateway({
+      ...shellRoutes(),
+      [`GET /api/v1/events/${ID}`]: event({ metadata: { analysis: { status: "queued", attempts: 2, error: "The core engine answered 503" } } }),
+    })
+    renderApp(`/events/${ID}`)
+    expect(await screen.findByText("Waiting for the core engine")).toBeInTheDocument()
+    expect(screen.getByText(/nothing is lost/)).toBeInTheDocument()
+  })
+
+  it("tells administrators about failed analyses and replays them", async () => {
+    const detection = shellRoutes(admin)["GET /api/v1/detection/"]
+    let failed = 3
+    const { calls } = mockGateway({
+      ...shellRoutes(admin),
+      "GET /api/v1/events/": [],
+      "GET /api/v1/detection/": () => ({ ...detection, analysis: { waiting: 0, oldest_waiting_since: null, failed_last_day: failed } }),
+      "POST /api/v1/events/reanalyse": () => {
+        failed = 0
+        return { queued: 3 }
+      },
+    })
+    const { user: person } = renderApp("/events")
+    expect(await screen.findByText(/3 events could not be analysed/)).toBeInTheDocument()
+    await person.click(screen.getByRole("button", { name: "Analyse them again" }))
+    await waitFor(() => expect(screen.queryByText(/could not be analysed/)).not.toBeInTheDocument())
+    expect(calls.some((call) => call.path === "/api/v1/events/reanalyse")).toBe(true)
   })
 
   it("says when no engine analysed an older event", async () => {

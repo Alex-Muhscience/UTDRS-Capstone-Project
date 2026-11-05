@@ -730,8 +730,15 @@ class CorrelationDetector:
         # stored_at lets MongoDB expire the copy after EVENT_RETENTION_DAYS (see app.py).
         # The copy leaves out message text (an email's body, content scanned by YARA): it
         # is judged as it arrives, and not kept (data minimisation).
+        # An event the gateway sends again (it retries when an answer is lost) is kept once.
         data = {k: v for k, v in (event.get("data") or {}).items() if k not in ("body", "content")}
-        await self.db.events.insert_one({**event, "data": data, "stored_at": utcnow()})
+        stored = {**event, "data": data, "stored_at": utcnow()}
+        stored.pop("_id", None)
+        gateway_event_id = data.get("gateway_event_id")
+        if gateway_event_id:
+            await self.db.events.update_one({"data.gateway_event_id": gateway_event_id}, {"$set": stored}, upsert=True)
+        else:
+            await self.db.events.insert_one(stored)
         
         # Correlate recent events
         correlations = await self.correlate_events()

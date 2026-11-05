@@ -12,6 +12,16 @@ logger = get_logger(__name__)
 class CoreEngineError(Exception):
     """The core engine could not be reached or returned an error."""
 
+    def __init__(self, message: str, status_code: Optional[int] = None):
+        super().__init__(message)
+        # The engine's HTTP status, when it answered; None when it could not be reached.
+        self.status_code = status_code
+
+    @property
+    def retryable(self) -> bool:
+        """Whether trying again later could work: not for an event the engine says is invalid."""
+        return self.status_code is None or self.status_code >= 500 or self.status_code in (408, 429)
+
 
 class CoreEngineClient:
     def __init__(
@@ -42,8 +52,10 @@ class CoreEngineClient:
                 response = await client.post("/detections/process", json=event)
                 response.raise_for_status()
                 return response.json()
+        except httpx.HTTPStatusError as exc:
+            raise CoreEngineError(f"The core engine answered {exc.response.status_code}", exc.response.status_code) from exc
         except (httpx.HTTPError, ValueError) as exc:
-            raise CoreEngineError(str(exc)) from exc
+            raise CoreEngineError(str(exc) or exc.__class__.__name__) from exc
 
 
     async def replace_managed_rules(self, tenant_id: str, rules: List[Dict[str, Any]]) -> Dict[str, Any]:

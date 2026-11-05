@@ -39,6 +39,8 @@ async def expire_old_events() -> None:
             if e.code != 27:  # already gone
                 raise
     await events.create_index("stored_at", expireAfterSeconds=seconds, name="stored_at_ttl")
+    # The gateway's id for each event it sends: an event sent again is stored once.
+    await events.create_index([("tenant_id", 1), ("data.gateway_event_id", 1)])
     cutoff = (utcnow() - timedelta(days=settings.EVENT_RETENTION_DAYS)).isoformat()
     result = await events.delete_many({"stored_at": {"$exists": False}, "timestamp": {"$lt": cutoff}})
     if result.deleted_count:

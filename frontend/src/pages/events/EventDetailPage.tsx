@@ -1,11 +1,13 @@
-import { ArrowRight, CircleCheck, CircleHelp, LoaderCircle, ShieldAlert, TriangleAlert } from "lucide-react"
+import { ArrowRight, CircleCheck, CircleHelp, Clock, LoaderCircle, RotateCcw, ShieldAlert, TriangleAlert } from "lucide-react"
 import type { ReactNode } from "react"
 import { Link, useParams } from "react-router"
+import { toast } from "sonner"
 
 import type { Event } from "@/api/client"
-import { analysisOf, isAwaitingAnalysis, useEvent } from "@/api/queries"
+import { analysisOf, isAwaitingAnalysis, isRetryingAnalysis, useEvent, useReanalyseEvent } from "@/api/queries"
 import { Badge, SeverityBadge } from "@/components/ui/Badge"
 import { BackLink } from "@/components/ui/BackLink"
+import { Button } from "@/components/ui/Button"
 import { buttonClasses } from "@/components/ui/buttonClasses"
 import { Card } from "@/components/ui/Card"
 import { DescriptionList } from "@/components/ui/DescriptionList"
@@ -13,7 +15,7 @@ import { JsonBlock } from "@/components/ui/JsonBlock"
 import { PageHeader } from "@/components/ui/PageHeader"
 import { ErrorState, SkeletonRows } from "@/components/ui/States"
 import { cx } from "@/lib/cx"
-import { formatDateTime, humanize } from "@/lib/format"
+import { formatDateTime, formatRelative, humanize } from "@/lib/format"
 
 function Verdict({ tone, icon, title, children }: { tone: string; icon: ReactNode; title: string; children: ReactNode }) {
   return (
@@ -24,6 +26,20 @@ function Verdict({ tone, icon, title, children }: { tone: string; icon: ReactNod
         <div className="mt-1 text-sm text-muted">{children}</div>
       </div>
     </div>
+  )
+}
+
+function AnalyseAgain({ eventId }: { eventId: string }) {
+  const reanalyse = useReanalyseEvent()
+  return (
+    <Button
+      size="sm"
+      className="mt-3"
+      loading={reanalyse.isPending}
+      onClick={() => reanalyse.mutate(eventId, { onError: (error) => toast.error(error.message) })}
+    >
+      <RotateCcw className="size-3.5" aria-hidden /> Analyse again
+    </Button>
   )
 }
 
@@ -63,7 +79,22 @@ function AnalysisPanel({ event }: { event: Event }) {
         icon={<TriangleAlert className="size-5 text-warning" aria-hidden />}
         title="Analysis failed"
       >
-        The event was stored, but the core engine could not analyse it: {analysis.error ?? "unknown error"}.
+        <p>The event was stored, but the core engine could not analyse it: {analysis.error ?? "unknown error"}.</p>
+        <AnalyseAgain eventId={event.id} />
+      </Verdict>
+    )
+  }
+  if (isRetryingAnalysis(event)) {
+    return (
+      <Verdict
+        tone="border-warning/30 bg-warning/8"
+        icon={<Clock className="size-5 text-warning" aria-hidden />}
+        title="Waiting for the core engine"
+      >
+        The event is stored and queued; the core engine could not analyse it yet ({analysis?.error ?? "unavailable"}). The
+        gateway tries again by itself
+        {analysis?.next_attempt_at ? <> ({formatRelative(analysis.next_attempt_at)})</> : null}, for up to a day, so
+        nothing is lost.
       </Verdict>
     )
   }

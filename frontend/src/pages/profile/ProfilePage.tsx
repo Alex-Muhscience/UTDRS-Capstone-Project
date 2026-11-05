@@ -95,7 +95,10 @@ export function ProfilePage() {
     update.mutate(
       { firstName: value("firstName") || null, lastName: value("lastName") || null, email: value("email") },
       {
-        onSuccess: () => toast.success("Profile saved"),
+        onSuccess: (saved) =>
+          toast.success(
+            saved.email !== user.email && !saved.email_verified ? "Profile saved. Confirm your new email address with the link we sent." : "Profile saved",
+          ),
         onError: (error) => toast.error(error.message),
       },
     )
@@ -139,6 +142,13 @@ export function ProfilePage() {
           <DescriptionList
             items={[
               ["Username", user.username],
+              [
+                "Email",
+                <span key="email" className="flex flex-wrap items-center gap-2">
+                  {user.email}
+                  {user.email_verified ? <Badge tone="success">Confirmed</Badge> : <Badge tone="warning">Not confirmed</Badge>}
+                </span>,
+              ],
               ["Role", <Badge key="role" tone="accent">{humanize(user.role)}</Badge>],
               ["Member since", formatDateTime(user.createdAt)],
               ["Last sign-in", formatDateTime(user.lastLogin)],

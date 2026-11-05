@@ -29,7 +29,8 @@ class UserRepository(BaseRepository):
             return None
         return await self.collection.unscoped().find_one({"_id": ObjectId(id)})
 
-    async def create_user(self, user: UserCreate) -> str:
+    async def create_user(self, user: UserCreate, **fields: Any) -> str:
+        """A new account; `fields` are stored with it (such as registered_self)."""
         user_dict = user.model_dump()
         password = user_dict.pop("password")
 
@@ -45,6 +46,7 @@ class UserRepository(BaseRepository):
             "createdAt": utcnow(),
             "updatedAt": utcnow(),
             "preferences": {},
+            **fields,
         }
 
         return await self.insert_one(user_doc)
@@ -76,6 +78,10 @@ class UserRepository(BaseRepository):
             {"$set": {"lastLogin": utcnow(), "updatedAt": utcnow()}},
         )
         return result.modified_count > 0
+
+    async def set_email_verified(self, id: str, verified: bool) -> None:
+        if ObjectId.is_valid(id):
+            await self.collection.update_one({"_id": ObjectId(id)}, {"$set": {"email_verified": verified}})
 
     async def change_password(self, id: str, new_password: str) -> bool:
         if not ObjectId.is_valid(id):

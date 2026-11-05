@@ -87,6 +87,174 @@
         }
       }
     },
+    "/api/v1/auth/forgot-password": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Forgot Password",
+        "description": "Email a link to choose a new password, valid for 30 minutes and once. The answer is\nthe same whether or not the account exists. At most three emails an hour per account.",
+        "operationId": "forgot_password_api_v1_auth_forgot_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountLookup"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/reset-password": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Reset Password",
+        "description": "Choose a new password with the link from the email. Every session of the account ends.",
+        "operationId": "reset_password_api_v1_auth_reset_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordReset"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/verify-email": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Verify Email",
+        "description": "Confirm an email address with the link sent to it.",
+        "operationId": "verify_email_api_v1_auth_verify_email_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailVerification"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/resend-verification": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Resend Verification",
+        "description": "Send the link to confirm an email address again (for someone who cannot sign in until they do). The answer never says whether the account exists.",
+        "operationId": "resend_verification_api_v1_auth_resend_verification_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountLookup"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "tags": [
@@ -405,7 +573,7 @@
           "authentication"
         ],
         "summary": "Update User Me",
-        "description": "Update current user information (not role or account status).",
+        "description": "Update current user information (not role or account status). A new email address has to be confirmed again.",
         "operationId": "update_user_me_api_v1_auth_me_put",
         "requestBody": {
           "content": {
@@ -434,6 +602,33 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/me/send-verification": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Send My Verification",
+        "description": "Send the link to confirm your email address (again).",
+        "operationId": "send_my_verification_api_v1_auth_me_send_verification_post",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
                 }
               }
             }
@@ -3077,7 +3272,7 @@
           "events"
         ],
         "summary": "Create Event",
-        "description": "Create a new event.\n\nWhen a core engine is configured, the event is then analysed in the background; the\nresult is recorded on the event (metadata.analysis) and a threat raises an alert.",
+        "description": "Create a new event.\n\nWhen a core engine is configured, the event is queued and analysed in the background;\nif the engine cannot be reached it is tried again until it can (for up to a day). The\nresult is recorded on the event (metadata.analysis) and a threat raises an alert.",
         "operationId": "create_event_api_v1_events__post",
         "security": [
           {
@@ -3096,6 +3291,101 @@
         },
         "responses": {
           "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Event"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/reanalyse": {
+      "post": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Reanalyse Failed",
+        "description": "Queue every event whose analysis failed to be analysed again (administrators): after\nthe core engine was unavailable for longer than the gateway keeps trying.",
+        "operationId": "reanalyse_failed_api_v1_events_reanalyse_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Reanalysis"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Requeued"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/events/{event_id}/reanalyse": {
+      "post": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Reanalyse Event",
+        "description": "Analyse an event again, such as one whose analysis failed. A threat it shows raises an alert once.",
+        "operationId": "reanalyse_event_api_v1_events__event_id__reanalyse_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "The ID of the event to analyse again"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
@@ -7790,6 +8080,34 @@
   },
   "components": {
     "schemas": {
+      "Accepted": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "Accepted"
+      },
+      "AccountLookup": {
+        "properties": {
+          "login": {
+            "type": "string",
+            "maxLength": 254,
+            "minLength": 1,
+            "title": "Login"
+          }
+        },
+        "type": "object",
+        "required": [
+          "login"
+        ],
+        "title": "AccountLookup"
+      },
       "Action": {
         "properties": {
           "id": {
@@ -8620,6 +8938,36 @@
         "type": "object",
         "title": "AlertUpdate"
       },
+      "AnalysisQueueStatus": {
+        "properties": {
+          "waiting": {
+            "type": "integer",
+            "title": "Waiting"
+          },
+          "oldest_waiting_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest Waiting Since"
+          },
+          "failed_last_day": {
+            "type": "integer",
+            "title": "Failed Last Day"
+          }
+        },
+        "type": "object",
+        "required": [
+          "waiting",
+          "failed_last_day"
+        ],
+        "title": "AnalysisQueueStatus"
+      },
       "ApiKey": {
         "properties": {
           "id": {
@@ -9329,6 +9677,16 @@
           "session_idle_minutes": {
             "type": "integer",
             "title": "Session Idle Minutes"
+          },
+          "password_reset": {
+            "type": "boolean",
+            "title": "Password Reset",
+            "default": false
+          },
+          "email_verification_required": {
+            "type": "boolean",
+            "title": "Email Verification Required",
+            "default": false
           }
         },
         "type": "object",
@@ -10216,6 +10574,16 @@
               }
             ]
           },
+          "analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisQueueStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "last_updated": {
             "type": "string",
             "format": "date-time",
@@ -10344,6 +10712,21 @@
           "already_checked"
         ],
         "title": "EmailCheckResult"
+      },
+      "EmailVerification": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 10,
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "EmailVerification"
       },
       "Entity": {
         "properties": {
@@ -11496,6 +11879,26 @@
         ],
         "title": "PasswordChange"
       },
+      "PasswordReset": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 10,
+            "title": "Token"
+          },
+          "new_password": {
+            "type": "string",
+            "title": "New Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "new_password"
+        ],
+        "title": "PasswordReset"
+      },
       "Permission": {
         "properties": {
           "name": {
@@ -11868,6 +12271,24 @@
         ],
         "title": "PollResult"
       },
+      "Reanalysis": {
+        "properties": {
+          "failed_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed Since"
+          }
+        },
+        "type": "object",
+        "title": "Reanalysis"
+      },
       "RecoveryCodes": {
         "properties": {
           "recovery_codes": {
@@ -12156,6 +12577,20 @@
           "generated_at"
         ],
         "title": "ReportSummary"
+      },
+      "Requeued": {
+        "properties": {
+          "queued": {
+            "type": "integer",
+            "title": "Queued",
+            "description": "How many events were queued to be analysed again"
+          }
+        },
+        "type": "object",
+        "required": [
+          "queued"
+        ],
+        "title": "Requeued"
       },
       "ResponseSettings": {
         "properties": {
@@ -13891,6 +14326,11 @@
             "type": "object",
             "title": "Preferences",
             "default": {}
+          },
+          "email_verified": {
+            "type": "boolean",
+            "title": "Email Verified",
+            "default": false
           },
           "mfa_enabled": {
             "type": "boolean",
