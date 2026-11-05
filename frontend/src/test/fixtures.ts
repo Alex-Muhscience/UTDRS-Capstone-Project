@@ -100,7 +100,7 @@ export const tenant = {
 export function shellRoutes(me: User = user) {
   return {
     "GET /api/v1/auth/me": me,
-    "GET /api/v1/auth/config": { allow_registration: true, registration_mode: "join" },
+    "GET /api/v1/auth/config": { allow_registration: true, registration_mode: "join", session_idle_minutes: 60 },
     "GET /api/v1/tenants/current": tenant,
     "GET /api/v1/users/": [user, admin, colleague],
     "GET /api/v1/alerts/summary": { total: 1, by_status: { open: 1 }, open_by_severity: { critical: 1 } },

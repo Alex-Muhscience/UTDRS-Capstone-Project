@@ -14,7 +14,11 @@ class Settings(BaseSettings):
     # JWT
     JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    # Sessions (core/services/sessions.py): access tokens are short and refreshed; a session
+    # ends after this long without a refresh, and this long after signing in at most.
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    SESSION_IDLE_MINUTES: int = 60
+    SESSION_MAX_HOURS: int = 12
 
     # App
     DEBUG: bool = False

@@ -45,9 +45,10 @@ mock_user_data = {
 }
 
 
+@patch("api.routes.auth.sessions.start", new_callable=AsyncMock, return_value=("665f1c2ab1e2c3d4e5f60999", "a-refresh-token"))
 @patch("api.routes.auth.verify_password")
 @patch("api.routes.auth.UserRepository")
-def test_login_success(mock_user_repo_class, mock_verify_password):
+def test_login_success(mock_user_repo_class, mock_verify_password, mock_start_session):
     # Setup mocks
     mock_user_repo = mock_user_repo_class.return_value
     mock_user_repo.find_by_username = AsyncMock(return_value=mock_user_data)
@@ -63,6 +64,7 @@ def test_login_success(mock_user_repo_class, mock_verify_password):
     assert "access_token" in response.json()
     assert response.json()["token_type"] == "bearer"
     assert response.json()["user"]["username"] == "testuser"
+    assert response.json()["refresh_token"] == "a-refresh-token"
 
 
 @patch("api.routes.auth.verify_password")

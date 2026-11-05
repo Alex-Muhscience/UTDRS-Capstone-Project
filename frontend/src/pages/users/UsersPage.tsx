@@ -3,7 +3,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 
 import type { UserWithPassword } from "@/api/client"
-import { displayName, useCreateUser, useResetMfa, useResetPassword, useUpdateUser, useUsers } from "@/api/queries"
+import { displayName, useCreateUser, useResetMfa, useResetPassword, useSignOutEverywhere, useUpdateUser, useUsers } from "@/api/queries"
 import { useUser } from "@/auth/context"
 import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
@@ -82,6 +82,7 @@ export function UsersPage() {
   const update = useUpdateUser()
   const reset = useResetPassword()
   const resetMfa = useResetMfa()
+  const signOut = useSignOutEverywhere()
   const [adding, setAdding] = useState(false)
   const [password, setPassword] = useState<UserWithPassword | null>(null)
 
@@ -192,6 +193,23 @@ export function UsersPage() {
                             }
                           >
                             Reset MFA
+                          </Button>
+                        )}
+                        {user.active && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title={isMe ? "Sign out of every session except this one" : "For a lost or stolen device: every session they have ends now"}
+                            disabled={signOut.isPending}
+                            onClick={() =>
+                              signOut.mutate(user.id, {
+                                onSuccess: ({ ended }) =>
+                                  toast.success(ended ? `Signed ${name} out of ${ended === 1 ? "1 session" : `${ended} sessions`}` : `${name} was not signed in`),
+                                onError: (error) => toast.error(error.message),
+                              })
+                            }
+                          >
+                            Sign out everywhere
                           </Button>
                         )}
                         {!isMe && (

@@ -32,3 +32,11 @@ describe("session storage", () => {
     expect(sessionStorage.length).toBe(0)
   })
 })
+
+describe("refresh tokens", () => {
+  it("keeps a session whose access token expired while it can be refreshed", () => {
+    saveSession(fakeToken(-10), "a-refresh-token")
+    expect(readSession()?.refreshToken).toBe("a-refresh-token")
+    clearSession()
+  })
+})

@@ -14,6 +14,7 @@ import { formatDateTime, humanize } from "@/lib/format"
 import { SecurityCard } from "@/pages/security/SecurityCard"
 
 import { NotificationsCard } from "./NotificationsCard"
+import { SessionsCard } from "./SessionsCard"
 
 function OrganisationCard() {
   const tenant = useCurrentTenant()
@@ -114,7 +115,7 @@ export function ProfilePage() {
       { current_password: String(data.get("current_password") ?? ""), new_password: next },
       {
         onSuccess: () => {
-          toast.success("Password changed")
+          toast.success("Password changed. You were signed out everywhere else.")
           form.reset()
         },
         onError: (error) => setPasswordError(error.message),
@@ -184,6 +185,8 @@ export function ProfilePage() {
         </Card>
 
         <SecurityCard />
+
+        <SessionsCard />
 
         <NotificationsCard />
       </div>

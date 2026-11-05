@@ -1,6 +1,6 @@
 import createClient, { type Middleware } from "openapi-fetch"
 
-import { UNAUTHORIZED_EVENT } from "@/auth/session"
+import { saveSession, tokenExpiry, UNAUTHORIZED_EVENT, type Session } from "@/auth/session"
 
 import { deployedApiUrl } from "./deployment"
 import type { components, paths } from "./schema"
@@ -38,6 +38,7 @@ export type SuppressionSuggestion = Schemas["SuppressionSuggestion"]
 export type DetectorQuality = Schemas["DetectorQuality"]
 export type Microsoft365 = Schemas["Microsoft365"]
 export type Webhook = Schemas["Webhook"]
+export type SessionInfo = Schemas["SessionInfo"]
 export type Delivery = Schemas["Delivery"]
 export type Role = Schemas["UserAdminUpdate"]["role"]
 
@@ -52,22 +53,99 @@ export class ApiError extends Error {
   }
 }
 
-let currentToken: string | null = null
+let current: Session | null = null
+let refreshing: Promise<Session | null> | null = null
+const refreshed = new Set<(session: Session) => void>()
 
-/** The bearer token sent with every request; set by the auth provider. */
+// Refresh this long before the access token expires, so requests never carry an expired one.
+const REFRESH_EARLY_MS = 30_000
+// Requests that authenticate themselves: never refreshed first, never reported as a lost session.
+const SELF_AUTHENTICATED = /\/auth\/(refresh|logout|login|login\/mfa|register)$/
+
+/** The session whose tokens are sent with every request; set by the auth provider. */
+export function setAuthSession(session: Session | null): void {
+  current = session
+}
+
+/** Use just an access token (no refresh token): for tests and tools. */
 export function setAuthToken(token: string | null): void {
-  currentToken = token
+  current = token ? { token, expiresAt: tokenExpiry(token), refreshToken: null } : null
+}
+
+/** Called with the new session each time the tokens are refreshed. */
+export function onSessionRefreshed(listener: (session: Session) => void): () => void {
+  refreshed.add(listener)
+  return () => refreshed.delete(listener)
+}
+
+function sessionLost(reason?: string): void {
+  window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT, { detail: reason }))
+}
+
+/**
+ * Swap the refresh token for new tokens. Concurrent callers share one request: a refresh
+ * token works once, and the gateway ends the session if it sees one used twice.
+ */
+export function refreshSession(): Promise<Session | null> {
+  const refreshToken = current?.refreshToken
+  if (!refreshToken) return Promise.resolve(null)
+  refreshing ??= (async () => {
+    try {
+      const { data, error, response } = await api.POST("/api/v1/auth/refresh", { body: { refresh_token: refreshToken } })
+      // Signed out meanwhile: keep nothing.
+      if (current?.refreshToken !== refreshToken) return null
+      if (data?.access_token && data.refresh_token) {
+        const next = saveSession(data.access_token, data.refresh_token)
+        current = next
+        refreshed.forEach((listener) => listener(next))
+        return next
+      }
+      if (response.status === 401) sessionLost(errorMessage(error, 401))
+      return null
+    } catch {
+      return null // The gateway could not be reached: the next request tries again.
+    } finally {
+      refreshing = null
+    }
+  })()
+  return refreshing
+}
+
+/** End this session at the gateway (best effort), then forget it here. */
+export async function endSession(): Promise<void> {
+  if (current?.refreshToken && current.expiresAt !== null && current.expiresAt <= Date.now() + REFRESH_EARLY_MS) {
+    await refreshSession()
+  }
+  const token = current?.token
+  current = null
+  if (!token) return
+  try {
+    await api.POST("/api/v1/auth/logout", { headers: { Authorization: `Bearer ${token}` } })
+  } catch {
+    // Unreachable: the session still ends here, and at the gateway after its idle time.
+  }
 }
 
 const auth: Middleware = {
-  onRequest({ request }) {
-    if (currentToken) request.headers.set("Authorization", `Bearer ${currentToken}`)
+  async onRequest({ request }) {
+    if (SELF_AUTHENTICATED.test(new URL(request.url).pathname) || request.headers.has("Authorization")) return request
+    if (current?.refreshToken && current.expiresAt !== null && current.expiresAt - Date.now() < REFRESH_EARLY_MS) {
+      await refreshSession()
+    }
+    if (current) request.headers.set("Authorization", `Bearer ${current.token}`)
     return request
   },
-  onResponse({ request, response }) {
-    // A rejected token (expired, or the user was deactivated) ends the session.
-    if (response.status === 401 && request.headers.has("Authorization")) {
-      window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT))
+  async onResponse({ request, response }) {
+    // A rejected session (ended, expired, or the user was deactivated): sign out, saying why.
+    if (response.status === 401 && request.headers.has("Authorization") && !SELF_AUTHENTICATED.test(new URL(request.url).pathname)) {
+      let reason: string | undefined
+      try {
+        const detail = ((await response.clone().json()) as FastApiError).detail
+        if (typeof detail === "string" && detail !== "Could not validate credentials") reason = detail
+      } catch {
+        // No readable reason.
+      }
+      sessionLost(reason)
     }
     return response
   },

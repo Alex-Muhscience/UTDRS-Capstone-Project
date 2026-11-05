@@ -51,6 +51,7 @@ All routes are under `/api/v1`. Interactive documentation is served at `/api/v1/
 | Retention | `GET /retention/`, `PATCH /retention/` (days per kind of data), `POST /retention/run` (administrators) |
 | Email | `POST /email/check` (`recipient`, `internet_message_id`): check a delivered email for phishing |
 | Webhooks | `GET /webhooks/events`, `GET`/`POST /webhooks/`, `PATCH`/`DELETE /webhooks/{id}`, `POST /webhooks/{id}/rotate-secret`, `POST /webhooks/{id}/test`, `GET /webhooks/{id}/deliveries`, `POST /webhooks/deliveries/{id}/redeliver` (administrators) |
+| Sessions | `POST /auth/refresh` (`refresh_token`), `POST /auth/logout`, `GET /auth/sessions`, `DELETE /auth/sessions/{id}`, `POST /auth/sessions/end-others`; `POST /users/{id}/sign-out` (administrators) |
 | Multi-factor authentication | `POST /auth/login/mfa` (`mfa_token`, `code`), `GET /auth/mfa`, `POST /auth/mfa/setup`, `/auth/mfa/confirm`, `/auth/mfa/recovery-codes`, `/auth/mfa/disable`; `PATCH /tenants/current/security` (`require_mfa`; administrators); `POST /users/{id}/reset-mfa` (administrators) |
 | Onboarding | `GET /onboarding/` (the checklist and first results), `PATCH /onboarding/` (`dismissed`; administrators) |
 | Connectors | `GET /connectors/microsoft-365`, `PUT /connectors/microsoft-365` (own app registration), `POST /connectors/microsoft-365/consent-url` and `/consent` (admin consent), `POST /connectors/microsoft-365/check`, `POST /connectors/microsoft-365/poll`, `DELETE /connectors/microsoft-365` (administrators) |
@@ -98,7 +99,7 @@ Comparisons are `==`, `!=`, `>`, `>=`, `<`, `<=`, `in [...]`, `not in [...]`, `m
 - **Users** can change their own name, email and password (8 to 72 bytes, bcrypt's limit), but not their role or active flag.
 - **API keys** let scripts, agents and integrations call the API without a person's password; see [below](#api-keys).
 - **Audit log**: sign-ins (succeeded, failed, throttled), registration, profile and password changes, and every change made through the users, alerts, assets, rules, simulations and API key routes are recorded, with who (a person, an API key, or the username tried), from which address, the request ID, what it acted on, the fields sent (never passwords), and whether it went through. Refused attempts are recorded too. Event ingestion is not, as events are their own record. See [below](#audit-log).
-- **Tokens** are HS256 JWTs signed with `JWT_SECRET`, valid for `ACCESS_TOKEN_EXPIRE_MINUTES` (30 by default). Passwords are hashed with bcrypt.
+- **Sessions**: signing in starts a session, with a short access token (an HS256 JWT signed with `JWT_SECRET`, `ACCESS_TOKEN_EXPIRE_MINUTES`) and a refresh token that works once; see [below](#sessions). Passwords are hashed with bcrypt.
 - **Middleware**: a request ID on every response (`X-Request-ID`), security headers (`nosniff`, `DENY` framing, a strict referrer policy, and `Content-Security-Policy: default-src 'self'` except on the docs pages, which need Swagger UI's CDN), a Host header allow-list (`ALLOWED_HOSTS`), a 10 MB request size limit, and a central error handler that does not leak internals.
 - **CORS** is limited to `CORS_ORIGINS`. The dashboard does not need it when it is served from the same origin (its dev server, preview server and Docker image all proxy `/api`).
 - **Sign-in throttling**: after 5 failed attempts in 15 minutes for one account from one address, or 50 from one address across all accounts, sign-in answers 429 with `Retry-After` until the 15 minutes are up. A correct password clears that account's count from that address. Counts are kept in MongoDB (`login_failures`, removed automatically), so every process and replica shares them. Counting by address as well as account stops guessing quickly without letting anyone lock a person out from elsewhere. An unknown username takes as long to reject as a wrong password, so response times do not reveal which accounts exist.
@@ -194,6 +195,19 @@ UTDRS tells an organisation's other systems what happens, as it happens (`core/s
 - **Delivered.** Each event is queued per webhook and sent by a background loop; failures are retried at growing intervals for about a day, then marked failed. Every attempt is in the delivery log, and any delivery can be sent again.
 - **Not into private networks.** URLs must be HTTPS, carry no credentials, and resolve only to public addresses: private, loopback, link-local (cloud metadata), reserved and multicast are refused when saved and again before every send; redirects are not followed. `WEBHOOK_ALLOW_PRIVATE_ADDRESSES` allows receivers on a deployment's own network (and plain HTTP).
 
+## Sessions
+
+Signing in starts a session (`core/services/sessions.py`) and returns two tokens:
+
+- an **access token**, a JWT naming the session, valid for `ACCESS_TOKEN_EXPIRE_MINUTES` (15). Each request checks that its session has not ended, so signing out takes effect at once rather than when the token expires. Tokens without a session are refused.
+- a **refresh token**, random and stored only as a hash, exchanged at `/auth/refresh` for a new pair. Each works once: a refresh token used a second time means it was copied, so the session ends there and then, and the audit log records `auth.session_reuse_detected`.
+
+A session ends when its person signs out; after `SESSION_IDLE_MINUTES` (60) without a refresh; `SESSION_MAX_HOURS` (12) after signing in, whatever happens; when the person changes their password (their other sessions); and when an administrator signs them out, resets their password or MFA, or deactivates them. An administrator acting on themselves keeps the session they are using. A request on an ended session answers 401 with the reason.
+
+People see where they are signed in (device, address, when last active) and end any session, or all but the current one. Ended sessions are kept for 30 days after they would have expired (they say who was signed in from where), then removed.
+
+The dashboard refreshes the access token shortly before it expires (one refresh at a time, shared by every waiting request), signs out at the gateway, and signs out by itself after the organisation's idle time without anyone using it, as its background refreshes would otherwise keep the session going.
+
 ## Multi-factor authentication
 
 Signing in can need a second factor (`core/services/mfa.py`): a code from an authenticator app (TOTP, RFC 6238: six digits, 30 seconds, what Microsoft, Google and 1Password's apps use), or one of ten single-use recovery codes.
@@ -249,7 +263,9 @@ Settings come from the environment or a `.env` file in this directory (see [`.en
 | `DEFAULT_TENANT_SLUG`, `DEFAULT_TENANT_NAME` | `default`, `Default organisation` | The organisation a single-organisation deployment uses |
 | `SCANS_TENANT` | unset | The organisation (by slug) device scans are recorded in; unset means the default one |
 | `JWT_ALGORITHM` | `HS256` | |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `15` | How long an access token lasts; the dashboard refreshes it |
+| `SESSION_IDLE_MINUTES` | `60` | A session without a refresh for this long ends |
+| `SESSION_MAX_HOURS` | `12` | A session ends this long after signing in, however active |
 | `CORE_ENGINE_URL` | unset | Base URL of the core engine. Unset: events are stored but not analysed. |
 | `CORE_ENGINE_TIMEOUT_SECONDS` | `10` | |
 | `INTERNAL_API_TOKEN` | unset | Shared secret for the engine, and for the data processor delivering scans |
