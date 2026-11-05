@@ -215,8 +215,8 @@ async def _recommendations(this: Dict[str, Any], outstanding: Dict[str, Any]) ->
     percent = this["figures"]["within_deadline_percent"]
     if percent is not None and percent < 80:
         advice.append("Fewer than 8 in 10 cases were dealt with in time: give every new case an owner as it arrives.")
-    if not await connectors.connected("m365"):
-        advice.append("Connect Microsoft 365, so UTDRS can watch sign-ins and email and act on account and phishing threats for you.")
+    if not await connectors.connected("m365") and not await connectors.connected("google"):
+        advice.append("Connect Microsoft 365 or Google Workspace, so UTDRS can watch sign-ins and email and act on account and phishing threats for you.")
     if this["actions"] and sum(a.get("status") == "failed" for a in this["actions"]):
         advice.append("Some response actions failed: check the Response page for why.")
     return advice or ["Nothing needs your attention: keep UTDRS connected and review this report next month."]

@@ -19,6 +19,7 @@ describe("connectors", () => {
   it("connects Microsoft 365 with an organisation's own app registration", async () => {
     const { calls } = mockGateway({
       ...shellRoutes(admin),
+      "GET /api/v1/connectors/google-workspace": { connected: false, encryption_available: true, scopes: [], last_poll: {}, errors: {} },
       "GET /api/v1/connectors/microsoft-365": status(),
       "PUT /api/v1/connectors/microsoft-365": status({ connected: true, status: "connected" }),
     })
@@ -44,6 +45,7 @@ describe("connectors", () => {
     vi.stubGlobal("location", { ...window.location, origin: "https://utdrs.example", assign })
     const { calls } = mockGateway({
       ...shellRoutes(admin),
+      "GET /api/v1/connectors/google-workspace": { connected: false, encryption_available: true, scopes: [], last_poll: {}, errors: {} },
       "GET /api/v1/connectors/microsoft-365": status({ consent_available: true }),
       "POST /api/v1/connectors/microsoft-365/consent-url": { url: "https://login.microsoftonline.com/organizations/v2.0/adminconsent?x=1" },
     })
@@ -77,6 +79,7 @@ describe("connectors", () => {
   it("shows what a connection brings in, what is wrong, and fetches on demand", async () => {
     const { calls } = mockGateway({
       ...shellRoutes(admin),
+      "GET /api/v1/connectors/google-workspace": { connected: false, encryption_available: true, scopes: [], last_poll: {}, errors: {} },
       "GET /api/v1/connectors/microsoft-365": status({
         connected: true,
         status: "error",
@@ -108,5 +111,37 @@ describe("connectors", () => {
 
     await person.click(screen.getByRole("button", { name: "Fetch now" }))
     await waitFor(() => expect(calls.some((call) => call.path.endsWith("/poll"))).toBe(true))
+  })
+})
+
+describe("Google Workspace", () => {
+  const notConnected = { connected: false, encryption_available: true, scopes: ["https://www.googleapis.com/auth/admin.reports.audit.readonly"], last_poll: {}, errors: {} }
+
+  it("connects with a service account key and shows what it brings in", async () => {
+    let google: Record<string, unknown> = notConnected
+    const { calls } = mockGateway({
+      ...shellRoutes(admin),
+      "GET /api/v1/connectors/microsoft-365": status(),
+      "GET /api/v1/connectors/google-workspace": () => google,
+      "PUT /api/v1/connectors/google-workspace": () => {
+        google = {
+          ...notConnected, connected: true, status: "connected", domain: "contoso.com", admin_email: "it@contoso.com",
+          client_email: "utdrs@p.iam.gserviceaccount.com", connected_at: now, last_poll_at: now, last_poll: { login: 4, admin: 1, token: 0 },
+        }
+        return google
+      },
+    })
+    const { user: person } = renderApp("/connectors")
+    const card = (await screen.findByRole("heading", { name: /Google Workspace/ })).closest("section") as HTMLElement
+    expect(within(card).getByText(/admin.reports.audit.readonly/)).toBeInTheDocument()
+    await person.click(within(card).getByLabelText("Or paste the key"))
+    await person.paste('{"type": "service_account"}')
+    await person.type(within(card).getByLabelText(/Administrator to act as/), "it@contoso.com")
+    await person.click(within(card).getByRole("button", { name: "Connect Google Workspace" }))
+    expect(await within(card).findByText(/4 sign-ins, 1 administrator actions/)).toBeInTheDocument()
+    expect(JSON.parse(calls.find((call) => call.method === "PUT" && call.path.endsWith("/google-workspace"))?.body ?? "{}")).toEqual({
+      service_account_key: '{"type": "service_account"}',
+      admin_email: "it@contoso.com",
+    })
   })
 })

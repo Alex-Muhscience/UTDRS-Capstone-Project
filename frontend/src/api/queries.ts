@@ -690,6 +690,24 @@ export function useDisconnectMicrosoft365() {
   return useConnectorMutation(() => unwrap(api.DELETE("/api/v1/connectors/microsoft-365")))
 }
 
+export function useGoogleWorkspace() {
+  return useQuery({ queryKey: ["connectors", "google"], queryFn: () => unwrap(api.GET("/api/v1/connectors/google-workspace")), refetchInterval: POLL_INTERVAL_MS })
+}
+
+export function useConnectGoogleWorkspace() {
+  return useConnectorMutation((body: { service_account_key: string; admin_email: string }) =>
+    unwrap(api.PUT("/api/v1/connectors/google-workspace", { body })),
+  )
+}
+
+export function usePollGoogleWorkspace() {
+  return useConnectorMutation(() => unwrap(api.POST("/api/v1/connectors/google-workspace/poll")))
+}
+
+export function useDisconnectGoogleWorkspace() {
+  return useConnectorMutation(() => unwrap(api.DELETE("/api/v1/connectors/google-workspace")))
+}
+
 // ---------------------------------------------------------------------------- Email
 
 /** Check a delivered email for phishing, by its recipient and Internet message id. */

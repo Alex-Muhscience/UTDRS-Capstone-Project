@@ -70,7 +70,7 @@ def test_connecting_microsoft_365_brings_first_results_in_minutes(client, org, m
     client.portal.call(m365_ingest.idle)
 
     body, by = steps(client, org)
-    assert by["microsoft_365"]["done"] and by["microsoft_365"]["detail"] == "Connected to Contoso"
+    assert by["microsoft_365"]["done"] and by["microsoft_365"]["detail"] == "Microsoft 365 connected to Contoso"
     assert body["results"]["sign_ins"] == 3 and body["results"]["alerts"] >= 1 and by["results"]["done"]
     client.delete(f"{API}/connectors/microsoft-365", headers=org)
     assert steps(client, org)[1]["microsoft_365"]["done"] is False  # undone, shown again

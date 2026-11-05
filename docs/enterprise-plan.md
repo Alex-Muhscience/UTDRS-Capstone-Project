@@ -228,7 +228,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 |---|---|---|---|
 | FR-ING-01 | Common event schema (OCSF) with versioning; every source is normalised to it; raw event kept alongside | P0 | 1 |
 | FR-ING-02 | Microsoft 365 connector: Entra ID sign-ins and audit logs, Exchange Online message trace and mailbox audit, Defender alerts (Microsoft Graph and Office 365 Management Activity API), with OAuth admin consent **Partly: admin consent or own app registration, Entra ID sign-ins and audit logs, and Defender alerts (#25); Exchange mailbox audit through the Management Activity API (#29). Built against Microsoft's documented formats; Exchange message trace remains, and it has not yet run against a live tenant.** | P0 | 1 |
-| FR-ING-03 | Google Workspace connector: login, admin, Gmail and Drive audit (Reports API) | P1 | 2 |
+| FR-ING-03 | Google Workspace connector: login, admin, Gmail and Drive audit (Reports API) **Done for the Admin SDK (#53): sign-ins, administrator actions and app authorisations, with detections and account actions. Gmail and Drive audit remain.** | P1 | 2 |
 | FR-ING-04 | Email content access for phishing analysis: messages delivered to mailboxes, with headers, links and attachment hashes (Graph and Gmail APIs) **Partly (#30): Graph, for messages Defender names and analysts ask about, with headers, links and attachment hashes; the body judged and not kept. Checking every incoming message (change notifications) and Gmail remain.** | P0 | 1 |
 | FR-ING-05 | HTTP ingestion API with API keys, batching, compression and idempotency **Done (#45): API keys (#18), batches of up to 500 checked event by event, external ids stored once per source, Idempotency-Key, and gzip in both directions.** | P0 | 1 |
 | FR-ING-06 | Syslog (RFC 5424, CEF, LEEF) collector for firewalls and network devices | P1 | 2 |
@@ -322,7 +322,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 |---|---|---|---|
 | FR-PLT-01 | Billing: plans, per-seat metering, invoices, card and invoice payment, MSP wholesale billing (Stripe or equivalent) | P1 | 2 |
 | FR-PLT-02 | Data retention per plan (for example 90 days hot, 1 year archive), enforced automatically **Done (#28): per-organisation periods within the deployment's defaults and maximum, enforced hourly; per-plan limits come with billing, and archiving to cheaper storage remains.** | P0 | 1 |
-| FR-PLT-03 | Onboarding wizard: connect Microsoft 365 or Google in minutes, see first results the same day **Done for Microsoft 365 (#27); Google comes with its connector (FR-ING-03).** | P0 | 1 |
+| FR-PLT-03 | Onboarding wizard: connect Microsoft 365 or Google in minutes, see first results the same day **Done for Microsoft 365 (#27); Google Workspace completes the same step (#53).** | P0 | 1 |
 | FR-PLT-04 | Self-hosted edition (Helm chart and Compose) for customers who cannot use the hosted service | P3 | 4 |
 | FR-PLT-05 | Status page and in-product incident notices | P1 | 2 |
 | FR-PLT-06 | Internationalisation of the dashboard and reports (English first, then French, Swahili, Arabic, Portuguese as the market requires) | P2 | 3 |
@@ -545,7 +545,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 |---|---|---|---|
 | GAP-ING-01 | Only handles device scans; polls MongoDB every few seconds as a queue | FR-ING-12 | P1 |
 | GAP-ING-02 | Health server is Flask's development server | NFR-03 | P2 |
-| GAP-ING-03 | No connectors at all (Microsoft 365, Google, syslog, cloud, EDR) **Microsoft 365 (#25); the others remain.** | FR-ING-02 to 10 | P0 |
+| GAP-ING-03 | No connectors at all (Microsoft 365, Google, syslog, cloud, EDR) **Microsoft 365 (#25) and Google Workspace (#53); the others remain.** | FR-ING-02 to 10 | P0 |
 | GAP-ING-04 | No enrichment (GeoIP, ASN, asset and user lookup) | FR-ING-13 | P1 |
 
 ### 8.8 Dashboard (`frontend/`)

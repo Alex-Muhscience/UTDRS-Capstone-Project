@@ -24,7 +24,7 @@ from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
 from core.database.indexes import ensure_indexes
 from core.services import (
-    case_service, detection_pipeline, m365_ingest, metrics, notifications as notification_service, platform_health,
+    case_service, detection_pipeline, google_workspace, m365_ingest, metrics, notifications as notification_service, platform_health,
     playbooks as playbook_service,
     reports as report_service, retention, tenants, webhooks,
 )
@@ -61,6 +61,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(notification_service.deliver_periodically()),
         asyncio.create_task(report_service.generate_periodically()),
         asyncio.create_task(m365_ingest.poll_periodically()),
+        asyncio.create_task(google_workspace.poll_periodically()),
         asyncio.create_task(retention.run_periodically()),
         asyncio.create_task(webhooks.deliver_periodically()),
         asyncio.create_task(detection_pipeline.analyse_periodically()),
@@ -77,6 +78,7 @@ async def lifespan(app: FastAPI):
             await loop
     await playbook_service.idle()
     await m365_ingest.idle()
+    await google_workspace.idle()
     with suppress(Exception):
         await metrics.flush()  # what this process counted since the last flush
     await close_mongo_connection()
