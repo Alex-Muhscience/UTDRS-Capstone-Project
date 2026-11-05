@@ -215,3 +215,35 @@ def test_each_organisations_history_and_alerts_are_its_own(client):
     assert clinic_alerts >= 1 and clinic_events >= 1
     assert school_alerts == 0 and school_events == 0
     assert everything >= clinic_alerts  # outside an event, the whole database is visible
+
+
+def test_a_batch_is_analysed_in_one_request_and_in_order(client):
+    benign = {"source": "endpoint_agent", "event_type": "process", "timestamp": RANSOMWARE_PRECURSOR["timestamp"],
+              "data": {"process_name": "notepad.exe", "command_line": "notepad.exe notes.txt"}}
+    response = client.post("/detections/process/batch", json={"events": [benign, RANSOMWARE_PRECURSOR, benign]})
+    assert response.status_code == 200, response.text
+    results = response.json()
+    assert [r["alert"] is not None for r in results] == [False, True, False]
+    assert results[1]["alert"]["severity"] == "critical" and all(r["error"] is None for r in results)
+
+
+def test_a_batch_is_limited(client):
+    benign = {"source": "x", "event_type": "process", "timestamp": RANSOMWARE_PRECURSOR["timestamp"], "data": {}}
+    assert client.post("/detections/process/batch", json={"events": [benign] * 101}).status_code == 413
+
+
+def test_one_failing_event_does_not_fail_the_batch(client, monkeypatch):
+    from core.services import event_processor
+
+    original = event_processor.process_event
+
+    async def process(event):
+        if event["data"].get("explode"):
+            raise RuntimeError("bad event")
+        return await original(event)
+
+    monkeypatch.setattr(event_processor, "process_event", process)
+    good = {"source": "x", "event_type": "process", "timestamp": RANSOMWARE_PRECURSOR["timestamp"], "data": {"process_name": "notepad.exe"}}
+    bad = {**good, "data": {"explode": True}}
+    results = client.post("/detections/process/batch", json={"events": [good, bad, good]}).json()
+    assert [r["error"] for r in results] == [None, "RuntimeError: bad event", None]

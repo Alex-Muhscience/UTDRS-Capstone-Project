@@ -128,6 +128,7 @@ class Settings(BaseSettings):
     # sent to the core engine, how many at once, and how long to keep trying.
     ANALYSIS_INTERVAL_SECONDS: int = 5
     ANALYSIS_CONCURRENCY: int = 4
+    ANALYSIS_BATCH_SIZE: int = 50
     ANALYSIS_GIVE_UP_HOURS: int = 24
 
     # Google Workspace (core/services/google_workspace.py): how often the Reports API is read.

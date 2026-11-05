@@ -1,3 +1,4 @@
+import bisect
 from typing import Dict, List, Any, Optional, Set, Tuple
 from datetime import datetime, timedelta
 import uuid
@@ -8,6 +9,14 @@ from core.database.connection import get_database
 from utils.time import utcnow
 
 logger = get_logger(__name__)
+
+
+def _parse_time(value: Any) -> Optional[datetime]:
+    """An event's time, as stored (a naive-UTC ISO string); None when it is missing or unreadable."""
+    try:
+        return datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
 
 class CorrelationRule:
     """Base class for correlation rules."""
@@ -575,13 +584,21 @@ class CorrelationDetector:
             time_window=60
         ))
         
-    async def correlate_events(self, time_window_minutes: int = 60) -> List[Dict[str, Any]]:
+    async def correlate_events(self, time_window_minutes: int = 60, around: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """
         Correlate recent events to identify related security incidents.
-        
+
+        A rule looks at the events in a window of its length ending at an event. With
+        `around` (the event just received), only the windows that can contain it are looked
+        at: those ending at it, or at an event less than a window after it (it may have
+        arrived late). Looking at every window for every new event made each event cost more
+        than the last (the work grew with the square of the recent events); this way it grows
+        only with their number, and finds the same correlations for that event.
+
         Args:
             time_window_minutes: Time window for correlation in minutes
-            
+            around: Only correlations that can include this event
+
         Returns:
             List of correlation results (potential security incidents)
         """
@@ -590,49 +607,52 @@ class CorrelationDetector:
         recent_events = await self.db.events.find({
             "timestamp": {"$gte": time_threshold.isoformat()}
         }).to_list(length=10000)
-        
+
         if not recent_events:
             return []
-            
+
         logger.info(f"Correlating {len(recent_events)} events from the past {time_window_minutes} minutes")
-        
+
+        # Each event's time, parsed once; in time order.
+        timed = sorted(((t, e) for e in recent_events if (t := _parse_time(e.get('timestamp'))) is not None), key=lambda pair: pair[0])
+        times = [t for t, _ in timed]
+        around_time = _parse_time(around.get('timestamp')) if around else None
+
         correlation_results = []
-        
+
         # Apply each correlation rule
         for rule in self.rules:
             rule_time_window = timedelta(minutes=rule.time_window)
-            
-            # Group events by time windows
-            for event in recent_events:
-                event_time = datetime.fromisoformat(event.get('timestamp', utcnow().isoformat()))
+            if around_time is not None:
+                last = bisect.bisect_right(times, around_time + rule_time_window)
+                first = bisect.bisect_left(times, around_time)
+                end_times = times[first:last]
+            else:
+                end_times = times
+            # Events at the same moment end the same window: look at each moment once (a
+            # burst stamped with one time would otherwise be looked at once per event).
+            distinct_ends = sorted(set(end_times))
+
+            for event_time in distinct_ends:
                 window_start = event_time - rule_time_window
-                
-                # Get events in this time window
-                window_events = [
-                    e for e in recent_events
-                    if datetime.fromisoformat(e.get('timestamp', '')) >= window_start
-                    and datetime.fromisoformat(e.get('timestamp', '')) <= event_time
-                ]
-                
+                window_events = [e for _, e in timed[bisect.bisect_left(times, window_start):bisect.bisect_right(times, event_time)]]
+
                 # Skip if not enough events
                 if len(window_events) < rule.threshold:
                     continue
-                    
+
                 # Check if rule matches
                 if await rule.matches(window_events):
                     # Create correlation result
                     correlation_id = rule.get_correlation_id(window_events)
-                    
+
                     # Check if we already have this correlation
                     if any(r.get('correlation_id') == correlation_id for r in correlation_results):
                         continue
-                        
+
                     # Sort events by timestamp
-                    sorted_events = sorted(
-                        window_events,
-                        key=lambda e: e.get('timestamp', '')
-                    )
-                    
+                    sorted_events = window_events
+
                     correlation_result = {
                         "correlation_id": correlation_id,
                         "rule_name": rule.name,
@@ -714,6 +734,25 @@ class CorrelationDetector:
                 
         return list(tactics), list(techniques)
         
+    async def _first_report(self, correlation_id: Optional[str]) -> bool:
+        """True the first time this correlation is reported within the hour, in this organisation."""
+        from pymongo.errors import DuplicateKeyError
+
+        from core.detection.identity_detector import COOLDOWN, STATE
+        from core.tenancy import current_tenant
+
+        if not correlation_id:
+            return True
+        state = get_database()[STATE]
+        now = utcnow()
+        key = f"{current_tenant()}:correlation:{correlation_id}"
+        await state.delete_one({"key": key, "until": {"$lte": now}})
+        try:
+            await state.insert_one({"key": key, "until": now + COOLDOWN})
+        except DuplicateKeyError:
+            return False
+        return True
+
     async def detect(self, event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Process a new event and check for correlations.
@@ -740,8 +779,8 @@ class CorrelationDetector:
         else:
             await self.db.events.insert_one(stored)
         
-        # Correlate recent events
-        correlations = await self.correlate_events()
+        # Correlate recent events: only the windows this event can be in.
+        correlations = await self.correlate_events(around=event)
         
         # Find correlations that include this event
         event_id = event.get('id')
@@ -750,6 +789,10 @@ class CorrelationDetector:
             if event_id in c.get('event_ids', [])
         ]
         
+        # Each correlation is reported once an hour (a burst of failed sign-ins is one alert,
+        # not one per sign-in after the fifth).
+        matching_correlations = [c for c in matching_correlations if await self._first_report(c.get('correlation_id'))]
+
         if matching_correlations:
             # Sort by severity
             severity_order = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3}

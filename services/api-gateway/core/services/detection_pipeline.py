@@ -158,6 +158,32 @@ async def _alert_for(event_id: str, engine_alert: Dict[str, Any], event: EventCr
     )
 
 
+async def _record(
+    event_id: str, event: EventCreate, previous: Dict[str, Any], engine_alert: Optional[Dict[str, Any]],
+    error: Optional[core_engine_client.CoreEngineError], transient: bool = False,
+) -> Optional[str]:
+    """Record one attempt's outcome on the event (in the current organisation). Returns the alert's id, if any."""
+    now = utcnow()
+    attempts = previous.get("attempts") or 1
+    queued_at = previous.get("queued_at") or now
+    if error is not None:
+        too_long = now - _aware(queued_at) >= timedelta(hours=settings.ANALYSIS_GIVE_UP_HOURS)
+        give_up = not error.retryable or transient or too_long
+        logger.warning(f"Analysing event {event_id} failed (attempt {attempts}{', giving up' if give_up else ''}): {error}")
+        outcome = {"status": "error", "analysed_at": now} if give_up else {"status": QUEUED, "next_attempt_at": now + retry_delay(attempts)}
+        await EventRepository().update_one(event_id, {"metadata.analysis": {
+            **outcome, "queued_at": queued_at, "attempts": attempts, "error": str(error)[:500],
+        }})
+        return None
+    alert_id = await _alert_for(event_id, engine_alert, event) if engine_alert else None
+    analysis: Dict[str, Any] = {"status": "threat" if alert_id else "clean", "analysed_at": utcnow(), "queued_at": queued_at, "attempts": attempts}
+    if alert_id:
+        analysis["alert_id"] = alert_id
+        logger.info(f"Event {event_id} raised alert {alert_id}")
+    await EventRepository().update_one(event_id, {"metadata.analysis": analysis})
+    return alert_id
+
+
 async def _attempt(
     event_id: str, event: EventCreate, previous: Dict[str, Any], transient: Optional[Dict[str, Any]] = None
 ) -> Tuple[Optional[str], Optional[core_engine_client.CoreEngineError]]:
@@ -167,30 +193,51 @@ async def _attempt(
     attempt that needs it is not retried.
     """
     client = core_engine_client.get_core_engine_client()
-    now = utcnow()
-    attempts = previous.get("attempts") or 1
-    queued_at = previous.get("queued_at") or now
     try:
         if client is None:
             raise core_engine_client.CoreEngineError("No core engine is configured", 400)
         engine_alert = await client.analyse_event(to_engine_event(event_id, event, transient))
     except core_engine_client.CoreEngineError as exc:
-        too_long = now - _aware(queued_at) >= timedelta(hours=settings.ANALYSIS_GIVE_UP_HOURS)
-        give_up = not exc.retryable or transient is not None or too_long
-        logger.warning(f"Analysing event {event_id} failed (attempt {attempts}{', giving up' if give_up else ''}): {exc}")
-        outcome = {"status": "error", "analysed_at": now} if give_up else {"status": QUEUED, "next_attempt_at": now + retry_delay(attempts)}
-        await EventRepository().update_one(event_id, {"metadata.analysis": {
-            **outcome, "queued_at": queued_at, "attempts": attempts, "error": str(exc)[:500],
-        }})
+        await _record(event_id, event, previous, None, exc, transient is not None)
         return None, exc
+    return await _record(event_id, event, previous, engine_alert, None), None
 
-    alert_id = await _alert_for(event_id, engine_alert, event) if engine_alert else None
-    analysis: Dict[str, Any] = {"status": "threat" if alert_id else "clean", "analysed_at": utcnow(), "queued_at": queued_at, "attempts": attempts}
-    if alert_id:
-        analysis["alert_id"] = alert_id
-        logger.info(f"Event {event_id} raised alert {alert_id}")
-    await EventRepository().update_one(event_id, {"metadata.analysis": analysis})
-    return alert_id, None
+
+async def _attempt_batch(claimed: List[Dict[str, Any]]) -> Tuple[int, Optional[core_engine_client.CoreEngineError]]:
+    """
+    Claimed events (of any organisations) in one request to the engine, in order. Returns how
+    many were analysed, and the engine's error when the whole request failed (then each event
+    is recorded as a failed attempt, to be tried again). An engine without the batch endpoint
+    gets them one at a time.
+    """
+    client = core_engine_client.get_core_engine_client()
+    prepared = []
+    for doc in claimed:
+        with tenant_context(doc["tenant_id"]):
+            event = _stored_event(doc)
+            prepared.append((doc, event, to_engine_event(str(doc["_id"]), event)))
+    try:
+        results = await client.analyse_batch([engine_event for _, _, engine_event in prepared])
+    except core_engine_client.BatchNotSupported:
+        done, failure = 0, None
+        for doc, event, _ in prepared:
+            with tenant_context(doc["tenant_id"]):
+                _, error = await _attempt(str(doc["_id"]), event, doc["metadata"]["analysis"])
+            done += error is None
+            failure = failure or error
+        return done, failure
+    except core_engine_client.CoreEngineError as exc:
+        for doc, event, _ in prepared:
+            with tenant_context(doc["tenant_id"]):
+                await _record(str(doc["_id"]), event, doc["metadata"]["analysis"], None, exc)
+        return 0, exc
+    done = 0
+    for (doc, event, _), (engine_alert, error_text) in zip(prepared, results):
+        error = core_engine_client.CoreEngineError(f"The core engine could not analyse it: {error_text}", 500) if error_text else None
+        with tenant_context(doc["tenant_id"]):
+            await _record(str(doc["_id"]), event, doc["metadata"]["analysis"], engine_alert, error)
+        done += error is None
+    return done, None
 
 
 async def analyse_queued(event_id: str) -> Optional[str]:
@@ -220,9 +267,10 @@ async def analyse_event(event_id: str, event: EventCreate, transient: Optional[D
 
 async def analyse_due(limit: int = 500) -> int:
     """
-    Work through the queued events that are due, for every organisation, a few at once
-    (ANALYSIS_CONCURRENCY). Stops when the engine cannot be reached, so an outage costs
-    one attempt per round rather than one per event. Returns how many were analysed.
+    Work through the queued events that are due, for every organisation: ANALYSIS_CONCURRENCY
+    workers, each sending batches of up to ANALYSIS_BATCH_SIZE events in one request. Stops
+    when the engine cannot be reached, so an outage costs one attempt (one batch) per round
+    rather than one per event. Returns how many were analysed.
     """
     if core_engine_client.get_core_engine_client() is None:
         return 0
@@ -232,14 +280,18 @@ async def analyse_due(limit: int = 500) -> int:
     async def worker() -> None:
         nonlocal done
         while done < limit and not engine_down.is_set():
-            claimed = await _claim({})
+            # A batch: one request to the engine for up to ANALYSIS_BATCH_SIZE events.
+            claimed: List[Dict[str, Any]] = []
+            while len(claimed) < max(1, settings.ANALYSIS_BATCH_SIZE):
+                one = await _claim({})
+                if not one:
+                    break
+                claimed.append(one)
             if not claimed:
                 return
-            with tenant_context(claimed["tenant_id"]):
-                _, error = await _attempt(str(claimed["_id"]), _stored_event(claimed), claimed["metadata"]["analysis"])
-            if error is None:
-                done += 1
-            elif error.retryable:
+            analysed, error = await _attempt_batch(claimed)
+            done += analysed
+            if error is not None and error.retryable:
                 engine_down.set()
 
     await asyncio.gather(*(worker() for _ in range(max(1, settings.ANALYSIS_CONCURRENCY))))

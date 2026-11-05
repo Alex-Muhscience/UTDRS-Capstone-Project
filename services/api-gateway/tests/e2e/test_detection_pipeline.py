@@ -39,19 +39,31 @@ ENGINE_ALERT = {
 class FakeEngine:
     """Records what the gateway sends and answers like the core engine would."""
 
-    def __init__(self, fail=False):
+    def __init__(self, fail=False, batches=True):
         self.fail = fail
+        self.batches = batches  # False: an older engine, without the batch endpoint
         self.requests = []
+        self.batch_requests = []
+
+    @staticmethod
+    def verdict(event):
+        return ENGINE_ALERT if "delete shadows" in event["data"].get("command_line", "") else None
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         if self.fail:
             return httpx.Response(503, json={"detail": "engine unavailable"})
         if request.url.path == "/health":
             return httpx.Response(200, json={"status": "ok"})
+        if request.url.path == "/detections/process/batch":
+            if not self.batches:
+                return httpx.Response(404, json={"detail": "Not Found"})
+            events = json.loads(request.content)["events"]
+            self.batch_requests.append(events)
+            return httpx.Response(200, json=[{"alert": self.verdict(e), "error": "bad event" if e["data"].get("explode") else None} for e in events])
         self.requests.append(request)
-        event = json.loads(request.content)
-        if "delete shadows" in event["data"].get("command_line", ""):
-            return httpx.Response(200, json=ENGINE_ALERT)
+        alert = self.verdict(json.loads(request.content))
+        if alert:
+            return httpx.Response(200, json=alert)
         # FastAPI serialises "no alert" (None) as the JSON literal null.
         return httpx.Response(200, content=b"null", headers={"content-type": "application/json"})
 
@@ -290,3 +302,49 @@ def test_failed_events_can_be_replayed(client, admin, engine):
 
 def test_only_administrators_replay_every_failure(client, auth, engine):
     assert client.post("/api/v1/events/reanalyse", json={}, headers=auth).status_code == 403
+
+
+
+def test_a_backlog_goes_to_the_engine_in_batches(client, auth, engine, monkeypatch):
+    from config import settings
+    from core.services import detection_pipeline
+
+    engine.fail = True
+    ids = [client.post("/api/v1/events/", json=process_event(f"notepad.exe {i}"), headers=auth).json()["id"] for i in range(7)]
+    ids.append(client.post("/api/v1/events/", json=process_event("vssadmin delete shadows /all"), headers=auth).json()["id"])
+    for event_id in ids:
+        due_now(client, event_id)
+    engine.fail = False
+    monkeypatch.setattr(settings, "ANALYSIS_BATCH_SIZE", 5)
+    monkeypatch.setattr(settings, "ANALYSIS_CONCURRENCY", 1)
+    run(client, detection_pipeline.analyse_due)
+    statuses = [analysis_of(client, auth, event_id)["status"] for event_id in ids]
+    assert statuses == ["clean"] * 7 + ["threat"]
+    ours = [batch for batch in engine.batch_requests if any(e["data"]["gateway_event_id"] in ids for e in batch)]
+    assert len(ours) >= 2 and max(len(batch) for batch in ours) == 5
+
+
+def test_one_event_the_engine_cannot_analyse_does_not_hold_up_the_rest(client, auth, engine):
+    from core.services import detection_pipeline
+
+    engine.fail = True
+    good = client.post("/api/v1/events/", json=process_event("notepad.exe"), headers=auth).json()["id"]
+    bad = client.post("/api/v1/events/", json={**process_event("x"), "raw_data": {"explode": True}}, headers=auth).json()["id"]
+    for event_id in (good, bad):
+        due_now(client, event_id)
+    engine.fail = False
+    run(client, detection_pipeline.analyse_due)
+    assert analysis_of(client, auth, good)["status"] == "clean"
+    retried = analysis_of(client, auth, bad)
+    assert retried["status"] == "queued" and "bad event" in retried["error"]
+
+
+def test_an_engine_without_batches_gets_events_one_at_a_time(client, auth, engine):
+    from core.services import detection_pipeline
+
+    engine.fail = True
+    event_id = client.post("/api/v1/events/", json=process_event("vssadmin delete shadows /all"), headers=auth).json()["id"]
+    due_now(client, event_id)
+    engine.fail, engine.batches = False, False
+    run(client, detection_pipeline.analyse_due)
+    assert analysis_of(client, auth, event_id)["status"] == "threat"
