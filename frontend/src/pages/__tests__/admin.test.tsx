@@ -1,5 +1,5 @@
 import { screen, waitFor, within } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 import type { ApiKey, AuditEntry } from "@/api/client"
 import { admin, shellRoutes, user } from "@/test/fixtures"
@@ -146,5 +146,22 @@ describe("audit log", () => {
 
     await person.click(screen.getByRole("button", { name: "Verify the log" }))
     expect(await screen.findByText("Entry 7 has been altered")).toBeInTheDocument()
+  })
+
+  it("exports what is shown, to check or to open in a spreadsheet", async () => {
+    URL.createObjectURL = vi.fn(() => "blob:audit")
+    URL.revokeObjectURL = vi.fn()
+    const { calls } = mockGateway({
+      ...shellRoutes(admin),
+      "GET /api/v1/audit-log/": [entry()],
+      "GET /api/v1/audit-log/export": () => new Response("seq,at\n1,2026-11-05\n", { headers: { "Content-Type": "text/csv" } }),
+    })
+    const { user: person } = renderApp("/audit-log?kind=rules")
+    await screen.findByRole("table", { name: "Audit log" })
+    await person.click(screen.getByRole("button", { name: /Export \(CSV\)/ }))
+    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalled())
+    const exported = calls.find((call) => call.path === "/api/v1/audit-log/export")
+    expect(exported?.url.searchParams.get("format")).toBe("csv")
+    expect(exported?.url.searchParams.get("action")).toBe("rules")
   })
 })

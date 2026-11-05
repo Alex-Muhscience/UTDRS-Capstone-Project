@@ -543,6 +543,23 @@ export function useDownloadReport() {
   })
 }
 
+/** Download the audit log (JSON Lines, checkable outside UTDRS, or CSV), with the kind of action shown. */
+export function useExportAuditLog() {
+  return useMutation({
+    mutationFn: async ({ format, action }: { format: "jsonl" | "csv"; action?: string }) => {
+      const blob = await unwrap(
+        api.GET("/api/v1/audit-log/export", { params: { query: { format, action: action || undefined } }, parseAs: "blob" }),
+      )
+      const url = URL.createObjectURL(blob as Blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `utdrs-audit-log${action ? `-${action}` : ""}.${format}`
+      link.click()
+      URL.revokeObjectURL(url)
+    },
+  })
+}
+
 // ---------------------------------------------------------------------------- Tuning
 
 export function useGiveFeedback(alertId: string) {
