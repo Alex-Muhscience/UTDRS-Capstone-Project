@@ -23,6 +23,24 @@
             }
           }
         }
+      },
+      "head": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health Check",
+        "description": "Health check endpoint to verify API and database are working.",
+        "operationId": "health_check_api_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/health/db": {
@@ -43,10 +61,46 @@
             }
           }
         }
+      },
+      "head": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Database Health Check",
+        "description": "Check database connection health.",
+        "operationId": "database_health_check_api_v1_health_db_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/health/ready": {
       "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Readiness Check",
+        "description": "For load balancers and uptime monitors: 200 when the gateway can serve (its database\nanswers), 503 when it cannot. `problems` lists what is failing on the platform (the\ncore engine, the analysis backlog, email, background loops), which does not stop it serving.",
+        "operationId": "readiness_check_api_v1_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "head": {
         "tags": [
           "health"
         ],
@@ -10721,7 +10775,7 @@
           "organisations"
         ],
         "summary": "Release From Msp",
-        "description": "End your service provider's access (your own administrators only): its people can no longer\nwork in your organisation. A platform administrator can give it back.",
+        "description": "End your service provider's access (your own administrators only): its people can no longer\nwork in your organisation. A platform operator can give it back.",
         "operationId": "release_from_msp_api_v1_tenants_current_msp_delete",
         "responses": {
           "200": {
