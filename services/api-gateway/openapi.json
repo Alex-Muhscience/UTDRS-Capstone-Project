@@ -339,6 +339,50 @@
         }
       }
     },
+    "/api/v1/auth/saml/metadata": {
+      "get": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Saml Metadata",
+        "description": "UTDRS's SAML service provider metadata, to give an identity provider.",
+        "operationId": "saml_metadata_api_v1_auth_saml_metadata_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Saml Metadata Api V1 Auth Saml Metadata Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/saml/acs": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Saml Acs",
+        "description": "Where SAML identity providers post their answers (HTTP-POST binding). The answer is\nchecked here, then the browser goes back to the dashboard to finish signing in.",
+        "operationId": "saml_acs_api_v1_auth_saml_acs_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Saml Acs Api V1 Auth Saml Acs Post"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/sso/callback": {
       "post": {
         "tags": [
@@ -15826,6 +15870,71 @@
             "type": "boolean",
             "title": "Configured"
           },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "oidc",
+              "saml"
+            ],
+            "title": "Provider",
+            "default": "oidc"
+          },
+          "idp_entity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idp Entity Id"
+          },
+          "idp_sso_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idp Sso Url"
+          },
+          "idp_certificate_expires": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idp Certificate Expires"
+          },
+          "sp_entity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sp Entity Id"
+          },
+          "acs_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acs Url"
+          },
           "issuer": {
             "anyOf": [
               {
@@ -15918,6 +16027,57 @@
       },
       "SsoUpdate": {
         "properties": {
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "oidc",
+                  "saml"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "idp_entity_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idp Entity Id"
+          },
+          "idp_sso_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idp Sso Url"
+          },
+          "idp_certificate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idp Certificate"
+          },
           "issuer": {
             "anyOf": [
               {

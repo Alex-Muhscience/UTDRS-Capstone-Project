@@ -139,6 +139,10 @@ class Settings(BaseSettings):
     WEBAUTHN_RP_ID: Optional[str] = None
     WEBAUTHN_ORIGINS: List[str] = []
 
+    # The gateway's public address (https://...), which SAML identity providers post to;
+    # SAML single sign-on needs it.
+    GATEWAY_URL: Optional[str] = None
+
     # Single sign-on (core/services/sso.py): where DNS TXT records are looked up (DNS over
     # HTTPS, JSON) to check an organisation owns a domain.
     SSO_DNS_RESOLVER: str = "https://cloudflare-dns.com/dns-query"

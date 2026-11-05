@@ -19,6 +19,7 @@ their password (with MFA), so a broken provider cannot lock everyone out.
 """
 import base64
 import hashlib
+import hmac
 import secrets
 from datetime import timedelta
 from typing import Any, Dict, List, Optional, Tuple
@@ -79,10 +80,25 @@ def public(config: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """The settings as administrators see them: never the secret."""
     if not config:
         return {"configured": False, "encryption_available": crypto.available()}
+    provider = config.get("provider", "oidc")
+    saml_details: Dict[str, Any] = {}
+    if provider == "saml":
+        from core.services import saml
+
+        saml_details = {"idp_entity_id": config.get("idp_entity_id"), "idp_sso_url": config.get("idp_sso_url"),
+                        "idp_certificate_expires": _certificate_expiry(config.get("idp_certificate"))}
+    try:
+        from core.services import saml
+
+        saml_details.update({"sp_entity_id": saml.sp_entity_id(), "acs_url": saml.acs_url()})
+    except ValueError:
+        pass  # GATEWAY_URL is not set: SAML cannot be offered
     return {
         "configured": True,
-        "issuer": config["issuer"],
-        "client_id": config["client_id"],
+        "provider": provider,
+        **saml_details,
+        "issuer": config.get("issuer"),
+        "client_id": config.get("client_id"),
         "domains": [{"domain": d, "verified": d in (config.get("verified_domains") or []),
                      "record_name": f"{VERIFICATION_RECORD}.{d}", "record_value": _record_value(config, d)} for d in config.get("domains") or []],
         "enabled": config.get("enabled", False),
@@ -91,6 +107,14 @@ def public(config: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         "updated_at": config.get("updated_at"),
         "encryption_available": crypto.available(),
     }
+
+
+def _certificate_expiry(pem: Optional[str]):
+    if not pem:
+        return None
+    from cryptography import x509
+
+    return x509.load_pem_x509_certificate(pem.encode()).not_valid_after_utc
 
 
 def _record_value(config: Dict[str, Any], domain: str) -> str:
@@ -136,21 +160,38 @@ async def save(changes: Dict[str, Any]) -> Dict[str, Any]:
     """Set up or change the organisation's provider. The secret, when given, is stored encrypted."""
     tenant = current_tenant()
     existing = await get_config(tenant) or {}
-    issuer = (changes.get("issuer") or existing.get("issuer") or "").rstrip("/")
-    client_id = changes.get("client_id") or existing.get("client_id")
-    if not issuer or not client_id:
-        raise SsoError("Give the provider's issuer and the client id registered there")
-    if changes.get("client_secret") is None and not existing.get("client_secret"):
-        raise SsoError("Give the client secret registered at the provider")
-    if changes.get("client_secret") and not crypto.available():
-        raise SsoError("Single sign-on needs ENCRYPTION_KEY set on the gateway, to keep the client secret")
-    if issuer != existing.get("issuer"):
-        await discover(issuer)
+    provider = changes.get("provider") or existing.get("provider") or "oidc"
+    provider_fields: Dict[str, Any] = {"provider": provider}
+    if provider == "saml":
+        from core.services import saml
+
+        try:
+            saml.gateway_url()
+            entity = (changes.get("idp_entity_id") or existing.get("idp_entity_id") or "").strip()
+            sso_url = (changes.get("idp_sso_url") or existing.get("idp_sso_url") or "").strip()
+            certificate = saml.load_certificate(changes["idp_certificate"]) if changes.get("idp_certificate") else existing.get("idp_certificate")
+        except saml.SamlError as e:
+            raise SsoError(str(e))
+        if not entity or not sso_url.startswith("https://") or not certificate:
+            raise SsoError("Give the identity provider's entity id, its single sign-on URL (HTTPS) and its signing certificate")
+        provider_fields.update(idp_entity_id=entity, idp_sso_url=sso_url, idp_certificate=certificate)
+    else:
+        issuer = (changes.get("issuer") or existing.get("issuer") or "").rstrip("/")
+        client_id = changes.get("client_id") or existing.get("client_id")
+        if not issuer or not client_id:
+            raise SsoError("Give the provider's issuer and the client id registered there")
+        if changes.get("client_secret") is None and not existing.get("client_secret"):
+            raise SsoError("Give the client secret registered at the provider")
+        if changes.get("client_secret") and not crypto.available():
+            raise SsoError("Single sign-on needs ENCRYPTION_KEY set on the gateway, to keep the client secret")
+        if issuer != existing.get("issuer"):
+            await discover(issuer)
+        provider_fields.update(issuer=issuer, client_id=client_id)
     domains = sorted({_domain(d) for d in changes.get("domains", existing.get("domains") or [])})
     if not domains:
         raise SsoError("Name at least one email domain that signs in with this provider")
     fields: Dict[str, Any] = {
-        "tenant_id": tenant, "issuer": issuer, "client_id": client_id, "domains": domains,
+        "tenant_id": tenant, **provider_fields, "domains": domains,
         # A domain removed is no longer verified; one kept stays verified.
         "verified_domains": [d for d in existing.get("verified_domains") or [] if d in domains],
         "enabled": changes.get("enabled", existing.get("enabled", False)),
@@ -159,7 +200,7 @@ async def save(changes: Dict[str, Any]) -> Dict[str, Any]:
         "verification_secret": existing.get("verification_secret") or secrets.token_hex(16),
         "updated_at": utcnow(),
     }
-    if changes.get("client_secret"):
+    if changes.get("client_secret") and provider == "oidc":
         fields["client_secret"] = crypto.encrypt(changes["client_secret"], _context(tenant))
     if fields["enforce"] and not fields["enabled"]:
         raise SsoError("Turn single sign-on on before requiring it")
@@ -223,6 +264,19 @@ async def start(email: str, redirect_uri: str) -> str:
     config = await config_for_email(email)
     if not config:
         raise SsoError("Single sign-on is not set up for that email's domain; sign in with your password")
+    if config.get("provider") == "saml":
+        from core.services import saml
+
+        state = secrets.token_urlsafe(32)
+        try:
+            url, request_id = saml.authn_request(config, state)
+        except saml.SamlError as e:
+            raise SsoError(str(e))
+        await get_database()[LOGINS].insert_one({
+            "_id": hashlib.sha256(state.encode()).hexdigest(), "tenant_id": config["tenant_id"], "provider": "saml",
+            "request_id": request_id, "redirect_uri": redirect_uri, "login_hint": email, "expires_at": utcnow() + LOGIN_LIFETIME,
+        })
+        return url
     found = await discover(config["issuer"])
     state, nonce, verifier = secrets.token_urlsafe(32), secrets.token_urlsafe(32), secrets.token_urlsafe(48)
     await get_database()[LOGINS].insert_one({
@@ -237,6 +291,39 @@ async def start(email: str, redirect_uri: str) -> str:
     return f"{found['authorization_endpoint']}?{urlencode(query)}"
 
 
+async def saml_answer(saml_response: str, relay_state: str) -> str:
+    """
+    The identity provider posted its SAML answer to the gateway: check it, and keep who
+    signed in for the dashboard to collect. Returns where to send the browser: the
+    dashboard's callback, with a one-time code (or the reason it failed).
+    """
+    from core.services import saml
+
+    login = await get_database()[LOGINS].find_one({"_id": hashlib.sha256((relay_state or "").encode()).hexdigest(), "provider": "saml"})
+    if not login or login["expires_at"].replace(tzinfo=None) < utcnow().replace(tzinfo=None):
+        raise SsoError("This sign-in has expired or was already used; start again")
+    redirect = login["redirect_uri"]
+    separator = "&" if "?" in redirect else "?"
+    config = await get_config(login["tenant_id"])
+    try:
+        if not config or not config.get("enabled") or config.get("provider") != "saml":
+            raise SsoError("Single sign-on is no longer set up for your organisation")
+        try:
+            claims = saml.verify_response(saml_response, config, login["request_id"])
+        except saml.SamlError as e:
+            raise SsoError(str(e))
+        if claims["email"].rsplit("@", 1)[1] not in (config.get("verified_domains") or []):
+            raise SsoError(f"{claims['email']} is not in one of your organisation's single sign-on domains")
+    except SsoError as e:
+        await get_database()[LOGINS].delete_one({"_id": login["_id"]})
+        return f"{redirect}{separator}{urlencode({'error': 'access_denied', 'error_description': str(e)})}"
+    code = secrets.token_urlsafe(32)
+    await get_database()[LOGINS].update_one({"_id": login["_id"]}, {"$set": {
+        "claims": claims, "code_hash": hashlib.sha256(code.encode()).hexdigest(), "expires_at": utcnow() + timedelta(minutes=2),
+    }})
+    return f"{redirect}{separator}{urlencode({'code': code, 'state': relay_state})}"
+
+
 async def finish(code: str, state: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
     The provider sent the person back: check everything, and return the organisation's
@@ -248,6 +335,11 @@ async def finish(code: str, state: str) -> Tuple[Dict[str, Any], Dict[str, Any]]
     config = await get_config(login["tenant_id"])
     if not config or not config.get("enabled"):
         raise SsoError("Single sign-on is no longer set up for your organisation")
+    if login.get("provider") == "saml":
+        # Checked when the identity provider posted it; the code says it is this browser's.
+        if not login.get("claims") or not hmac.compare_digest(login.get("code_hash", ""), hashlib.sha256(code.encode()).hexdigest()):
+            raise SsoError("This sign-in has expired or was already used; start again")
+        return config, login["claims"]
     found = await discover(config["issuer"])
     secret = crypto.decrypt(config["client_secret"], _context(config["tenant_id"]))
     try:

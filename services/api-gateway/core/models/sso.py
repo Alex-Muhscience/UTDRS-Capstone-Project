@@ -1,6 +1,6 @@
 """Single sign-on settings, as administrators see and change them."""
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -15,6 +15,14 @@ class SsoDomain(BaseModel):
 
 class SsoSettings(BaseModel):
     configured: bool
+    # oidc: OpenID Connect; saml: SAML 2.0.
+    provider: Literal["oidc", "saml"] = "oidc"
+    # SAML: the identity provider, and what to give it about UTDRS.
+    idp_entity_id: Optional[str] = None
+    idp_sso_url: Optional[str] = None
+    idp_certificate_expires: Optional[datetime] = None
+    sp_entity_id: Optional[str] = None
+    acs_url: Optional[str] = None
     issuer: Optional[str] = None
     client_id: Optional[str] = None
     domains: List[SsoDomain] = []
@@ -28,6 +36,11 @@ class SsoSettings(BaseModel):
 
 
 class SsoUpdate(BaseModel):
+    provider: Optional[Literal["oidc", "saml"]] = None
+    # SAML: the identity provider's entity id, single sign-on URL, and signing certificate (PEM).
+    idp_entity_id: Optional[str] = Field(default=None, max_length=500)
+    idp_sso_url: Optional[str] = Field(default=None, max_length=1000)
+    idp_certificate: Optional[str] = Field(default=None, max_length=20000)
     # The provider's issuer, such as https://login.microsoftonline.com/<tenant id>/v2.0 or https://accounts.google.com.
     issuer: Optional[str] = Field(default=None, max_length=300)
     client_id: Optional[str] = Field(default=None, max_length=300)

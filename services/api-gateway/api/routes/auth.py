@@ -340,6 +340,34 @@ async def sso_start(body: SsoStart) -> Any:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
+@router.get("/saml/metadata", include_in_schema=True)
+async def saml_metadata() -> Any:
+    """UTDRS's SAML service provider metadata, to give an identity provider."""
+    from core.services import saml
+
+    try:
+        return Response(content=saml.metadata(), media_type="application/samlmetadata+xml")
+    except saml.SamlError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.post("/saml/acs", include_in_schema=True)
+async def saml_acs(request: Request) -> Any:
+    """
+    Where SAML identity providers post their answers (HTTP-POST binding). The answer is
+    checked here, then the browser goes back to the dashboard to finish signing in.
+    """
+    from fastapi.responses import RedirectResponse
+
+    form = await request.form()
+    try:
+        target = await sso.saml_answer(str(form.get("SAMLResponse") or ""), str(form.get("RelayState") or ""))
+    except sso.SsoError as e:
+        await audit.record("auth.sso_failed", request, actor={"type": "anonymous"}, outcome="denied", details={"reason": str(e)}, tenant_id=PLATFORM)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)
+
+
 @router.post("/sso/callback", response_model=Token)
 async def sso_callback(body: SsoCallback, request: Request) -> Any:
     """

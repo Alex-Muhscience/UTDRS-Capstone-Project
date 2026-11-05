@@ -31,3 +31,7 @@ cryptography==50.0.2
 
 # Passkeys (WebAuthn): checking what authenticators sign
 webauthn==3.0.1
+
+# SAML single sign-on: checking identity providers' XML signatures
+signxml==5.2.0
+lxml==6.1.3
