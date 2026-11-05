@@ -3187,6 +3187,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/roles/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Catalogue
+         * @description What a role can permit, area by area, and what the built-in roles have.
+         */
+        get: operations["catalogue_api_v1_roles_permissions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Roles
+         * @description Your organisation's custom roles, with how many people have each.
+         */
+        get: operations["list_roles_api_v1_roles_get"];
+        put?: never;
+        /**
+         * Create Role
+         * @description Create a role from permissions (administrators only). Changing an area includes seeing it.
+         */
+        post: operations["create_role_api_v1_roles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles/{role_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Role
+         * @description Delete a role nobody has (administrators only).
+         */
+        delete: operations["delete_role_api_v1_roles__role_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Role
+         * @description Change a role (administrators only); everyone with it has the new permissions at once.
+         */
+        patch: operations["update_role_api_v1_roles__role_id__patch"];
+        trace?: never;
+    };
     "/api/v1/msp": {
         parameters: {
             query?: never;
@@ -3797,7 +3865,9 @@ export interface components {
              * @default analyst
              * @enum {string}
              */
-            role: "admin" | "analyst" | "viewer";
+            role: "admin" | "analyst" | "viewer" | "custom";
+            /** Custom Role Id */
+            custom_role_id?: string | null;
         };
         /** Administrator */
         Administrator: {
@@ -4319,6 +4389,17 @@ export interface components {
              */
             client_secret?: string | null;
         };
+        /** BuiltInRole */
+        BuiltInRole: {
+            /** Role */
+            role: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Permissions */
+            permissions: string[];
+        };
         /** Case */
         Case: {
             /** Id */
@@ -4417,6 +4498,13 @@ export interface components {
             /** Owner Id */
             owner_id?: string | null;
         };
+        /** Catalogue */
+        Catalogue: {
+            /** Areas */
+            areas: components["schemas"]["PermissionArea"][];
+            /** Built In */
+            built_in: components["schemas"]["BuiltInRole"][];
+        };
         /** Check */
         Check: {
             /** Name */
@@ -4497,6 +4585,29 @@ export interface components {
             /** Temporary Password */
             temporary_password: string;
             tenant: components["schemas"]["OrganisationDetail"];
+        };
+        /** CustomRole */
+        CustomRole: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Permissions */
+            permissions: string[];
+            /**
+             * People
+             * @default 0
+             */
+            people: number;
+            /** Created At */
+            created_at?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
         };
         /** Deletion */
         Deletion: {
@@ -5474,6 +5585,17 @@ export interface components {
             /** Used For */
             used_for: string;
         };
+        /** PermissionArea */
+        PermissionArea: {
+            /** Area */
+            area: string;
+            /** Label */
+            label: string;
+            /** Read */
+            read: string;
+            /** Write */
+            write?: string | null;
+        };
         /** PlatformAdmin */
         PlatformAdmin: {
             /** Id */
@@ -5860,6 +5982,27 @@ export interface components {
             notifications?: number | null;
             /** Labels */
             labels?: number | null;
+        };
+        /** RoleCreate */
+        RoleCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Permissions */
+            permissions?: string[];
+        };
+        /** RoleUpdate */
+        RoleUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Permissions */
+            permissions?: string[] | null;
         };
         /** RuleEngineStatus */
         RuleEngineStatus: {
@@ -6647,6 +6790,12 @@ export interface components {
              * @default false
              */
             platform_admin: boolean;
+            /** Custom Role Id */
+            custom_role_id?: string | null;
+            /** Custom Role Name */
+            custom_role_name?: string | null;
+            /** Permissions */
+            permissions?: string[] | null;
             /**
              * Mfa Setup Required
              * @default false
@@ -6659,7 +6808,9 @@ export interface components {
          */
         UserAdminUpdate: {
             /** Role */
-            role?: ("admin" | "analyst" | "viewer") | null;
+            role?: ("admin" | "analyst" | "viewer" | "custom") | null;
+            /** Custom Role Id */
+            custom_role_id?: string | null;
             /** Active */
             active?: boolean | null;
         };
@@ -7768,7 +7919,7 @@ export interface operations {
     list_users_api_v1_users__get: {
         parameters: {
             query?: {
-                role?: ("admin" | "analyst" | "viewer") | null;
+                role?: ("admin" | "analyst" | "viewer" | "custom") | null;
                 active?: boolean | null;
                 limit?: number;
                 skip?: number;
@@ -12380,6 +12531,143 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    catalogue_api_v1_roles_permissions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Catalogue"];
+                };
+            };
+        };
+    };
+    list_roles_api_v1_roles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomRole"][];
+                };
+            };
+        };
+    };
+    create_role_api_v1_roles_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomRole"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_role_api_v1_roles__role_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_role_api_v1_roles__role_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomRole"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

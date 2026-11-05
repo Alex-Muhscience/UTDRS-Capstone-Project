@@ -258,7 +258,7 @@ export function OrganisationPage() {
                   {user.mfa && <span className="ml-2 text-xs text-subtle">MFA</span>}
                 </Td>
                 <Td className="text-muted">{user.email ?? "—"}</Td>
-                <Td>{user.role === "viewer" ? "Read-only" : humanize(user.role)}</Td>
+                <Td>{user.role === "viewer" ? "Read-only" : user.role === "custom" ? "Custom role" : humanize(user.role)}</Td>
                 <Td className="text-muted" title={formatDateTime(user.last_sign_in)}>
                   {user.last_sign_in ? formatRelative(user.last_sign_in) : "Never"}
                 </Td>

@@ -17,6 +17,8 @@ router = APIRouter()
 # a person deactivated or an organisation suspended stops receiving within it.
 STREAM_SECONDS = 300
 HEARTBEAT_SECONDS = 15.0
+# What a person must be allowed to see to hear of each kind of change.
+PERMISSION_FOR = {"alert": "alerts:read", "case": "cases:read", "action": "response:read", "report": "reports:read"}
 
 
 def _frame(message: Dict[str, Any]) -> str:
@@ -43,6 +45,11 @@ async def stream(request: Request, current_user: User = Depends(get_current_acti
     minutes; reconnect.
     """
     tenant_id = current_user.tenant_id
+    allowed = current_user.permissions  # a custom role hears only of what it may see
+
+    def may_hear(message: Dict[str, Any]) -> bool:
+        area = PERMISSION_FOR.get(message["event"].split(".")[0])
+        return allowed is None or area is None or area in allowed
 
     async def events() -> AsyncIterator[str]:
         queue = live.hub.subscribe(tenant_id)
@@ -51,7 +58,8 @@ async def stream(request: Request, current_user: User = Depends(get_current_acti
             yield _frame({"event": "ready", "data": {}})
             if last_event_id:
                 for message in await live.missed(tenant_id, last_event_id):
-                    yield _frame(message)
+                    if may_hear(message):
+                        yield _frame(message)
             deadline = time.monotonic() + STREAM_SECONDS
             while time.monotonic() < deadline:
                 if await request.is_disconnected():
@@ -61,7 +69,8 @@ async def stream(request: Request, current_user: User = Depends(get_current_acti
                 except asyncio.TimeoutError:
                     yield ": keep-alive\n\n"
                     continue
-                yield _frame(message)
+                if may_hear(message):
+                    yield _frame(message)
         finally:
             live.hub.unsubscribe(tenant_id, queue)
 

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react"
 import { toast } from "sonner"
 
 import { useChangePassword, useCurrentTenant, useReleaseFromMsp, useRenameTenant, useRequireMfa, useUpdateProfile } from "@/api/queries"
-import { useIsAdmin, useUser } from "@/auth/context"
+import { roleLabel, useIsAdmin, useUser } from "@/auth/context"
 import { Badge } from "@/components/ui/Badge"
 import { Button, ButtonLink } from "@/components/ui/Button"
 import { Card } from "@/components/ui/Card"
@@ -10,7 +10,7 @@ import { Dialog } from "@/components/ui/Dialog"
 import { DescriptionList } from "@/components/ui/DescriptionList"
 import { Field, Input } from "@/components/ui/Field"
 import { PageHeader } from "@/components/ui/PageHeader"
-import { formatDateTime, humanize } from "@/lib/format"
+import { formatDateTime } from "@/lib/format"
 import { useActiveOrganisation } from "@/lib/organisation"
 
 import { PasskeysCard } from "@/pages/security/PasskeysCard"
@@ -203,7 +203,7 @@ export function ProfilePage() {
                   {user.email_verified ? <Badge tone="success">Confirmed</Badge> : <Badge tone="warning">Not confirmed</Badge>}
                 </span>,
               ],
-              ["Role", <Badge key="role" tone="accent">{humanize(user.role)}</Badge>],
+              ["Role", <Badge key="role" tone="accent">{roleLabel(user)}</Badge>],
               ["Member since", formatDateTime(user.createdAt)],
               ["Last sign-in", formatDateTime(user.lastLogin)],
             ]}

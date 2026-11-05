@@ -1236,7 +1236,8 @@
                   "enum": [
                     "admin",
                     "analyst",
-                    "viewer"
+                    "viewer",
+                    "custom"
                   ],
                   "type": "string"
                 },
@@ -8998,6 +8999,206 @@
         }
       }
     },
+    "/api/v1/roles/permissions": {
+      "get": {
+        "tags": [
+          "roles"
+        ],
+        "summary": "Catalogue",
+        "description": "What a role can permit, area by area, and what the built-in roles have.",
+        "operationId": "catalogue_api_v1_roles_permissions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Catalogue"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/roles": {
+      "get": {
+        "tags": [
+          "roles"
+        ],
+        "summary": "List Roles",
+        "description": "Your organisation's custom roles, with how many people have each.",
+        "operationId": "list_roles_api_v1_roles_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CustomRole"
+                  },
+                  "type": "array",
+                  "title": "Response List Roles Api V1 Roles Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "roles"
+        ],
+        "summary": "Create Role",
+        "description": "Create a role from permissions (administrators only). Changing an area includes seeing it.",
+        "operationId": "create_role_api_v1_roles_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomRole"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/roles/{role_id}": {
+      "patch": {
+        "tags": [
+          "roles"
+        ],
+        "summary": "Update Role",
+        "description": "Change a role (administrators only); everyone with it has the new permissions at once.",
+        "operationId": "update_role_api_v1_roles__role_id__patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "role_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Role Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomRole"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "roles"
+        ],
+        "summary": "Delete Role",
+        "description": "Delete a role nobody has (administrators only).",
+        "operationId": "delete_role_api_v1_roles__role_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "role_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Role Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/msp": {
       "get": {
         "tags": [
@@ -10771,10 +10972,22 @@
             "enum": [
               "admin",
               "analyst",
-              "viewer"
+              "viewer",
+              "custom"
             ],
             "title": "Role",
             "default": "analyst"
+          },
+          "custom_role_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Custom Role Id"
           }
         },
         "type": "object",
@@ -12167,6 +12380,37 @@
         ],
         "title": "Body_login_api_v1_auth_login_post"
       },
+      "BuiltInRole": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Permissions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role",
+          "name",
+          "description",
+          "permissions"
+        ],
+        "title": "BuiltInRole"
+      },
       "Case": {
         "properties": {
           "id": {
@@ -12421,6 +12665,30 @@
         },
         "type": "object",
         "title": "CaseUpdate"
+      },
+      "Catalogue": {
+        "properties": {
+          "areas": {
+            "items": {
+              "$ref": "#/components/schemas/PermissionArea"
+            },
+            "type": "array",
+            "title": "Areas"
+          },
+          "built_in": {
+            "items": {
+              "$ref": "#/components/schemas/BuiltInRole"
+            },
+            "type": "array",
+            "title": "Built In"
+          }
+        },
+        "type": "object",
+        "required": [
+          "areas",
+          "built_in"
+        ],
+        "title": "Catalogue"
       },
       "Check": {
         "properties": {
@@ -12707,6 +12975,66 @@
           "tenant"
         ],
         "title": "CreatedOrganisation"
+      },
+      "CustomRole": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Permissions"
+          },
+          "people": {
+            "type": "integer",
+            "title": "People",
+            "default": 0
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "permissions"
+        ],
+        "title": "CustomRole"
       },
       "Deletion": {
         "properties": {
@@ -15351,6 +15679,40 @@
         ],
         "title": "Permission"
       },
+      "PermissionArea": {
+        "properties": {
+          "area": {
+            "type": "string",
+            "title": "Area"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "read": {
+            "type": "string",
+            "title": "Read"
+          },
+          "write": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Write"
+          }
+        },
+        "type": "object",
+        "required": [
+          "area",
+          "label",
+          "read"
+        ],
+        "title": "PermissionArea"
+      },
       "PlatformAdmin": {
         "properties": {
           "id": {
@@ -16356,6 +16718,81 @@
         },
         "type": "object",
         "title": "RetentionUpdate"
+      },
+      "RoleCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 300,
+            "title": "Description",
+            "default": ""
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Permissions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "RoleCreate"
+      },
+      "RoleUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 60,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "permissions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permissions"
+          }
+        },
+        "type": "object",
+        "title": "RoleUpdate"
       },
       "RuleEngineStatus": {
         "properties": {
@@ -18406,6 +18843,42 @@
             "title": "Platform Admin",
             "default": false
           },
+          "custom_role_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Custom Role Id"
+          },
+          "custom_role_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Custom Role Name"
+          },
+          "permissions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permissions"
+          },
           "mfa_setup_required": {
             "type": "boolean",
             "title": "Mfa Setup Required",
@@ -18447,7 +18920,8 @@
                 "enum": [
                   "admin",
                   "analyst",
-                  "viewer"
+                  "viewer",
+                  "custom"
                 ]
               },
               {
@@ -18455,6 +18929,17 @@
               }
             ],
             "title": "Role"
+          },
+          "custom_role_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Custom Role Id"
           },
           "active": {
             "anyOf": [

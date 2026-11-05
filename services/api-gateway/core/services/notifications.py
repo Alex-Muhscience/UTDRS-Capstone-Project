@@ -123,8 +123,12 @@ async def enqueue_account_email(user: Dict[str, Any], subject: str, text: str) -
     })
 
 
-async def _people(**query) -> List[Dict[str, Any]]:
-    return await _users().find({"active": True, **query}).to_list(1000)
+async def _people(permission: Optional[str] = None, **query) -> List[Dict[str, Any]]:
+    """Active people, and only those whose role lets them see (or do) `permission`."""
+    from core.services import roles
+
+    found = await _users().find({"active": True, **query}).to_list(1000)
+    return [u for u in found if permission is None or await roles.may(u, permission)]
 
 
 async def _safely(coroutine) -> None:
@@ -142,7 +146,7 @@ async def case_opened(case: Dict[str, Any], alerts: List[Dict[str, Any]]) -> Non
 async def _case_opened(case: Dict[str, Any], alerts: List[Dict[str, Any]]) -> None:
     order = case_service.PRIORITIES
     wanted = [
-        u for u in await _people()
+        u for u in await _people("cases:read")
         if preferences_of(u)["email"] and preferences_of(u)["new_cases"] in order
         and order.index(case["priority"]) >= order.index(preferences_of(u)["new_cases"])
     ]
@@ -169,7 +173,7 @@ async def approval_needed(action: Dict[str, Any]) -> None:
 
 async def _approval_needed(action: Dict[str, Any]) -> None:
     # Only those who can decide: administrators, for a protected account.
-    people = await _people(**({"role": "admin"} if action.get("protected") else {}))
+    people = await _people("response:write", **({"role": "admin"} if action.get("protected") else {}))
     wanted = [u for u in people if preferences_of(u)["email"] and preferences_of(u)["approvals"]]
     if not wanted:
         return
@@ -194,7 +198,7 @@ async def _action_finished(action: Dict[str, Any]) -> None:
     failed = action["status"] == "failed"
     decider = (action.get("decided_by") or {}).get("id")
     wanted = [
-        u for u in await _people()
+        u for u in await _people("response:read")
         if preferences_of(u)["email"] and (preferences_of(u)["actions"] == "all" or (failed and preferences_of(u)["actions"] == "failed"))
         and str(u["_id"]) != decider  # who did it knows
     ]

@@ -177,6 +177,14 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
     current = User(**user)
     set_tenant(user["tenant_id"])
     request.state.principal = {"type": "user", "id": current.id, "name": current.username, "role": current.role}
+    if current.role == "custom":
+        # Their organisation's role decides what they may do, as scopes decide for API keys.
+        from core.services import roles
+
+        role = await roles.get(current.custom_role_id)
+        current.permissions = list(role.get("permissions") or []) if role else []
+        current.custom_role_name = role["name"] if role else None
+        request.state.principal["scopes"] = current.permissions
     await refuse_suspended(user["tenant_id"])
     refuse_viewer_changes(current, request)
 
@@ -233,20 +241,28 @@ async def _in_client(request: Request, current: User, client_id: str, session_id
 def require_scope(area: str):
     """
     A router-wide check that an API key may use this area: `<area>:read` for GET and
-    HEAD, `<area>:write` for anything else. People are governed by their role instead.
+    HEAD, `<area>:write` for anything else; the same for people with a custom role. Others are governed by their role.
     It depends on authentication, so it can never run before the caller is known.
     """
 
     async def check(request: Request, current_user: User = Depends(get_current_user)) -> None:
         principal = getattr(request.state, "principal", None) or {}
-        if principal.get("type") != "api_key":
-            return
         needed = f"{area}:{'read' if request.method in ('GET', 'HEAD') else 'write'}"
-        if needed not in principal.get("scopes", []):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"This API key does not have the {needed} scope",
-            )
+        if principal.get("type") == "api_key":
+            if needed not in principal.get("scopes", []):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"This API key does not have the {needed} scope",
+                )
+        elif "scopes" in principal:
+            # A custom role. Areas outside its permissions (people, for one) are governed by the routes themselves.
+            from core.services import roles
+
+            if area in roles.AREAS and needed not in principal["scopes"]:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Your role does not allow this ({needed})",
+                )
 
     return check
 

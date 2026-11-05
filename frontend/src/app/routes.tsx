@@ -1,6 +1,7 @@
 import type { RouteObject } from "react-router"
 
 import { RequireAdmin } from "@/auth/RequireAdmin"
+import { RequirePermission } from "@/auth/RequirePermission"
 import { RequirePlatformAdmin } from "@/auth/RequirePlatformAdmin"
 import { GuestOnly, RequireAuth } from "@/auth/RequireAuth"
 import { AppLayout } from "@/components/layout/AppLayout"
@@ -10,6 +11,7 @@ import { ConnectorsPage } from "@/pages/connectors/ConnectorsPage"
 import { ConsentedPage } from "@/pages/connectors/ConsentedPage"
 import { EmailLogPage } from "@/pages/admin/EmailLogPage"
 import { RetentionPage } from "@/pages/admin/RetentionPage"
+import { RolesPage } from "@/pages/admin/RolesPage"
 import { WebhooksPage } from "@/pages/admin/WebhooksPage"
 import { AlertDetailPage } from "@/pages/alerts/AlertDetailPage"
 import { AlertsPage } from "@/pages/alerts/AlertsPage"
@@ -65,22 +67,72 @@ export const routes: RouteObject[] = [
             children: [
               { index: true, element: <OverviewPage /> },
               { path: "get-started", element: <GetStartedPage /> },
-              { path: "cases", element: <CasesPage /> },
-              { path: "cases/:caseId", element: <CaseDetailPage /> },
-              { path: "response", element: <ResponsePage /> },
-              { path: "playbooks", element: <PlaybooksPage /> },
-              { path: "reports", element: <ReportsPage /> },
-              { path: "reports/:reportId", element: <ReportPage /> },
-              { path: "alerts", element: <AlertsPage /> },
-              { path: "alerts/:alertId", element: <AlertDetailPage /> },
-              { path: "events", element: <EventsPage /> },
-              { path: "events/:eventId", element: <EventDetailPage /> },
-              { path: "assets", element: <AssetsPage /> },
-              { path: "assets/:assetId", element: <AssetDetailPage /> },
-              { path: "rules", element: <RulesPage /> },
-              { path: "rules/:ruleId", element: <RuleDetailPage /> },
-              { path: "simulations", element: <SimulationsPage /> },
-              { path: "tuning", element: <TuningPage /> },
+              {
+                element: <RequirePermission permission="cases:read" label="cases" />,
+                children: [
+                  { path: "cases", element: <CasesPage /> },
+                  { path: "cases/:caseId", element: <CaseDetailPage /> },
+                ],
+              },
+              {
+                element: <RequirePermission permission="response:read" label="response actions" />,
+                children: [
+                  { path: "response", element: <ResponsePage /> },
+                ],
+              },
+              {
+                element: <RequirePermission permission="playbooks:read" label="playbooks" />,
+                children: [
+                  { path: "playbooks", element: <PlaybooksPage /> },
+                ],
+              },
+              {
+                element: <RequirePermission permission="reports:read" label="reports" />,
+                children: [
+                  { path: "reports", element: <ReportsPage /> },
+                  { path: "reports/:reportId", element: <ReportPage /> },
+                ],
+              },
+              {
+                element: <RequirePermission permission="alerts:read" label="alerts" />,
+                children: [
+                  { path: "alerts", element: <AlertsPage /> },
+                  { path: "alerts/:alertId", element: <AlertDetailPage /> },
+                ],
+              },
+              {
+                element: <RequirePermission permission="events:read" label="events" />,
+                children: [
+                  { path: "events", element: <EventsPage /> },
+                  { path: "events/:eventId", element: <EventDetailPage /> },
+                ],
+              },
+              {
+                element: <RequirePermission permission="assets:read" label="assets" />,
+                children: [
+                  { path: "assets", element: <AssetsPage /> },
+                  { path: "assets/:assetId", element: <AssetDetailPage /> },
+                ],
+              },
+              {
+                element: <RequirePermission permission="rules:read" label="detection rules" />,
+                children: [
+                  { path: "rules", element: <RulesPage /> },
+                  { path: "rules/:ruleId", element: <RuleDetailPage /> },
+                ],
+              },
+              {
+                element: <RequirePermission permission="simulations:read" label="simulations" />,
+                children: [
+                  { path: "simulations", element: <SimulationsPage /> },
+                ],
+              },
+              {
+                element: <RequirePermission permission="tuning:read" label="tuning" />,
+                children: [
+                  { path: "tuning", element: <TuningPage /> },
+                ],
+              },
               { path: "profile", element: <ProfilePage /> },
               { path: "clients", element: <ClientsPage /> },
               {
@@ -94,6 +146,7 @@ export const routes: RouteObject[] = [
                 element: <RequireAdmin />,
                 children: [
                   { path: "users", element: <UsersPage /> },
+                  { path: "roles", element: <RolesPage /> },
                   { path: "api-keys", element: <ApiKeysPage /> },
                   { path: "audit-log", element: <AuditLogPage /> },
                   { path: "email-log", element: <EmailLogPage /> },

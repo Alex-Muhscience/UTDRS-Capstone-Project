@@ -71,6 +71,8 @@ async def overview(request: Request, current_user: User = Depends(get_current_ac
 @router.get("/alerts", response_model=List[ClientAlert])
 async def client_alerts(limit: int = 50, member: User = Depends(_member)):
     """Open alerts across every organisation you manage, most severe and newest first."""
+    if member.permissions is not None and "alerts:read" not in member.permissions:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your role does not allow this (alerts:read)")
     return await msp.open_alerts(member.tenant_id, max(1, min(limit, 200)))
 
 
