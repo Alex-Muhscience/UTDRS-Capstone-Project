@@ -58,6 +58,7 @@ All routes are under `/api/v1`. Interactive documentation is served at `/api/v1/
 | Retention | `GET /retention/`, `PATCH /retention/` (days per kind of data), `POST /retention/run` (administrators) |
 | Email | `POST /email/check` (`recipient`, `internet_message_id`): check a delivered email for phishing |
 | Webhooks | `GET /webhooks/events`, `GET`/`POST /webhooks/`, `PATCH`/`DELETE /webhooks/{id}`, `POST /webhooks/{id}/rotate-secret`, `POST /webhooks/{id}/test`, `GET /webhooks/{id}/deliveries`, `POST /webhooks/deliveries/{id}/redeliver` (administrators) |
+| Account emails | `POST /auth/forgot-password` (`login`), `POST /auth/reset-password` (`token`, `new_password`), `POST /auth/verify-email` (`token`), `POST /auth/resend-verification` (`login`), `POST /auth/me/send-verification` |
 | Sessions | `POST /auth/refresh` (`refresh_token`), `POST /auth/logout`, `GET /auth/sessions`, `DELETE /auth/sessions/{id}`, `POST /auth/sessions/end-others`; `POST /users/{id}/sign-out` (administrators) |
 | Multi-factor authentication | `POST /auth/login/mfa` (`mfa_token`, `code`), `GET /auth/mfa`, `POST /auth/mfa/setup`, `/auth/mfa/confirm`, `/auth/mfa/recovery-codes`, `/auth/mfa/disable`; `PATCH /tenants/current/security` (`require_mfa`; administrators); `POST /users/{id}/reset-mfa` (administrators) |
 | Onboarding | `GET /onboarding/` (the checklist and first results), `PATCH /onboarding/` (`dismissed`; administrators) |
@@ -202,6 +203,16 @@ UTDRS tells an organisation's other systems what happens, as it happens (`core/s
 - **Delivered.** Each event is queued per webhook and sent by a background loop; failures are retried at growing intervals for about a day, then marked failed. Every attempt is in the delivery log, and any delivery can be sent again.
 - **Not into private networks.** URLs must be HTTPS, carry no credentials, and resolve only to public addresses: private, loopback, link-local (cloud metadata), reserved and multicast are refused when saved and again before every send; redirects are not followed. `WEBHOOK_ALLOW_PRIVATE_ADDRESSES` allows receivers on a deployment's own network (and plain HTTP).
 
+## Forgotten passwords and confirming email addresses
+
+With email configured (`SMTP_HOST`), people manage this themselves (`core/services/account_email.py`):
+
+- **A forgotten password.** `POST /auth/forgot-password` with a username or an email address sends a link to choose a new one, valid for 30 minutes and once; the answer is the same whether or not the account exists, and an account is sent at most three an hour. `POST /auth/reset-password` takes the link's token and the new password: every session of the account ends, and multi-factor authentication is still asked for at the next sign-in.
+- **Confirming an address.** Registering sends a link to confirm the address (valid for two days); so does changing it, and `POST /auth/me/send-verification`. `POST /auth/verify-email` takes the token. Accounts show `email_verified`, and the dashboard asks people to confirm. With `REQUIRE_EMAIL_VERIFICATION`, people who registered themselves cannot sign in until they confirm (403, `X-Email-Verification-Required`); `POST /auth/resend-verification` sends the link again.
+- Tokens are random, stored only as hashes, and only the newest of each kind works. The link carries the token after `#`, which browsers never send to servers. The email goes through the notification outbox (retried, logged), does not count towards a person's notification limit, and its text, with the link, is removed once sent. Every step is in the audit log.
+
+Without email, `/auth/config` says `password_reset: false`, and administrators reset passwords (`POST /users/{id}/reset-password`).
+
 ## Sessions
 
 Signing in starts a session (`core/services/sessions.py`) and returns two tokens:
@@ -266,6 +277,7 @@ Settings come from the environment or a `.env` file in this directory (see [`.en
 | `ADMIN_PASSWORD` | unset | Its password, used only when creating it (8 to 72 bytes) |
 | `ADMIN_EMAIL` | `<username>@localhost.localdomain` | |
 | `ALLOW_REGISTRATION` | `true` | Whether anyone can register |
+| `REQUIRE_EMAIL_VERIFICATION` | `false` | People who register confirm their email address before signing in (only while email is configured) |
 | `REGISTRATION_MODE` | `join` | `join`: an analyst in the default organisation. `organisation`: a new organisation, with the person as its administrator |
 | `DEFAULT_TENANT_SLUG`, `DEFAULT_TENANT_NAME` | `default`, `Default organisation` | The organisation a single-organisation deployment uses |
 | `SCANS_TENANT` | unset | The organisation (by slug) device scans are recorded in; unset means the default one |
@@ -311,6 +323,7 @@ MONGODB_URI=mongodb://localhost:27017 python -m pytest
 
 - `tests/e2e/test_flows.py`: registration and sign-in, events, alerts (filters, ordering, summary, status errors), assets, rules, role and password rules, response headers. Against a real MongoDB, with no mocks.
 - `tests/e2e/test_users.py`: role checks on rules and simulations, the team directory, account administration (create, role changes, deactivation, password resets), self-lockout protection, closed registration and the startup administrator.
+- `tests/e2e/test_account_email.py`: a forgotten password reset from an emailed link (sessions ended, once only, the address confirmed by it), the same answer whether or not the account exists, only the newest link working and three an hour, the link not kept once sent, confirming an address at registration and after changing it, requiring it before signing in, and no resetting without email.
 - `tests/e2e/test_detection_pipeline.py`: the event-to-alert pipeline against a fake engine (`httpx.MockTransport`): an unreachable engine (the event stays queued and is analysed once the engine is back), a lost attempt taken up again without a second alert, a rejected event, giving up after a day, the back-off, replaying failed events, and the detection status.
 - `tests/e2e/test_cases.py`: grouping by user, address and device and not by destination; old cases not reopened; priority and deadline; working a case (status, owner, notes, closing its alerts); owners must be colleagues; overdue cases; explanations; evidence; cases kept within an organisation; the `cases` scope; open alerts from before cases grouped at start-up.
 - `tests/e2e/test_response.py`: against a stand-in for Microsoft Graph: actions that run, fail and are undone; the last Global Administrator; playbooks proposing, people approving and rejecting, and running once per case; the organisation's mode capping a playbook's; the hourly limit; protected accounts and administrators; steps skipped without their connector; removing an email from every mailbox and putting it back; removing and restoring an inbox rule; running a playbook yourself; API keys asking and people deciding; writing playbooks; disabled playbooks; response kept within an organisation.

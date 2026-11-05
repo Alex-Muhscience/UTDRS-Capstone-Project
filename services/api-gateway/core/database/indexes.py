@@ -22,8 +22,9 @@ async def ensure_indexes() -> None:
     await m365.ensure_indexes()
     await webhooks.ensure_indexes()
     await sessions.ensure_indexes()
-    from core.services import detection_pipeline
+    from core.services import account_email, detection_pipeline
 
+    await account_email.ensure_indexes()
     await detection_pipeline.ensure_indexes()
 
     database = get_database()

@@ -2,7 +2,7 @@ import { CircleAlert, Info } from "lucide-react"
 import { useState, type FormEvent } from "react"
 import { Link } from "react-router"
 
-import { useAuthConfig } from "@/api/queries"
+import { useAuthConfig, useResendVerification } from "@/api/queries"
 import { useAuth } from "@/auth/context"
 import { Button } from "@/components/ui/Button"
 import { Field, Input } from "@/components/ui/Field"
@@ -16,6 +16,9 @@ export function LoginPage() {
   const [pending, setPending] = useState(false)
   // Set when the password was right and the account needs a second factor.
   const [mfaToken, setMfaToken] = useState<string | null>(null)
+  // Set when the account must confirm its email address before signing in.
+  const [unconfirmed, setUnconfirmed] = useState<string | null>(null)
+  const resend = useResendVerification()
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -28,6 +31,7 @@ export function LoginPage() {
         await loginWithCode(mfaToken, String(form.get("code")).trim())
         return
       }
+      setUnconfirmed(null)
       const next = await login(String(form.get("username")), String(form.get("password")))
       if (next) {
         setMfaToken(next.mfaToken)
@@ -37,6 +41,7 @@ export function LoginPage() {
       const message = caught instanceof Error ? caught.message : "Sign-in failed."
       // The time for the code ran out: start again from the password.
       if (mfaToken && message.startsWith("Sign in again")) setMfaToken(null)
+      if (message.startsWith("Confirm your email address")) setUnconfirmed(String(form.get("username")))
       setError(message)
       setPending(false)
     }
@@ -67,7 +72,21 @@ export function LoginPage() {
       {error && (
         <p className="mb-5 flex gap-2 rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger" role="alert">
           <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-          {error}
+          <span>
+            {error}
+            {unconfirmed && (
+              <>
+                {" "}
+                {resend.isSuccess ? (
+                  "A new link is on its way."
+                ) : (
+                  <button type="button" className="font-medium underline" disabled={resend.isPending} onClick={() => resend.mutate(unconfirmed)}>
+                    Send the link again
+                  </button>
+                )}
+              </>
+            )}
+          </span>
         </p>
       )}
       {mfaToken ? (
@@ -99,6 +118,13 @@ export function LoginPage() {
         <Field label="Password">
           {(id) => <Input id={id} name="password" type="password" autoComplete="current-password" required />}
         </Field>
+        {config.data?.password_reset && (
+          <p className="-mt-2 text-right text-sm">
+            <Link to="/forgot-password" className="text-accent hover:underline">
+              Forgot your password?
+            </Link>
+          </p>
+        )}
         <Button type="submit" variant="primary" className="w-full" loading={pending}>
           Sign in
         </Button>

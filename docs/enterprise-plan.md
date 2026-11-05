@@ -212,7 +212,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 | ID | Requirement | Priority | Phase |
 |---|---|---|---|
 | FR-TEN-01 | Every record belongs to a tenant; every API call and query is scoped to the caller's tenants; no cross-tenant access is possible, enforced in one place and tested | P0 | 1 |
-| FR-TEN-02 | Organisation sign-up, with a first administrator and email verification | P0 | 1 |
+| FR-TEN-02 | Organisation sign-up, with a first administrator and email verification **Done (#43): sign-up creates an organisation and its administrator (#19); email addresses confirmed by link, optionally required before signing in; forgotten passwords reset by email.** | P0 | 1 |
 | FR-TEN-03 | MSP accounts that own and switch between many client tenants, with per-client and all-client views | P1 | 2 |
 | FR-TEN-04 | Roles: owner, administrator, analyst, read-only, MSP technician, MSP administrator; custom roles with fine-grained permissions | P1 | 2 |
 | FR-TEN-05 | Single sign-on with OIDC (Entra ID, Google, Okta) and SAML; SCIM user provisioning | P1 | 2 |

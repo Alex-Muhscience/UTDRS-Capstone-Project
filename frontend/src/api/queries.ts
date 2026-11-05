@@ -90,6 +90,38 @@ export function useEndOtherSessions() {
   })
 }
 
+// ---------------------------------------------------------------------------- Account emails
+
+/** Ask for a link to choose a new password (the answer is the same whether or not the account exists). */
+export function useForgotPassword() {
+  return useMutation({ mutationFn: (login: string) => unwrap(api.POST("/api/v1/auth/forgot-password", { body: { login } })) })
+}
+
+/** Choose a new password with the token from the emailed link. */
+export function useChooseNewPassword() {
+  return useMutation({
+    mutationFn: (body: { token: string; new_password: string }) => unwrap(api.POST("/api/v1/auth/reset-password", { body })),
+  })
+}
+
+export function useVerifyEmail() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (token: string) => unwrap(api.POST("/api/v1/auth/verify-email", { body: { token } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["me"] }),
+  })
+}
+
+/** Send the confirmation link again, for someone who cannot sign in until they confirm. */
+export function useResendVerification() {
+  return useMutation({ mutationFn: (login: string) => unwrap(api.POST("/api/v1/auth/resend-verification", { body: { login } })) })
+}
+
+/** Send the signed-in person the link to confirm their email address. */
+export function useSendMyVerification() {
+  return useMutation({ mutationFn: () => unwrap(api.POST("/api/v1/auth/me/send-verification")) })
+}
+
 export function useAuthConfig() {
   return useQuery({
     queryKey: ["auth", "config"],
