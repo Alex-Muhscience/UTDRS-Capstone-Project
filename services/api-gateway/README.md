@@ -238,6 +238,15 @@ UTDRS tells an organisation's other systems what happens, as it happens (`core/s
 - **Delivered.** Each event is queued per webhook and sent by a background loop; failures are retried at growing intervals for about a day, then marked failed. Every attempt is in the delivery log, and any delivery can be sent again.
 - **Not into private networks.** URLs must be HTTPS, carry no credentials, and resolve only to public addresses: private, loopback, link-local (cloud metadata), reserved and multicast are refused when saved and again before every send; redirects are not followed. `WEBHOOK_ALLOW_PRIVATE_ADDRESSES` allows receivers on a deployment's own network (and plain HTTP).
 
+## Live updates
+
+The dashboard hears of changes as they happen, through `GET /api/v1/live` (Server-Sent Events; `core/services/live.py`, `api/routes/live.py`).
+
+- **What.** Every webhook event (`alert.created` with the alert's title and severity, `case.created`, `case.updated`, `action.approval_requested`, `action.completed`, `report.ready`, `connector.unhealthy`) and `alert.updated` (status, owner). Each says what changed; the dashboard fetches the details through the API with the caller's usual permissions. Only the caller's organisation's changes are sent.
+- **How it reaches every process.** Changes are written to `live_events` (kept an hour) from whichever process makes them, web or analysis worker. Each gateway process with someone listening reads new entries once a second and hands them to its listeners, so nothing but MongoDB is needed.
+- **Reconnecting.** Each message has an id; a client that reconnects with `Last-Event-ID` gets what it missed, or `resync` (fetch everything again) when that is over 200 changes or older than an hour. A stream ends after five minutes and the client reconnects, so an ended session, a deactivated person or a suspended organisation stops receiving within that time. A comment is sent every 15 seconds to keep proxies from closing the connection.
+- **The dashboard** connects with `fetch` (the access token in a header, never in the address), refreshes alerts, cases and actions as they change, announces critical and high alerts and actions waiting for a decision, and shows "Live" beside the detection status. While connected it polls those lists only every two minutes; while not, every 15 seconds as before.
+
 ## Forgotten passwords and confirming email addresses
 
 With email configured (`SMTP_HOST`), people manage this themselves (`core/services/account_email.py`):

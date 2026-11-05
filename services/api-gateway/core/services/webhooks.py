@@ -192,7 +192,11 @@ def _json(value: Any) -> Any:
 
 
 async def emit(event: str, data: Dict[str, Any], only: Optional[str] = None) -> int:
-    """Queue `event` for every enabled webhook of the current organisation that wants it. Never raises."""
+    """Queue `event` for every enabled webhook of the current organisation that wants it, and tell its dashboards. Never raises."""
+    if not only:
+        from core.services import live
+
+        await live.publish(event, data)
     try:
         if current_tenant_or_none() is None:
             return 0

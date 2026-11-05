@@ -8998,6 +8998,57 @@
         }
       }
     },
+    "/api/v1/live": {
+      "get": {
+        "tags": [
+          "live updates"
+        ],
+        "summary": "Live updates",
+        "description": "Changes in your organisation as Server-Sent Events. Each says what changed (with an alert's\ntitle and severity); fetch the details through the API. Send `Last-Event-ID` when reconnecting\nto get what you missed; `resync` means fetch everything again. The stream ends every few\nminutes; reconnect.",
+        "operationId": "stream_api_v1_live_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last-Event-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-Sent Events: alert.created, alert.updated, case.created, case.updated, action.approval_requested, action.completed, report.ready, connector.unhealthy, and resync.",
+            "content": {
+              "text/event-stream": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/platform/organisations": {
       "get": {
         "tags": [

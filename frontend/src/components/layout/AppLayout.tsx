@@ -30,6 +30,7 @@ import { Link, NavLink, Outlet, useLocation } from "react-router"
 import { useActions, useAlertSummary, useCurrentTenant } from "@/api/queries"
 import { useAuth, useIsAdmin, useIsPlatformAdmin, useIsReadOnly, useUser } from "@/auth/context"
 import { cx } from "@/lib/cx"
+import { useLiveUpdates } from "@/lib/live"
 import { humanize } from "@/lib/format"
 
 import { ConfirmEmailBanner } from "./ConfirmEmailBanner"
@@ -202,6 +203,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function AppLayout() {
+  useLiveUpdates()
   const [menuOpen, setMenuOpen] = useState(false)
   const location = useLocation()
 

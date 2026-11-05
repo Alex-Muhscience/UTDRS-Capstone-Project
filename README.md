@@ -138,7 +138,7 @@ Done:
 
 Next:
 
-- [ ] Push new alerts to the dashboard as they happen, instead of polling every 15 seconds
+- [x] Push new alerts to the dashboard as they happen, instead of polling every 15 seconds
 - [x] Trained, evaluated models for phishing emails and network flows in the core engine
 - [x] Throttle sign-in by account and address, using the client address behind trusted proxies
 - [x] Rules edited in the dashboard run in the core engine, with malformed logic refused and unsupported logic marked

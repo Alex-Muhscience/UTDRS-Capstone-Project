@@ -116,6 +116,14 @@ export function refreshSession(): Promise<Session | null> {
   return refreshing
 }
 
+/** A current access token, refreshed first when it is about to expire; null when signed out. */
+export async function accessToken(): Promise<string | null> {
+  if (current?.refreshToken && current.expiresAt !== null && current.expiresAt - Date.now() < REFRESH_EARLY_MS) {
+    await refreshSession()
+  }
+  return current?.token ?? null
+}
+
 /** End this session at the gateway (best effort), then forget it here. */
 export async function endSession(): Promise<void> {
   if (current?.refreshToken && current.expiresAt !== null && current.expiresAt <= Date.now() + REFRESH_EARLY_MS) {
