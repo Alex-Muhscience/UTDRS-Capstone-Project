@@ -65,6 +65,10 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env (see .env.example)}
+      # The first platform operator (the operator console; never an organisation's account).
+      PLATFORM_OPERATOR_USERNAME: ${PLATFORM_OPERATOR_USERNAME:-}
+      PLATFORM_OPERATOR_EMAIL: ${PLATFORM_OPERATOR_EMAIL:-}
+      PLATFORM_OPERATOR_PASSWORD: ${PLATFORM_OPERATOR_PASSWORD:-}
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
       # join: registering adds an analyst to the default organisation. organisation:
       # registering creates a new organisation, with the person as its administrator.
@@ -126,6 +130,19 @@ services:
         condition: service_healthy
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:${DASHBOARD_PORT:-8080}:8080"
+
+  # The operator console: for whoever runs the deployment (platform operators), apart from
+  # the organisations' dashboard. http://localhost:8081
+  operator-console:
+    build: ./platform-console
+    restart: unless-stopped
+    environment:
+      GATEWAY_URL: http://api-gateway:8000
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${OPERATOR_CONSOLE_PORT:-8081}:8080"
 
   # AI assistants (Claude and other MCP clients) investigate and act through UTDRS:
   # Streamable HTTP at http://localhost:8765/mcp, each client sending a UTDRS API key.

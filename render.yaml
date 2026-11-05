@@ -84,6 +84,14 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
+      # The first platform operator, who signs in to the operator console (its own Vercel
+      # project) and sets up an authenticator there. A password of at least 12 characters.
+      - key: PLATFORM_OPERATOR_USERNAME
+        sync: false
+      - key: PLATFORM_OPERATOR_EMAIL
+        sync: false
+      - key: PLATFORM_OPERATOR_PASSWORD
+        sync: false
       # Only administrators create accounts until you decide otherwise. For a hosted
       # service where each sign-up is a new organisation: true, and REGISTRATION_MODE
       # organisation.
@@ -116,9 +124,9 @@ services:
       - key: DASHBOARD_URL
         value: https://utdrs-capstone-project.vercel.app
       - key: CORS_ORIGINS
-        value: '["https://utdrs-capstone-project.vercel.app"]'
+        value: '["https://utdrs-capstone-project.vercel.app", "https://utdrs-operator-console.vercel.app"]'
       - key: CORS_ORIGIN_REGEX
-        value: '^https://utdrs-capstone-project-[a-z0-9-]+\.vercel\.app$'
+        value: '^https://utdrs-(capstone-project|operator-console)-[a-z0-9-]+\.vercel\.app$'
       # Render's proxies: believe their X-Forwarded-For, so sign-in throttling counts
       # each person's address rather than the proxy's.
       - key: TRUSTED_PROXIES

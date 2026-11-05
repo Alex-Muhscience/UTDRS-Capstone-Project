@@ -4,7 +4,8 @@ The dashboard is on Vercel (built from this repository). This puts the backend o
 
 | Piece | Where | Address |
 |---|---|---|
-| Dashboard | Vercel | https://utdrs-capstone-project.vercel.app |
+| Dashboard (organisations' people) | Vercel | https://utdrs-capstone-project.vercel.app |
+| Operator console (platform operators only) | Vercel, its own project (root directory `platform-console`) | https://utdrs-operator-console.vercel.app |
 | API gateway | Render web service `utdrs-api-gateway` (Render named it `utdrs-api-gateway-1pjf`) | https://utdrs-api-gateway-1pjf.onrender.com |
 | Core engine | Render web service `utdrs-core-engine` (Render named it `utdrs-core-engine-vtv2`) | https://utdrs-core-engine-vtv2.onrender.com (answers only the gateway: it needs the shared internal token) |
 | Database | MongoDB Atlas | databases `utdrs` (gateway) and `utdrs_engine` (engine) in one cluster |
@@ -24,11 +25,23 @@ The browser calls the gateway directly: the dashboard picks the gateway's addres
 2. **New > Blueprint**, choose the repository and the `main` branch. Render reads `render.yaml` and lists the engine, the gateway and the shared group of settings.
 3. Fill in what it asks for:
    - `MONGODB_URI`, for both services: the Atlas connection string (the same one).
-   - `ADMIN_EMAIL` and `ADMIN_PASSWORD`: the first administrator (user name `admin`). Use a password manager; at least 8 characters.
+   - `ADMIN_EMAIL` and `ADMIN_PASSWORD`: the first administrator (user name `admin`) of the default organisation. Use a password manager; at least 8 characters.
+   - `PLATFORM_OPERATOR_USERNAME`, `PLATFORM_OPERATOR_EMAIL` and `PLATFORM_OPERATOR_PASSWORD`: the first platform operator, who runs the deployment from the operator console. This is a separate account from `admin`, belongs to no organisation, and needs at least 12 characters.
 4. **Apply**. The engine builds first (a few minutes: it installs its machine-learning libraries), then the gateway. Render generates `JWT_SECRET`, `ENCRYPTION_KEY` and the shared `INTERNAL_API_TOKEN`.
 5. Check both service addresses in Render. If either name was taken, Render adds a suffix (as it did here: `-1pjf` and `-vtv2`, because other people's services already had the plain names). **This matters**: a dashboard pointing at the plain name would send people's passwords to someone else's service. So then change the addresses in `render.yaml` (`CORE_ENGINE_URL`), `frontend/src/api/deployment.ts` and `frontend/vercel.json` (`connect-src`), and push.
 
-## 3. Check it
+## 3. The operator console: its own Vercel project
+
+The organisations' dashboard and the operator console are separate apps, so that the people who run the platform never sign in where organisations do.
+
+1. In Vercel: **Add New > Project**, import this repository again, name it `utdrs-operator-console`, and set **Root Directory** to `platform-console`. The framework (Vite), build command and output directory are detected. No environment variables are needed: the console picks the gateway's address from its own domain (`platform-console/src/api/deployment.ts`).
+2. Deploy. If Vercel gives it another address, add that address to `platform-console/src/api/deployment.ts`, and add it to the gateway's `CORS_ORIGINS` in Render (and `render.yaml`).
+3. Open it and sign in as `PLATFORM_OPERATOR_USERNAME`. The first time, scan the QR code with an authenticator app and keep the recovery codes. From then on, every sign-in asks for a code.
+4. Optionally, protect it further: Vercel's **Deployment Protection** (password or Vercel Authentication) on this project only, or a custom domain only your team knows. The operator's sign-in and authenticator protect it either way.
+
+If every operator loses access, set `PLATFORM_OPERATOR_RESET=true` on the gateway with a new `PLATFORM_OPERATOR_PASSWORD`, redeploy, sign in (setting up the authenticator again), then remove `PLATFORM_OPERATOR_RESET`.
+
+## 4. Check it
 
 - https://utdrs-api-gateway-1pjf.onrender.com/api/v1/health answers `{"status":"ok"}`, and `/api/v1/detection/` shows the engine reachable (sign in first; or look for "Sent N rules to the core engine" in the gateway's Render logs).
 - Open the dashboard, sign in as `admin`, and send a test event (Events > Send test event): "Shadow copies deleted" becomes an alert.

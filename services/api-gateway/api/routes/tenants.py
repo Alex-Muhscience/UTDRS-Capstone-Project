@@ -25,7 +25,7 @@ async def get_current_tenant(current_user: User = Depends(get_current_active_use
 async def release_from_msp(request: Request, admin: User = Depends(require_admin)):
     """
     End your service provider's access (your own administrators only): its people can no longer
-    work in your organisation. A platform administrator can give it back.
+    work in your organisation. A platform operator can give it back.
     """
     if getattr(request.state, "home_tenant_id", None):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the organisation's own administrators can end its service provider's access")

@@ -3398,6 +3398,140 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login
+         * @description The password. Then an authenticator code (`/mfa`), or, the first time, setting one up (`/enrol`).
+         */
+        post: operations["login_api_v1_platform_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/auth/mfa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Second Factor
+         * @description An authenticator code, or a recovery code (each works once).
+         */
+        post: operations["second_factor_api_v1_platform_auth_mfa_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/auth/enrol": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enrol
+         * @description Set up the authenticator (first sign-in, or after a reset): a code from it proves it works. Recovery codes come back once.
+         */
+        post: operations["enrol_api_v1_platform_auth_enrol_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh
+         * @description A fresh token for the same session, while it lasts (it ends when idle or too old).
+         */
+        post: operations["refresh_api_v1_platform_auth_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Me */
+        get: operations["me_api_v1_platform_auth_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change Password
+         * @description Choose a new password (required after a temporary one). At least 12 characters.
+         */
+        post: operations["change_password_api_v1_platform_auth_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Logout */
+        post: operations["logout_api_v1_platform_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform/organisations": {
         parameters: {
             query?: never;
@@ -3468,21 +3602,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/platform/admins": {
+    "/api/v1/platform/operators": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Platform Admins */
-        get: operations["platform_admins_api_v1_platform_admins_get"];
         /**
-         * Set Platform Admin
-         * @description Make someone (by username, in any organisation) a platform administrator, or stop.
+         * List Operators
+         * @description Everyone who can use the operator console.
          */
-        put: operations["set_platform_admin_api_v1_platform_admins_put"];
+        get: operations["list_operators_api_v1_platform_operators_get"];
+        put?: never;
+        /**
+         * Add Operator
+         * @description Add an operator, with a temporary password shown once; they set up an authenticator at first sign-in.
+         */
+        post: operations["add_operator_api_v1_platform_operators_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/operators/{operator_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change Operator
+         * @description Deactivate an operator (their sessions end) or reactivate them. Never yourself, nor the last active one.
+         */
+        patch: operations["change_operator_api_v1_platform_operators__operator_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/platform/operators/{operator_id}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Operator
+         * @description A new temporary password and no authenticator, for an operator who lost theirs: they set both up again.
+         */
+        post: operations["reset_operator_api_v1_platform_operators__operator_id__reset_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4593,6 +4770,13 @@ export interface components {
             /** Organisation */
             organisation?: string | null;
         };
+        /** Code */
+        Code: {
+            /** Step Token */
+            step_token: string;
+            /** Code */
+            code: string;
+        };
         /**
          * ConsentResult
          * @description What Microsoft sent back to the redirect page.
@@ -4639,12 +4823,25 @@ export interface components {
             /** Temporary Password */
             temporary_password?: string | null;
         };
+        /** CreatedOperator */
+        CreatedOperator: {
+            operator: components["schemas"]["OperatorAccount"];
+            /** Temporary Password */
+            temporary_password: string;
+        };
         /** CreatedOrganisation */
         CreatedOrganisation: {
             administrator: components["schemas"]["Administrator"];
             /** Temporary Password */
             temporary_password: string;
             tenant: components["schemas"]["OrganisationDetail"];
+        };
+        /** Credentials */
+        Credentials: {
+            /** Username */
+            username: string;
+            /** Password */
+            password: string;
         };
         /** CustomRole */
         CustomRole: {
@@ -5338,6 +5535,13 @@ export interface components {
             /** Admin Email */
             admin_email?: string | null;
         };
+        /** NewOperator */
+        NewOperator: {
+            /** Username */
+            username: string;
+            /** Email */
+            email: string;
+        };
         /** NewOrganisation */
         NewOrganisation: {
             /** Name */
@@ -5464,6 +5668,39 @@ export interface components {
             due_at: string;
             /** Overdue */
             overdue: boolean;
+        };
+        /** OperatorAccount */
+        OperatorAccount: {
+            /** Id */
+            id: string;
+            /** Username */
+            username: string;
+            /** Email */
+            email?: string | null;
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+            /**
+             * Mfa
+             * @default false
+             */
+            mfa: boolean;
+            /**
+             * Must Change Password
+             * @default false
+             */
+            must_change_password: boolean;
+            /** Created At */
+            created_at?: string | null;
+            /** Last Sign In */
+            last_sign_in?: string | null;
+        };
+        /** OperatorChange */
+        OperatorChange: {
+            /** Active */
+            active: boolean;
         };
         /**
          * OrganisationChange
@@ -5595,11 +5832,6 @@ export interface components {
             /** Last Sign In */
             last_sign_in?: string | null;
             /**
-             * Platform Admin
-             * @default false
-             */
-            platform_admin: boolean;
-            /**
              * Mfa
              * @default false
              */
@@ -5667,19 +5899,26 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** PasswordChange */
-        PasswordChange: {
-            /** Current Password */
-            current_password: string;
-            /** New Password */
-            new_password: string;
-        };
         /** PasswordReset */
         PasswordReset: {
             /** Token */
             token: string;
             /** New Password */
             new_password: string;
+        };
+        /** PasswordStep */
+        PasswordStep: {
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "mfa" | "enrol";
+            /** Step Token */
+            step_token: string;
+            /** Secret */
+            secret?: string | null;
+            /** Otpauth Uri */
+            otpauth_uri?: string | null;
         };
         /** Permission */
         Permission: {
@@ -5698,34 +5937,6 @@ export interface components {
             read: string;
             /** Write */
             write?: string | null;
-        };
-        /** PlatformAdmin */
-        PlatformAdmin: {
-            /** Id */
-            id: string;
-            /** Username */
-            username: string;
-            /** Email */
-            email?: string | null;
-            /** Organisation */
-            organisation?: string | null;
-            /**
-             * Active
-             * @default true
-             */
-            active: boolean;
-            /**
-             * Mfa
-             * @default false
-             */
-            mfa: boolean;
-        };
-        /** PlatformAdminChange */
-        PlatformAdminChange: {
-            /** Username */
-            username: string;
-            /** Platform Admin */
-            platform_admin: boolean;
         };
         /** Playbook */
         Playbook: {
@@ -6295,6 +6506,21 @@ export interface components {
         SessionsEnded: {
             /** Ended */
             ended: number;
+        };
+        /** Signed */
+        Signed: {
+            /** Access Token */
+            access_token: string;
+            /**
+             * Token Type
+             * @default bearer
+             */
+            token_type: string;
+            /** Expires In */
+            expires_in: number;
+            operator: components["schemas"]["OperatorAccount"];
+            /** Recovery Codes */
+            recovery_codes?: string[] | null;
         };
         /** SigningSecret */
         SigningSecret: {
@@ -6893,11 +7119,6 @@ export interface components {
              * @default false
              */
             mfa_enabled: boolean;
-            /**
-             * Platform Admin
-             * @default false
-             */
-            platform_admin: boolean;
             /** Custom Role Id */
             custom_role_id?: string | null;
             /** Custom Role Name */
@@ -7063,6 +7284,20 @@ export interface components {
             end: string;
             /** Count */
             count: number;
+        };
+        /** PasswordChange */
+        api__routes__auth__PasswordChange: {
+            /** Current Password */
+            current_password: string;
+            /** New Password */
+            new_password: string;
+        };
+        /** PasswordChange */
+        api__routes__platform_auth__PasswordChange: {
+            /** Current Password */
+            current_password: string;
+            /** New Password */
+            new_password: string;
         };
         /** Target */
         core__models__report__Target: {
@@ -7863,7 +8098,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PasswordChange"];
+                "application/json": components["schemas"]["api__routes__auth__PasswordChange"];
             };
         };
         responses: {
@@ -12981,6 +13216,194 @@ export interface operations {
             };
         };
     };
+    login_api_v1_platform_auth_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Credentials"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordStep"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    second_factor_api_v1_platform_auth_mfa_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Code"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Signed"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enrol_api_v1_platform_auth_enrol_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Code"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Signed"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_api_v1_platform_auth_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Signed"];
+                };
+            };
+        };
+    };
+    me_api_v1_platform_auth_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorAccount"];
+                };
+            };
+        };
+    };
+    change_password_api_v1_platform_auth_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["api__routes__platform_auth__PasswordChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    logout_api_v1_platform_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     organisations_api_v1_platform_organisations_get: {
         parameters: {
             query?: never;
@@ -13172,7 +13595,7 @@ export interface operations {
             };
         };
     };
-    platform_admins_api_v1_platform_admins_get: {
+    list_operators_api_v1_platform_operators_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -13187,12 +13610,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlatformAdmin"][];
+                    "application/json": components["schemas"]["OperatorAccount"][];
                 };
             };
         };
     };
-    set_platform_admin_api_v1_platform_admins_put: {
+    add_operator_api_v1_platform_operators_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -13201,7 +13624,42 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PlatformAdminChange"];
+                "application/json": components["schemas"]["NewOperator"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedOperator"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_operator_api_v1_platform_operators__operator_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operator_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OperatorChange"];
             };
         };
         responses: {
@@ -13211,7 +13669,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlatformAdmin"][];
+                    "application/json": components["schemas"]["OperatorAccount"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_operator_api_v1_platform_operators__operator_id__reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operator_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedOperator"];
                 };
             };
             /** @description Validation Error */

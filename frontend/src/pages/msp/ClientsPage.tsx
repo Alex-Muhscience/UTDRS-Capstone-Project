@@ -15,7 +15,7 @@ import { EmptyState, ErrorState, SkeletonRows } from "@/components/ui/States"
 import { Table, Td, Th, Tr } from "@/components/ui/Table"
 import { formatDateTime, formatNumber, formatRelative, humanize } from "@/lib/format"
 import { NotFoundPage } from "@/pages/errors/NotFoundPage"
-import { OneTimePassword } from "@/pages/platform/PlatformPage"
+import { OneTimePassword } from "@/components/OneTimePassword"
 
 function NewClientDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (username: string, password: string) => void }) {
   const create = useCreateClient()

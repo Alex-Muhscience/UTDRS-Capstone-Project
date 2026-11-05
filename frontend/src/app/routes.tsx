@@ -2,7 +2,6 @@ import type { RouteObject } from "react-router"
 
 import { RequireAdmin } from "@/auth/RequireAdmin"
 import { RequirePermission } from "@/auth/RequirePermission"
-import { RequirePlatformAdmin } from "@/auth/RequirePlatformAdmin"
 import { GuestOnly, RequireAuth } from "@/auth/RequireAuth"
 import { AppLayout } from "@/components/layout/AppLayout"
 import { ApiKeysPage } from "@/pages/admin/ApiKeysPage"
@@ -34,8 +33,6 @@ import { ReportPage } from "@/pages/reports/ReportPage"
 import { ReportsPage } from "@/pages/reports/ReportsPage"
 import { InboxPage } from "@/pages/inbox/InboxPage"
 import { ClientsPage } from "@/pages/msp/ClientsPage"
-import { OrganisationPage } from "@/pages/platform/OrganisationPage"
-import { PlatformPage } from "@/pages/platform/PlatformPage"
 import { PlaybooksPage } from "@/pages/response/PlaybooksPage"
 import { ResponsePage } from "@/pages/response/ResponsePage"
 import { RuleDetailPage } from "@/pages/rules/RuleDetailPage"
@@ -137,13 +134,6 @@ export const routes: RouteObject[] = [
               { path: "profile", element: <ProfilePage /> },
               { path: "inbox", element: <InboxPage /> },
               { path: "clients", element: <ClientsPage /> },
-              {
-                element: <RequirePlatformAdmin />,
-                children: [
-                  { path: "platform", element: <PlatformPage /> },
-                  { path: "platform/organisations/:tenantId", element: <OrganisationPage /> },
-                ],
-              },
               {
                 element: <RequireAdmin />,
                 children: [

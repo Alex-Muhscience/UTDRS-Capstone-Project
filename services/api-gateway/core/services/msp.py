@@ -1,8 +1,8 @@
 """
 Managed service providers (MSPs): organisations that look after other organisations.
 
-A platform administrator marks an organisation as an MSP; the MSP then creates client
-organisations, or a platform administrator assigns existing ones to it (`managed_by` on the
+A platform operator marks an organisation as an MSP; the MSP then creates client
+organisations, or an operator assigns existing ones to it (`managed_by` on the
 client). The MSP's people work in a client by sending the `X-UTDRS-Organisation` header with
 the client's id (utils/security.py switches the request to it), with the same role there as
 in the MSP: its administrators administer every client, its analysts are analysts there, its

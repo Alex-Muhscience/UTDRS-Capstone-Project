@@ -3,7 +3,6 @@ import {
   Archive,
   BookOpen,
   Briefcase,
-  Building2,
   Network,
   Eye,
   FileText,
@@ -30,7 +29,7 @@ import { useEffect, useState } from "react"
 import { Link, NavLink, Outlet, useLocation } from "react-router"
 
 import { useActions, useAlertSummary, useMspOverview } from "@/api/queries"
-import { can, roleLabel, useAuth, useIsAdmin, useIsPlatformAdmin, useIsReadOnly, useUser } from "@/auth/context"
+import { can, roleLabel, useAuth, useIsAdmin, useIsReadOnly, useUser } from "@/auth/context"
 import { cx } from "@/lib/cx"
 import { useLiveUpdates } from "@/lib/live"
 
@@ -70,7 +69,6 @@ const ADMIN_NAVIGATION = [
 
 const MSP_NAVIGATION = [{ to: "/clients", label: "Clients", icon: Network }] as const
 
-const PLATFORM_NAVIGATION = [{ to: "/platform", label: "Platform", icon: Building2 }] as const
 
 function ReadOnlyBanner() {
   if (!useIsReadOnly()) return null
@@ -108,14 +106,12 @@ function PendingActionCount() {
 
 function Navigation({ onNavigate }: { onNavigate?: () => void }) {
   const isAdmin = useIsAdmin()
-  const isPlatformAdmin = useIsPlatformAdmin()
   const isMsp = Boolean(useMspOverview().data?.msp)
   const user = useUser()
   const items = [
     ...(isMsp ? MSP_NAVIGATION : []),
     ...NAVIGATION.filter((item) => !("permission" in item) || can(user, item.permission)),
     ...(isAdmin ? ADMIN_NAVIGATION : []),
-    ...(isPlatformAdmin ? PLATFORM_NAVIGATION : []),
   ]
   return (
     <nav aria-label="Main" className="space-y-0.5">

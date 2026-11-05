@@ -85,8 +85,6 @@ class User(UserBase):
     email_verified: bool = False
     # Whether a second factor is needed to sign in (the secret itself is never shown).
     mfa_enabled: bool = False
-    # Runs the whole deployment (every organisation), from the platform console.
-    platform_admin: bool = False
     # For the role "custom": which of the organisation's roles, its name, and what it permits.
     custom_role_id: Optional[str] = None
     custom_role_name: Optional[str] = None

@@ -22,7 +22,6 @@ export const user: User = {
   email_verified: true,
   mfa_enabled: false,
   mfa_setup_required: false,
-  platform_admin: false,
 }
 
 export const admin: User = {

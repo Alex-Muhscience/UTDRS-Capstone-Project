@@ -17,14 +17,14 @@ from api.middleware.security import (
 )
 from api.routes import (
     alerts, api_keys, platform as platform_routes, scim as scim_routes, assets, audit, auth, cases, connectors as connector_routes, detection, email, events, health,
-    inbox as inbox_routes, live as live_routes, msp as msp_routes, notifications, roles as role_routes, onboarding, playbooks, reports, response, retention as retention_routes, scans, simulation,
+    inbox as inbox_routes, platform_auth as platform_auth_routes, live as live_routes, msp as msp_routes, notifications, roles as role_routes, onboarding, playbooks, reports, response, retention as retention_routes, scans, simulation,
     tenants as tenant_routes, tuning, users, webhooks as webhook_routes,
 )
 from config import settings
 from core.database.connection import close_mongo_connection, connect_to_mongo
 from core.database.indexes import ensure_indexes
 from core.services import (
-    case_service, detection_pipeline, google_workspace, m365_ingest, metrics, notifications as notification_service, platform_health,
+    case_service, detection_pipeline, google_workspace, m365_ingest, metrics, notifications as notification_service, operators, platform_health,
     playbooks as playbook_service,
     reports as report_service, retention, tenants, webhooks,
 )
@@ -55,6 +55,8 @@ async def lifespan(app: FastAPI):
         await tenants.adopt_untenanted(await tenants.ensure_default())
         await ensure_indexes()
         await ensure_admin()
+        await operators.forget_user_platform_flags()
+        await operators.ensure_first()
         await group_existing_alerts_into_cases()
     loops = [
         asyncio.create_task(sync_periodically()),
@@ -166,11 +168,12 @@ app.include_router(
 app.include_router(api_keys.router, prefix=f"{settings.API_PREFIX}/api-keys", tags=["api keys"])
 # SCIM: identity providers, authenticated by the organisation's SCIM token (not a person's or an API key).
 app.include_router(scim_routes.router, prefix=f"{settings.API_PREFIX}/scim/v2", tags=["scim"])
-# The platform console: every organisation (platform administrators only).
+# The platform console: every organisation, for platform operators only (their own sign-in and tokens).
 app.include_router(inbox_routes.router, prefix=f"{settings.API_PREFIX}/inbox", tags=["notifications centre"])
 app.include_router(role_routes.router, prefix=f"{settings.API_PREFIX}/roles", tags=["roles"], dependencies=[Depends(audited("roles"))])
 app.include_router(msp_routes.router, prefix=f"{settings.API_PREFIX}/msp", tags=["service providers"])
 app.include_router(live_routes.router, prefix=f"{settings.API_PREFIX}/live", tags=["live updates"])
+app.include_router(platform_auth_routes.router, prefix=f"{settings.API_PREFIX}/platform/auth", tags=["operator sign-in"])
 app.include_router(platform_routes.router, prefix=f"{settings.API_PREFIX}/platform", tags=["platform"])
 app.include_router(audit.router, prefix=f"{settings.API_PREFIX}/audit-log", tags=["audit log"])
 app.include_router(tenant_routes.router, prefix=f"{settings.API_PREFIX}/tenants", tags=["organisations"])

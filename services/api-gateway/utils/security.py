@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 import bcrypt
 import jwt
 from fastapi import Depends, Header, HTTPException, Request, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2PasswordBearer
 from pydantic import ValidationError
 
 from config import settings
@@ -312,17 +312,49 @@ async def require_internal_token(
         )
 
 
-async def require_platform_admin(request: Request, current_user: User = Depends(get_current_active_user)) -> User:
-    """
-    A platform administrator, signed in with a second factor (an authenticator code, a
-    recovery code, a passkey or single sign-on): the platform console reaches every organisation.
-    """
-    if (getattr(request.state, "principal", None) or {}).get("type") != "user" or not current_user.platform_admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only platform administrators can do this")
-    from core.services import sessions
+class Operator:
+    """A platform operator, signed in to the operator console (never an organisation's user)."""
 
-    if await sessions.method(getattr(request.state, "session_id", "") or "") not in ("totp", "recovery", "passkey", "sso"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail="The platform console needs a sign-in with a second factor: set up multi-factor authentication or a passkey, then sign in again",
-                            headers={"X-Platform-MFA-Required": "true"})
-    return current_user
+    def __init__(self, doc: Dict[str, Any], session_id: str):
+        self.id = str(doc["_id"])
+        self.username = doc["username"]
+        self.email = doc.get("email")
+        self.doc = doc
+        self.session_id = session_id
+
+
+_operator_bearer = HTTPBearer(auto_error=False)
+# What an operator with a temporary password may still do: change it (and sign out).
+OPERATOR_BEFORE_PASSWORD_CHANGE = ("/platform/auth/",)
+
+
+async def require_operator(request: Request, credentials: Optional[HTTPAuthorizationCredentials] = Depends(_operator_bearer)) -> Operator:
+    """
+    A platform operator with a live session. Only operators' tokens (signed with their own key,
+    for the platform) are accepted: an organisation's token, or an API key, never is.
+    """
+    from core.services import operators
+
+    def refused(detail: str) -> HTTPException:
+        return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail, headers={"WWW-Authenticate": "Bearer"})
+
+    if credentials is None:
+        raise refused("Sign in to the operator console")
+    try:
+        claims = operators.decode(credentials.credentials)
+    except jwt.PyJWTError:
+        raise refused("Sign in to the operator console")
+    if claims.get("typ") != "operator" or not claims.get("sid"):
+        raise refused("Sign in to the operator console")
+    ended = await operators.check_session(claims["sid"])
+    if ended:
+        raise refused(ended)
+    doc = await operators.get(claims["sub"])
+    if not doc or not doc.get("active", True) or not (doc.get("mfa") or {}).get("enabled"):
+        raise refused("This operator account cannot sign in")
+    request.state.principal = {"type": "operator", "id": str(doc["_id"]), "name": doc["username"]}
+    request.state.session_id = claims["sid"]
+    path = request.url.path.removeprefix(settings.API_PREFIX)
+    if doc.get("must_change_password") and not path.startswith(OPERATOR_BEFORE_PASSWORD_CHANGE):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Choose a new password first", headers={"X-Password-Change-Required": "true"})
+    return Operator(doc, claims["sid"])

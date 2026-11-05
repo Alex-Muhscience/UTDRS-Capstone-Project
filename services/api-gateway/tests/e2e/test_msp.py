@@ -152,7 +152,7 @@ def test_a_client_that_requires_mfa_requires_it_of_its_provider_too(client, prov
     assert refused.status_code == 403 and "multi-factor" in refused.json()["detail"]
 
 
-def test_platform_administrators_set_up_providers(client, monkeypatch, operator):  # noqa: F811
+def test_operators_set_up_providers(client, monkeypatch, operator):  # noqa: F811
     auth, _ = operator
     _, msp_admin = sign_up(client, monkeypatch, "pm")
     _, other = sign_up(client, monkeypatch, "po")
