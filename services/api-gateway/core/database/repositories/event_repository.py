@@ -9,6 +9,10 @@ from core.models.event import EventCreate, EventUpdate
 from utils.time import utcnow
 
 
+def api_external_id(source: str, external_id: str) -> str:
+    return f"api:{source}:{external_id}"
+
+
 class EventRepository(BaseRepository):
     def __init__(self):
         super().__init__("events")
@@ -43,7 +47,14 @@ class EventRepository(BaseRepository):
         return await cursor.to_list(length=limit)
 
     async def create_event(self, event: EventCreate) -> str:
+        """
+        Store an event. One with an external_id is stored once per source (a unique index
+        on raw_data.external_id): sending it again raises DuplicateKeyError.
+        """
         event_dict = event.model_dump()
+        if event.external_id:
+            # Namespaced, so an id sent through the API cannot collide with a connector's.
+            event_dict["raw_data"] = {**event_dict["raw_data"], "external_id": api_external_id(event.source, event.external_id)}
 
         event_doc = {
             **event_dict,

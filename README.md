@@ -150,6 +150,7 @@ Next:
 - [x] MCP server: AI assistants investigate cases and alerts, give verdicts and propose response actions through UTDRS, with an API key's permissions and audit trail
 - [x] Webhooks: signed events for alerts, cases, response actions, reports and connectors, retried for a day, with a delivery log
 - [x] Multi-factor authentication: authenticator codes and recovery codes, enforceable per organisation
+- [x] Ingestion API: batches of 500, duplicates recognised by the source's id, idempotency keys and gzip
 - [x] Operations: Prometheus metrics, a readiness check, and alerts when the engine, analysis, email, background work or a connector stops working
 - [x] Forgotten passwords reset by email, and email addresses confirmed (optionally required at sign-up)
 - [x] Sessions: short access tokens refreshed with single-use refresh tokens, idle and absolute time limits, and signing out of any device, by people and administrators

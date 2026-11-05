@@ -3,10 +3,12 @@ from contextlib import asynccontextmanager, suppress
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+from api.middleware.compression import GzipRequestMiddleware
 from api.middleware.error_handler import ErrorHandlerMiddleware
 from api.middleware.security import (
     RequestValidationMiddleware,
@@ -93,12 +95,18 @@ app.add_middleware(
     docs_paths=(app.docs_url, app.redoc_url),
 )
 app.add_middleware(RequestValidationMiddleware)
+# Before the size check (middleware added later runs first): it limits the compressed and
+# decompressed sizes itself, and the size check then sees the decompressed length.
+app.add_middleware(GzipRequestMiddleware)
 app.add_middleware(ErrorHandlerMiddleware)
 # Outside the error handler, so it counts the 500s it answers.
 app.add_middleware(metrics.RequestMetricsMiddleware)
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
+
+# Large responses (lists of events and alerts) are compressed for clients that accept it.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # Setup CORS
 app.add_middleware(

@@ -1177,8 +1177,36 @@ export interface paths {
          *     When a core engine is configured, the event is queued and analysed in the background;
          *     if the engine cannot be reached it is tried again until it can (for up to a day). The
          *     result is recorded on the event (metadata.analysis) and a threat raises an alert.
+         *
+         *     Sending again is safe: an event with the same `source` and `external_id` is stored
+         *     once (200 with the stored event, `X-Duplicate: true`), and a request repeated with the
+         *     same `Idempotency-Key` header gets the first answer.
          */
         post: operations["create_event_api_v1_events__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Events
+         * @description Send up to 500 events at once (gzip the body with `Content-Encoding: gzip` for large
+         *     batches). Each event is checked on its own: invalid ones are listed as rejected and the
+         *     rest stored. Events with a `source` and `external_id` already received count as
+         *     duplicates, so a batch can be sent again safely; so can a request with the same
+         *     `Idempotency-Key`. `results` follows the order of `events`.
+         */
+        post: operations["create_events_api_v1_events_batch_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3372,6 +3400,31 @@ export interface components {
              */
             email_verification_required: boolean;
         };
+        /** BatchItem */
+        BatchItem: {
+            /** Index */
+            index: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "created" | "duplicate" | "rejected";
+            /** Id */
+            id?: string | null;
+            /** Error */
+            error?: string | null;
+        };
+        /** BatchResult */
+        BatchResult: {
+            /** Created */
+            created: number;
+            /** Duplicates */
+            duplicates: number;
+            /** Rejected */
+            rejected: number;
+            /** Results */
+            results: components["schemas"]["BatchItem"][];
+        };
         /** Body_login_api_v1_auth_login_post */
         Body_login_api_v1_auth_login_post: {
             /** Grant Type */
@@ -3830,6 +3883,8 @@ export interface components {
             raw_data: {
                 [key: string]: unknown;
             };
+            /** External Id */
+            external_id?: string | null;
             /** Id */
             id: string;
             /**
@@ -3856,6 +3911,13 @@ export interface components {
             metadata: {
                 [key: string]: unknown;
             };
+        };
+        /** EventBatch */
+        EventBatch: {
+            /** Events */
+            events: {
+                [key: string]: unknown;
+            }[];
         };
         /** EventCreate */
         EventCreate: {
@@ -3889,6 +3951,8 @@ export interface components {
             raw_data: {
                 [key: string]: unknown;
             };
+            /** External Id */
+            external_id?: string | null;
         };
         /** EventType */
         EventType: {
@@ -7324,6 +7388,15 @@ export interface operations {
             };
         };
         responses: {
+            /** @description Already received: the event with this source and external_id */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Event"];
+                };
+            };
             /** @description Successful Response */
             201: {
                 headers: {
@@ -7331,6 +7404,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Event"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_events_api_v1_events_batch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventBatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchResult"];
                 };
             };
             /** @description Validation Error */

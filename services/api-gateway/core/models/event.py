@@ -20,10 +20,16 @@ class EventBase(BaseModel):
     asset_id: Optional[str] = None
     description: str
     raw_data: Dict[str, Any] = {}
+    # The source's own id for the event. An event sent again with the same source and
+    # external_id is recognised and stored once.
+    external_id: Optional[str] = None
 
 
 class EventCreate(EventBase):
-    pass
+    event_type: str = Field(min_length=1, max_length=100)
+    source: str = Field(min_length=1, max_length=200)
+    description: str = Field(max_length=10_000)
+    external_id: Optional[str] = Field(default=None, min_length=1, max_length=200)
 
 
 class EventUpdate(BaseModel):

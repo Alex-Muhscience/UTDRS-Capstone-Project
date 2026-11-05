@@ -230,7 +230,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 | FR-ING-02 | Microsoft 365 connector: Entra ID sign-ins and audit logs, Exchange Online message trace and mailbox audit, Defender alerts (Microsoft Graph and Office 365 Management Activity API), with OAuth admin consent **Partly: admin consent or own app registration, Entra ID sign-ins and audit logs, and Defender alerts (#25); Exchange mailbox audit through the Management Activity API (#29). Built against Microsoft's documented formats; Exchange message trace remains, and it has not yet run against a live tenant.** | P0 | 1 |
 | FR-ING-03 | Google Workspace connector: login, admin, Gmail and Drive audit (Reports API) | P1 | 2 |
 | FR-ING-04 | Email content access for phishing analysis: messages delivered to mailboxes, with headers, links and attachment hashes (Graph and Gmail APIs) **Partly (#30): Graph, for messages Defender names and analysts ask about, with headers, links and attachment hashes; the body judged and not kept. Checking every incoming message (change notifications) and Gmail remain.** | P0 | 1 |
-| FR-ING-05 | HTTP ingestion API with API keys, batching, compression and idempotency | P0 | 1 |
+| FR-ING-05 | HTTP ingestion API with API keys, batching, compression and idempotency **Done (#45): API keys (#18), batches of up to 500 checked event by event, external ids stored once per source, Idempotency-Key, and gzip in both directions.** | P0 | 1 |
 | FR-ING-06 | Syslog (RFC 5424, CEF, LEEF) collector for firewalls and network devices | P1 | 2 |
 | FR-ING-07 | OpenTelemetry (OTLP) logs receiver | P2 | 3 |
 | FR-ING-08 | Network sensor package: Zeek (connection logs mapped to the network model's 21 features) and Suricata EVE JSON | P1 | 2 |
@@ -492,7 +492,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 
 | ID | Gap | Blocks | Priority |
 |---|---|---|---|
-| GAP-API-01 | API is not tenant-aware and not versioned for public use; offset pagination only (`limit`/`skip`); no idempotency keys; error format is ad hoc | FR-API-01 | P0 |
+| GAP-API-01 | API is not tenant-aware and not versioned for public use; offset pagination only (`limit`/`skip`); no idempotency keys; error format is ad hoc **Partly done (#45): idempotency keys and a duplicate-safe ingestion API; tenancy (#19). Versioning for public use, cursor pagination and one error format remain.** | FR-API-01 | P0 |
 | GAP-API-02 | No webhooks **Done (#34).** | FR-API-03 | P1 |
 | GAP-API-03 | No cases: alerts are standalone; no grouping, SLA, evidence model or timeline **Done (#20): cases group alerts by strong entities, with owner, SLA deadline, timeline, notes, evidence, plain-language explanation; closing a case closes its alerts.** | FR-CAS-01 to 03 | P0 |
 | GAP-API-04 | No event search beyond simple filters and a regex on description (`event_repository.search_events`) | FR-CAS-05 | P1 |
