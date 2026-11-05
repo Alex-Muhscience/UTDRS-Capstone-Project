@@ -8579,6 +8579,322 @@
         }
       }
     },
+    "/api/v1/scim/v2/ServiceProviderConfig": {
+      "get": {
+        "tags": [
+          "scim"
+        ],
+        "summary": "Service Provider Config",
+        "operationId": "service_provider_config_api_v1_scim_v2_ServiceProviderConfig_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/scim/v2/ResourceTypes": {
+      "get": {
+        "tags": [
+          "scim"
+        ],
+        "summary": "Resource Types",
+        "operationId": "resource_types_api_v1_scim_v2_ResourceTypes_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/scim/v2/Schemas": {
+      "get": {
+        "tags": [
+          "scim"
+        ],
+        "summary": "Schemas",
+        "operationId": "schemas_api_v1_scim_v2_Schemas_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/scim/v2/Users": {
+      "get": {
+        "tags": [
+          "scim"
+        ],
+        "summary": "List Users",
+        "operationId": "list_users_api_v1_scim_v2_Users_get",
+        "parameters": [
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Filter"
+            }
+          },
+          {
+            "name": "startIndex",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "title": "Startindex"
+            }
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Count"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "scim"
+        ],
+        "summary": "Create User",
+        "operationId": "create_user_api_v1_scim_v2_Users_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/scim/v2/Users/{user_id}": {
+      "get": {
+        "tags": [
+          "scim"
+        ],
+        "summary": "Get User",
+        "operationId": "get_user_api_v1_scim_v2_Users__user_id__get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "scim"
+        ],
+        "summary": "Replace User",
+        "operationId": "replace_user_api_v1_scim_v2_Users__user_id__put",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "scim"
+        ],
+        "summary": "Patch User",
+        "operationId": "patch_user_api_v1_scim_v2_Users__user_id__patch",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "scim"
+        ],
+        "summary": "Delete User",
+        "description": "Removing someone deactivates their account (their history in UTDRS stays) and ends their sessions.",
+        "operationId": "delete_user_api_v1_scim_v2_Users__user_id__delete",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/scim/v2/Groups": {
+      "get": {
+        "tags": [
+          "scim"
+        ],
+        "summary": "List Groups",
+        "description": "Groups are not supported; an empty list, so identity providers that ask carry on.",
+        "operationId": "list_groups_api_v1_scim_v2_Groups_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/audit-log/": {
       "get": {
         "tags": [
@@ -9180,6 +9496,74 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/tenants/current/scim": {
+      "get": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Scim Status",
+        "description": "Whether the organisation has a SCIM token, and when it was made and last used (administrators only).",
+        "operationId": "scim_status_api_v1_tenants_current_scim_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tenants/current/scim/token": {
+      "post": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "New Scim Token",
+        "description": "Make the organisation's SCIM token for its identity provider, replacing any it had (administrators\nonly). It is shown only this once. The provider's base URL is /api/v1/scim/v2.",
+        "operationId": "new_scim_token_api_v1_tenants_current_scim_token_post",
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Revoke Scim Token",
+        "description": "Stop SCIM: the token stops working at once (administrators only).",
+        "operationId": "revoke_scim_token_api_v1_tenants_current_scim_token_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
       }
     },
     "/": {

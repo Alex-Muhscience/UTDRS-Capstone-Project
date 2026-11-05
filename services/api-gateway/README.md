@@ -269,6 +269,15 @@ An organisation can sign in with its own identity provider over OpenID Connect: 
 - **Requiring it** (`enforce`): analysts can no longer sign in with a password. Administrators still can, with MFA if they have it, so a broken provider cannot lock everyone out.
 - Every step is in the audit log, including refused sign-ins and accounts created. Not yet: SAML, and SCIM provisioning.
 
+## Provisioning (SCIM)
+
+An organisation's identity provider (Microsoft Entra ID, Okta, or any SCIM 2.0 client) can create, update and deactivate its people's UTDRS accounts (`api/routes/scim.py`, `core/services/scim.py`), alongside [single sign-on](#single-sign-on).
+
+- **Turning it on** (administrators, Profile → Provisioning, or `POST /tenants/current/scim/token`): UTDRS makes the organisation's SCIM token, shown once and kept only as a hash; making another replaces it, and `DELETE /tenants/current/scim/token` stops it at once. In the identity provider, the tenant URL is the gateway's `/api/v1/scim/v2`, and the token is its secret.
+- **Users** (`/scim/v2/Users`): list (with `userName eq "..."`, `externalId eq "..."` or `emails eq "..."` filters, and paging), get, create, replace (PUT), PATCH (Entra ID's path operations and Okta's partial resources), and DELETE. `userName` is the UTDRS username, and `name`, the primary email, `active` and `externalId` are kept. Accounts SCIM creates are analysts with confirmed addresses, who sign in with single sign-on or a passkey; SCIM never changes roles.
+- **Deactivating** (`active: false`, or DELETE, which deactivates rather than erases, so the person's history stays) ends the person's sessions at once. The organisation's last active administrator cannot be deactivated through SCIM.
+- `ServiceProviderConfig`, `ResourceTypes` and `Schemas` describe what is supported; groups are not (an empty list). Answers and errors are SCIM JSON (`application/scim+json`). Every change is in the audit log, by the identity provider.
+
 ## Passkeys
 
 People can sign in with a passkey (WebAuthn) instead of a password: the device's fingerprint, face or PIN unlocks a key that never leaves it (`core/services/passkeys.py`, with the `webauthn` library).

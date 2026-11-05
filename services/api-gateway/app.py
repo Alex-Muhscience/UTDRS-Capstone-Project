@@ -16,7 +16,7 @@ from api.middleware.security import (
     rate_limit_handler,
 )
 from api.routes import (
-    alerts, api_keys, assets, audit, auth, cases, connectors as connector_routes, detection, email, events, health,
+    alerts, api_keys, scim as scim_routes, assets, audit, auth, cases, connectors as connector_routes, detection, email, events, health,
     notifications, onboarding, playbooks, reports, response, retention as retention_routes, scans, simulation,
     tenants as tenant_routes, tuning, users, webhooks as webhook_routes,
 )
@@ -163,6 +163,8 @@ app.include_router(
     notifications.router, prefix=f"{settings.API_PREFIX}/notifications", tags=["notifications"], dependencies=[Depends(audited("notifications"))]
 )
 app.include_router(api_keys.router, prefix=f"{settings.API_PREFIX}/api-keys", tags=["api keys"])
+# SCIM: identity providers, authenticated by the organisation's SCIM token (not a person's or an API key).
+app.include_router(scim_routes.router, prefix=f"{settings.API_PREFIX}/scim/v2", tags=["scim"])
 app.include_router(audit.router, prefix=f"{settings.API_PREFIX}/audit-log", tags=["audit log"])
 app.include_router(tenant_routes.router, prefix=f"{settings.API_PREFIX}/tenants", tags=["organisations"])
 

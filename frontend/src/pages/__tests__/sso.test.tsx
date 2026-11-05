@@ -88,3 +88,34 @@ describe("single sign-on", () => {
     expect(saved.client_secret).toBeUndefined()  // kept as it is
   })
 })
+
+describe("provisioning (SCIM)", () => {
+  it("makes a token, shown once, and turns it off", async () => {
+    let enabled = false
+    const { calls } = mockGateway({
+      ...shellRoutes(admin),
+      "GET /api/v1/tenants/current/sso": { configured: false, domains: [], enabled: false, enforce: false, auto_provision: false, encryption_available: true },
+      "GET /api/v1/tenants/current/scim": () => ({ enabled, created_at: enabled ? "2026-11-05T10:00:00Z" : null, last_used_at: null }),
+      "POST /api/v1/tenants/current/scim/token": () => {
+        enabled = true
+        return new Response(JSON.stringify({ token: "utdrs_scim_secret", created_at: "2026-11-05T10:00:00Z" }), { status: 201, headers: { "Content-Type": "application/json" } })
+      },
+      "DELETE /api/v1/tenants/current/scim/token": () => {
+        enabled = false
+        return new Response(null, { status: 204 })
+      },
+      "GET /api/v1/notifications/preferences": { channels: {}, minimum_severity: "high" },
+      "GET /api/v1/auth/mfa": { enabled: false, enabled_at: null, recovery_codes_left: 0, required_by_organisation: false, encryption_available: true },
+      "GET /api/v1/auth/sessions": [],
+      "GET /api/v1/auth/passkeys": [],
+    })
+    const { user: person } = renderApp("/profile")
+    const card = (await screen.findByRole("heading", { name: /Provisioning \(SCIM\)/ })).closest("section") as HTMLElement
+    expect(within(card).getByText(/\/api\/v1\/scim\/v2$/)).toBeInTheDocument()
+    await person.click(within(card).getByRole("button", { name: "Turn on and make a token" }))
+    expect(await within(card).findByLabelText("SCIM token")).toHaveTextContent("utdrs_scim_secret")
+    await person.click(within(card).getByRole("button", { name: "Turn off" }))
+    await waitFor(() => expect(calls.some((call) => call.method === "DELETE" && call.path.endsWith("/scim/token"))).toBe(true))
+    await waitFor(() => expect(within(card).queryByLabelText("SCIM token")).not.toBeInTheDocument())
+  })
+})
