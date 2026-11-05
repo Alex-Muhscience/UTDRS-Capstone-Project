@@ -94,6 +94,9 @@ class SecurityMiddleware:
                     b"x-request-id": request_id.encode(),
                 }
 
+                # A route that set a stricter policy of its own (a download) keeps it.
+                if b"content-security-policy" in headers:
+                    security_headers.pop(b"content-security-policy")
                 for key, value in security_headers.items():
                     headers[key] = value
 

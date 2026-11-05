@@ -266,10 +266,14 @@ def audited(area: str):
         details: Dict[str, Any] = {"path_params": params} if len(params) > 1 else {}
         if request.query_params:
             details["query"] = dict(request.query_params)
-        try:
-            body = await request.json() if await request.body() else None
-        except ValueError:
-            body = None
+        # Only JSON bodies: an upload's content is not the log's business (and its stream
+        # has already been read by the form parser).
+        body = None
+        if request.headers.get("content-type", "").startswith("application/json"):
+            try:
+                body = await request.json() if await request.body() else None
+            except ValueError:
+                body = None
         if body is not None:
             details["request"] = _summary(body)
         target = {"type": target_type, "id": target_id} if target_id else None
@@ -280,8 +284,10 @@ def audited(area: str):
             await record(action, request, target=target, outcome="denied" if code in (401, 403) else "failed",
                          details={**details, "status": code})
             raise
-        # A route that creates something names it, since it is not in the path.
+        # A route that creates something names it, since it is not in the path; a route can
+        # add what the request alone does not say (such as an uploaded file's hash).
         target = getattr(request.state, "audit_target", None) or target
+        details.update(getattr(request.state, "audit_details", None) or {})
         await record(action, request, target=target, details=details or None)
 
     return dependency

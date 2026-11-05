@@ -17,6 +17,8 @@ import { ActionList } from "@/pages/response/ActionList"
 import type { CaseStatus } from "@/lib/constants"
 import { formatDateTime, formatRelative, humanize } from "@/lib/format"
 
+import { CaseFiles } from "./CaseFiles"
+
 type Step = { status: CaseStatus; label: string; primary?: boolean }
 
 /** What can be done next with a case in each status. */
@@ -63,6 +65,10 @@ function describe(entry: Case["timeline"][number], name: (id: string | null | un
       return data.after ? `Assigned to ${name(data.after)}` : "Unassigned"
     case "title_changed":
       return `Renamed to "${data.after ?? ""}"`
+    case "attachment_added":
+      return `File attached: ${entry.text ?? ""}`
+    case "attachment_removed":
+      return `File removed: ${entry.text ?? ""}`
     case "note":
     case "action":
     case "playbook":
@@ -285,6 +291,7 @@ export function CaseDetailPage() {
         <div className="space-y-4">
           <Workflow item={data} />
           <Response caseId={data.id} />
+          <CaseFiles item={data} />
           <Card title="Details">
             <DescriptionList
               items={[

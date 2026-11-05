@@ -12,6 +12,7 @@ Every organisation starts with built-in playbooks for the most common threats, i
 approval mode, so nothing happens without a person until an administrator says so.
 """
 import asyncio
+import io
 from typing import Any, Dict, List, Optional, Set
 
 from bson import ObjectId
@@ -223,19 +224,28 @@ async def on_alert(alert_id: str) -> None:
             logger.exception(f"Playbook {playbook['name']} failed for alert {alert_id}")
 
 
-async def wait_for_tasks(tasks: set) -> None:
+async def wait_for_tasks(tasks: set, timeout: float = 60.0) -> None:
     """
-    Wait for `tasks` to finish. Only this event loop's: a task left from a loop that has
-    closed can never finish, so it is forgotten rather than waited on for ever.
+    Wait for `tasks` to finish, for at most `timeout` seconds: shutting down must not hang
+    on one that never does (which is logged, with where it is stuck). Only this event loop's
+    tasks: one left from a loop that has closed can never finish, so it is forgotten.
     """
     current = asyncio.get_running_loop()
+    deadline = current.time() + timeout
     while tasks:
         for task in [t for t in tasks if t.get_loop() is not current]:
             tasks.discard(task)
         ours = [t for t in tasks if t.get_loop() is current]
         if not ours:
             return
-        await asyncio.gather(*ours, return_exceptions=True)
+        remaining = deadline - current.time()
+        if remaining <= 0:
+            for task in ours:
+                stack = io.StringIO()
+                task.print_stack(limit=12, file=stack)
+                logger.error(f"Gave up waiting for a task after {timeout:.0f} s:\n{stack.getvalue()}")
+            return
+        await asyncio.wait(ours, timeout=remaining)
 
 
 def start(alert_id: str) -> None:
