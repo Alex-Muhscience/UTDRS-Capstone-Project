@@ -231,6 +231,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/passkeys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Passkeys
+         * @description Your passkeys.
+         */
+        get: operations["my_passkeys_api_v1_auth_passkeys_get"];
+        put?: never;
+        /**
+         * Add Passkey
+         * @description Finish adding a passkey with what the browser created.
+         */
+        post: operations["add_passkey_api_v1_auth_passkeys_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/passkeys/register/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Passkey Registration Options
+         * @description Start adding a passkey: the options for navigator.credentials.create(), valid for five minutes.
+         */
+        post: operations["passkey_registration_options_api_v1_auth_passkeys_register_options_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/passkeys/{passkey_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Passkey
+         * @description Remove one of your passkeys, such as one on a device you no longer have.
+         */
+        delete: operations["remove_passkey_api_v1_auth_passkeys__passkey_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/passkeys/login/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Passkey Login Options
+         * @description Start signing in with a passkey: the options for navigator.credentials.get(), valid for five minutes.
+         */
+        post: operations["passkey_login_options_api_v1_auth_passkeys_login_options_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/passkeys/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Passkey Login
+         * @description Sign in with a passkey. It counts as multi-factor: the device checked who it is, and the key is bound to this site.
+         */
+        post: operations["passkey_login_api_v1_auth_passkeys_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/refresh": {
         parameters: {
             query?: never;
@@ -4535,6 +4639,44 @@ export interface components {
             /** Client Secret */
             client_secret: string;
         };
+        /** PasskeyInfo */
+        PasskeyInfo: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Last Used At */
+            last_used_at?: string | null;
+            /**
+             * Backed Up
+             * @default false
+             */
+            backed_up: boolean;
+        };
+        /** PasskeyRegistration */
+        PasskeyRegistration: {
+            /** Credential */
+            credential: {
+                [key: string]: unknown;
+            };
+            /**
+             * Name
+             * @default Passkey
+             */
+            name: string;
+        };
+        /** PasskeySignIn */
+        PasskeySignIn: {
+            /** Credential */
+            credential: {
+                [key: string]: unknown;
+            };
+        };
         /** PasswordChange */
         PasswordChange: {
             /** Current Password */
@@ -6134,6 +6276,161 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SsoCallback"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Token"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_passkeys_api_v1_auth_passkeys_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyInfo"][];
+                };
+            };
+        };
+    };
+    add_passkey_api_v1_auth_passkeys_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyRegistration"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    passkey_registration_options_api_v1_auth_passkeys_register_options_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    remove_passkey_api_v1_auth_passkeys__passkey_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                passkey_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    passkey_login_options_api_v1_auth_passkeys_login_options_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    passkey_login_api_v1_auth_passkeys_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeySignIn"];
             };
         };
         responses: {

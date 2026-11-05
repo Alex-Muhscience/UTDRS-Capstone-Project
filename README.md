@@ -154,6 +154,7 @@ Next:
 - [x] Backups: daily, checked, optionally encrypted, restore-tested, with an alert when they stop
 - [x] Operations: Prometheus metrics, a readiness check, and alerts when the engine, analysis, email, background work or a connector stops working
 - [x] Forgotten passwords reset by email, and email addresses confirmed (optionally required at sign-up)
+- [x] Passkeys: passwordless, phishing-resistant sign-in that counts as multi-factor
 - [x] Single sign-on with OpenID Connect (Microsoft Entra ID, Google, Okta…), with verified domains and optional enforcement
 - [x] Sessions: short access tokens refreshed with single-use refresh tokens, idle and absolute time limits, and signing out of any device, by people and administrators
 - [x] Onboarding: a checklist from sign-up to first results the same day, worked out from the organisation's state

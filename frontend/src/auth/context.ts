@@ -25,6 +25,8 @@ export type AuthValue = {
   loginWithCode: (mfaToken: string, code: string) => Promise<void>
   /** Finish signing in with single sign-on: the code and state the identity provider sent back. */
   loginWithSso: (code: string, state: string) => Promise<void>
+  /** Sign in with a passkey this device has for UTDRS. */
+  loginWithPasskey: () => Promise<void>
   register: (registration: Registration) => Promise<void>
   logout: (notice?: string) => void
   retry: () => void

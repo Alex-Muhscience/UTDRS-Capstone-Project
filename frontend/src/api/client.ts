@@ -61,7 +61,7 @@ const refreshed = new Set<(session: Session) => void>()
 // Refresh this long before the access token expires, so requests never carry an expired one.
 const REFRESH_EARLY_MS = 30_000
 // Requests that authenticate themselves: never refreshed first, never reported as a lost session.
-const SELF_AUTHENTICATED = /\/auth\/(refresh|logout|login|login\/mfa|register|sso\/start|sso\/callback)$/
+const SELF_AUTHENTICATED = /\/auth\/(refresh|logout|login|login\/mfa|register|sso\/start|sso\/callback|passkeys\/login|passkeys\/login\/options)$/
 
 /** The session whose tokens are sent with every request; set by the auth provider. */
 export function setAuthSession(session: Session | null): void {

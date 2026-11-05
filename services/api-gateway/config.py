@@ -130,6 +130,11 @@ class Settings(BaseSettings):
     ANALYSIS_CONCURRENCY: int = 4
     ANALYSIS_GIVE_UP_HOURS: int = 24
 
+    # Passkeys (core/services/passkeys.py): the site they belong to and where sign-ins come
+    # from. By default, the dashboard's host and origin (DASHBOARD_URL).
+    WEBAUTHN_RP_ID: Optional[str] = None
+    WEBAUTHN_ORIGINS: List[str] = []
+
     # Single sign-on (core/services/sso.py): where DNS TXT records are looked up (DNS over
     # HTTPS, JSON) to check an organisation owns a domain.
     SSO_DNS_RESOLVER: str = "https://cloudflare-dns.com/dns-query"

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 
 import { api, ApiError, endSession, onSessionRefreshed, setAuthSession, unwrap, type User } from "@/api/client"
 import { useAuthConfig } from "@/api/queries"
+import { signWithPasskey } from "@/lib/webauthn"
 
 import { AuthContext, type AuthStatus, type AuthValue, type Registration } from "./context"
 import { clearSession, readSession, saveSession, UNAUTHORIZED_EVENT, type Session } from "./session"
@@ -81,6 +82,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     [begin],
   )
+
+  const loginWithPasskey = useCallback(async () => {
+    const options = (await unwrap(api.POST("/api/v1/auth/passkeys/login/options"))) as Record<string, unknown>
+    const credential = await signWithPasskey(options)
+    begin(await unwrap(api.POST("/api/v1/auth/passkeys/login", { body: { credential } })))
+  }, [begin])
 
   const loginWithCode = useCallback(
     async (mfaToken: string, code: string) => {
@@ -167,11 +174,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login: start,
       loginWithCode,
       loginWithSso,
+      loginWithPasskey,
       register,
       logout,
       retry: () => void me.refetch(),
     }),
-    [status, me, notice, start, loginWithCode, loginWithSso, register, logout],
+    [status, me, notice, start, loginWithCode, loginWithSso, loginWithPasskey, register, logout],
   )
 
   return <AuthContext value={value}>{children}</AuthContext>

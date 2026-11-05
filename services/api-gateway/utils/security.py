@@ -63,7 +63,7 @@ INTEGRATION = "integration"  # the role an API key acts with; never an administr
 
 # What a session may reach before setting up MFA its organisation requires: its own
 # account and MFA, and reading (never changing) its organisation.
-MFA_SETUP_PATHS = ("/auth/me", "/auth/mfa", "/auth/config")
+MFA_SETUP_PATHS = ("/auth/me", "/auth/mfa", "/auth/config", "/auth/passkeys")
 
 
 def _allowed_before_mfa(request: Request) -> bool:
@@ -160,8 +160,8 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
     # The organisation requires MFA and this account has none: set it up, and nothing else.
     from core.services import mfa
 
-    # A session started with single sign-on had the identity provider's own second factor.
-    if not current.mfa_enabled and await mfa.required() and await sessions.method(payload["sid"]) != "sso":
+    # A session started with single sign-on or a passkey already had a second factor.
+    if not current.mfa_enabled and await mfa.required() and await sessions.method(payload["sid"]) not in ("sso", "passkey"):
         current.mfa_setup_required = True
         if not _allowed_before_mfa(request):
             raise HTTPException(

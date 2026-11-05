@@ -381,6 +381,214 @@
         }
       }
     },
+    "/api/v1/auth/passkeys": {
+      "get": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "My Passkeys",
+        "description": "Your passkeys.",
+        "operationId": "my_passkeys_api_v1_auth_passkeys_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PasskeyInfo"
+                  },
+                  "type": "array",
+                  "title": "Response My Passkeys Api V1 Auth Passkeys Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Add Passkey",
+        "description": "Finish adding a passkey with what the browser created.",
+        "operationId": "add_passkey_api_v1_auth_passkeys_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyRegistration"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyInfo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/passkeys/register/options": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Passkey Registration Options",
+        "description": "Start adding a passkey: the options for navigator.credentials.create(), valid for five minutes.",
+        "operationId": "passkey_registration_options_api_v1_auth_passkeys_register_options_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Passkey Registration Options Api V1 Auth Passkeys Register Options Post"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/passkeys/{passkey_id}": {
+      "delete": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Remove Passkey",
+        "description": "Remove one of your passkeys, such as one on a device you no longer have.",
+        "operationId": "remove_passkey_api_v1_auth_passkeys__passkey_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "passkey_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Passkey Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/passkeys/login/options": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Passkey Login Options",
+        "description": "Start signing in with a passkey: the options for navigator.credentials.get(), valid for five minutes.",
+        "operationId": "passkey_login_options_api_v1_auth_passkeys_login_options_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Passkey Login Options Api V1 Auth Passkeys Login Options Post"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/passkeys/login": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Passkey Login",
+        "description": "Sign in with a passkey. It counts as multi-factor: the device checked who it is, and the key is bound to this site.",
+        "operationId": "passkey_login_api_v1_auth_passkeys_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeySignIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Token"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/refresh": {
       "post": {
         "tags": [
@@ -12893,6 +13101,81 @@
           "client_secret"
         ],
         "title": "OwnApp"
+      },
+      "PasskeyInfo": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "backed_up": {
+            "type": "boolean",
+            "title": "Backed Up",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "created_at"
+        ],
+        "title": "PasskeyInfo"
+      },
+      "PasskeyRegistration": {
+        "properties": {
+          "credential": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Credential"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 60,
+            "title": "Name",
+            "default": "Passkey"
+          }
+        },
+        "type": "object",
+        "required": [
+          "credential"
+        ],
+        "title": "PasskeyRegistration"
+      },
+      "PasskeySignIn": {
+        "properties": {
+          "credential": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Credential"
+          }
+        },
+        "type": "object",
+        "required": [
+          "credential"
+        ],
+        "title": "PasskeySignIn"
       },
       "PasswordChange": {
         "properties": {

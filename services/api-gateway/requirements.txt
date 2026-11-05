@@ -28,3 +28,6 @@ reportlab==4.5.1
 
 # Encrypting stored secrets, such as connector credentials (AES-GCM)
 cryptography==50.0.2
+
+# Passkeys (WebAuthn): checking what authenticators sign
+webauthn==3.0.1

@@ -9,6 +9,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { PAGE_SIZE, POLL_INTERVAL_MS, type CaseStatus } from "@/lib/constants"
+import { createPasskey } from "@/lib/webauthn"
 
 import type { paths } from "./schema"
 
@@ -158,6 +159,33 @@ export function useRemoveSso() {
   return useMutation({
     mutationFn: () => unwrap(api.DELETE("/api/v1/tenants/current/sso")),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sso"] }),
+  })
+}
+
+// ---------------------------------------------------------------------------- Passkeys
+
+export function usePasskeys() {
+  return useQuery({ queryKey: ["passkeys"], queryFn: () => unwrap(api.GET("/api/v1/auth/passkeys")) })
+}
+
+/** Create a passkey on this device and keep it with the account. */
+export function useAddPasskey() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (name: string) => {
+      const options = (await unwrap(api.POST("/api/v1/auth/passkeys/register/options"))) as Record<string, unknown>
+      const credential = await createPasskey(options)
+      return unwrap(api.POST("/api/v1/auth/passkeys", { body: { credential, name } }))
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["passkeys"] }),
+  })
+}
+
+export function useRemovePasskey() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (passkeyId: string) => unwrap(api.DELETE("/api/v1/auth/passkeys/{passkey_id}", { params: { path: { passkey_id: passkeyId } } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["passkeys"] }),
   })
 }
 
