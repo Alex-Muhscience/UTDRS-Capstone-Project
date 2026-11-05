@@ -5,7 +5,7 @@ from core.models.sso import SsoSettings, SsoUpdate
 from core.models.tenant import Tenant, TenantSecurity, TenantUpdate
 from core.models.user import User
 from core.database.repositories.user_repository import UserRepository
-from core.services import audit, mfa, sso, tenants
+from core.services import audit, mfa, scim, sso, tenants
 from core.tenancy import current_tenant
 from utils.security import get_current_active_user, require_admin
 
@@ -87,3 +87,30 @@ async def remove_sso(request: Request, admin: User = Depends(require_admin)):
     """Turn single sign-on off and forget its settings (administrators only). Passwords work again for everyone."""
     if await sso.remove():
         await audit.record("tenant.sso_removed", request, target={"type": "tenant", "id": current_tenant()})
+
+
+# ---------------------------------------------------------------------------- SCIM
+
+@router.get("/current/scim")
+async def scim_status(admin: User = Depends(require_admin)):
+    """Whether the organisation has a SCIM token, and when it was made and last used (administrators only)."""
+    return await scim.status(await tenants.get(current_tenant()) or {})
+
+
+@router.post("/current/scim/token", status_code=status.HTTP_201_CREATED)
+async def new_scim_token(request: Request, admin: User = Depends(require_admin)):
+    """
+    Make the organisation's SCIM token for its identity provider, replacing any it had (administrators
+    only). It is shown only this once. The provider's base URL is /api/v1/scim/v2.
+    """
+    token, kept = await scim.new_token(current_tenant(), {"type": "user", "id": admin.id, "name": admin.username})
+    await audit.record("tenant.scim_token_made", request, target={"type": "tenant", "id": current_tenant()})
+    return {"token": token, "created_at": kept["created_at"]}
+
+
+@router.delete("/current/scim/token", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_scim_token(request: Request, admin: User = Depends(require_admin)):
+    """Stop SCIM: the token stops working at once (administrators only)."""
+    if not await scim.revoke(current_tenant()):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="There is no SCIM token")
+    await audit.record("tenant.scim_token_revoked", request, target={"type": "tenant", "id": current_tenant()})

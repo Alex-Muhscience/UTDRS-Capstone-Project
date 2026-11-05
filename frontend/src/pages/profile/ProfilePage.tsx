@@ -16,6 +16,7 @@ import { SecurityCard } from "@/pages/security/SecurityCard"
 
 import { NotificationsCard } from "./NotificationsCard"
 import { SessionsCard } from "./SessionsCard"
+import { ScimCard } from "./ScimCard"
 import { SsoCard } from "./SsoCard"
 
 function OrganisationCard() {
@@ -204,6 +205,8 @@ export function ProfilePage() {
         <SessionsCard />
 
         {isAdmin && <SsoCard />}
+
+        {isAdmin && <ScimCard />}
 
         <NotificationsCard />
       </div>

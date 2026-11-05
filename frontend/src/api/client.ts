@@ -152,10 +152,17 @@ const auth: Middleware = {
   },
 }
 
+const BASE_URL: string = import.meta.env.VITE_API_URL || deployedApiUrl(window.location.hostname)
+
+/** The gateway's address: this site's own when the dashboard reaches it through /api. */
+export function gatewayUrl(): string {
+  return (BASE_URL || window.location.origin).replace(/\/$/, "")
+}
+
 export const api = createClient<paths>({
   // VITE_API_URL when set (development, tests); on a hosted deployment, its gateway
   // (./deployment.ts); otherwise this origin, whose /api the Docker image forwards.
-  baseUrl: import.meta.env.VITE_API_URL || deployedApiUrl(window.location.hostname),
+  baseUrl: BASE_URL,
   // Resolved on each call so tests can stub fetch.
   fetch: (request) => globalThis.fetch(request),
 })

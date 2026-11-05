@@ -22,7 +22,7 @@ async def ensure_indexes() -> None:
     await m365.ensure_indexes()
     await webhooks.ensure_indexes()
     await sessions.ensure_indexes()
-    from core.services import account_email, case_files, detection_pipeline, idempotency, passkeys, rule_versions, sso
+    from core.services import account_email, case_files, detection_pipeline, idempotency, passkeys, rule_versions, scim, sso
 
     await account_email.ensure_indexes()
     await detection_pipeline.ensure_indexes()
@@ -31,6 +31,7 @@ async def ensure_indexes() -> None:
     await case_files.ensure_indexes()
     await rule_versions.ensure_indexes()
     await passkeys.ensure_indexes()
+    await scim.ensure_indexes()
 
     database = get_database()
     await database["tenants"].create_index("slug", unique=True)

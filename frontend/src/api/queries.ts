@@ -189,6 +189,31 @@ export function useRemovePasskey() {
   })
 }
 
+// ---------------------------------------------------------------------------- SCIM
+
+export type ScimStatus = { enabled: boolean; created_at?: string | null; last_used_at?: string | null }
+
+export function useScimStatus() {
+  return useQuery({ queryKey: ["scim"], queryFn: async () => (await unwrap(api.GET("/api/v1/tenants/current/scim"))) as ScimStatus })
+}
+
+/** Make the organisation's SCIM token (replacing any), shown once. */
+export function useNewScimToken() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async () => (await unwrap(api.POST("/api/v1/tenants/current/scim/token"))) as { token: string; created_at: string },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["scim"] }),
+  })
+}
+
+export function useRevokeScimToken() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => unwrap(api.DELETE("/api/v1/tenants/current/scim/token")),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["scim"] }),
+  })
+}
+
 export function useAuthConfig() {
   return useQuery({
     queryKey: ["auth", "config"],
