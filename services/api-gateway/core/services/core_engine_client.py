@@ -1,5 +1,5 @@
 """HTTP client for the UTDRS core detection engine."""
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 
@@ -21,6 +21,10 @@ class CoreEngineError(Exception):
     def retryable(self) -> bool:
         """Whether trying again later could work: not for an event the engine says is invalid."""
         return self.status_code is None or self.status_code >= 500 or self.status_code in (408, 429)
+
+
+class BatchNotSupported(CoreEngineError):
+    """The engine has no batch endpoint (an older engine): send events one at a time."""
 
 
 class CoreEngineClient:
@@ -57,6 +61,26 @@ class CoreEngineClient:
         except (httpx.HTTPError, ValueError) as exc:
             raise CoreEngineError(str(exc) or exc.__class__.__name__) from exc
 
+
+    async def analyse_batch(self, events: List[Dict[str, Any]]) -> List[Tuple[Optional[Dict[str, Any]], Optional[str]]]:
+        """
+        Send events to the engine in one request, in order. Returns, for each, the alert (or
+        None) and the error the engine gave for that event (or None).
+        """
+        try:
+            async with httpx.AsyncClient(base_url=self.base_url, headers=self.headers, timeout=self.timeout * 3, transport=self.transport) as client:
+                response = await client.post("/detections/process/batch", json={"events": events})
+                if response.status_code in (404, 405):
+                    raise BatchNotSupported("The core engine cannot analyse batches", response.status_code)
+                response.raise_for_status()
+                results = response.json()
+        except httpx.HTTPStatusError as exc:
+            raise CoreEngineError(f"The core engine answered {exc.response.status_code}", exc.response.status_code) from exc
+        except (httpx.HTTPError, ValueError) as exc:
+            raise CoreEngineError(str(exc) or exc.__class__.__name__) from exc
+        if not isinstance(results, list) or len(results) != len(events):
+            raise CoreEngineError("The core engine's answer did not match the batch", 502)
+        return [(r.get("alert"), r.get("error")) for r in results]
 
     async def replace_managed_rules(self, tenant_id: str, rules: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Make the engine's gateway-managed rules for this organisation exactly these."""

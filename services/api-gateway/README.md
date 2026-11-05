@@ -25,7 +25,7 @@ sequenceDiagram
   G->>DB: event.metadata.analysis = threat | clean, or queued again after a failure
 ```
 
-Ingestion never waits for or fails because of the engine, and no event is lost to it. The event is stored and returned first, already queued for analysis; the queue is the events themselves (`metadata.analysis`), so it survives restarts and any gateway process can work it. The request tries straight away, in the background. If the engine cannot be reached or answers with an error, the event waits and is tried again by a loop every `ANALYSIS_INTERVAL_SECONDS` (5), waiting 15 seconds after the first failure and doubling to at most ten minutes, for up to `ANALYSIS_GIVE_UP_HOURS` (24). While the engine is down, each round makes one attempt rather than one per event; once it answers, the backlog is worked `ANALYSIS_CONCURRENCY` (4) events at a time. Each attempt holds a two-minute lease, so two processes never analyse an event at once and an attempt lost with its process is taken up again. An event analysed twice raises its alert once, and the engine stores each event once (by `gateway_event_id`), so its correlations do not count it twice. An event the engine rejects as invalid (a 4xx answer) is not retried.
+Ingestion never waits for or fails because of the engine, and no event is lost to it. The event is stored and returned first, already queued for analysis; the queue is the events themselves (`metadata.analysis`), so it survives restarts and any gateway process can work it. The request tries straight away, in the background. If the engine cannot be reached or answers with an error, the event waits and is tried again by a loop every `ANALYSIS_INTERVAL_SECONDS` (5), waiting 15 seconds after the first failure and doubling to at most ten minutes, for up to `ANALYSIS_GIVE_UP_HOURS` (24). While the engine is down, each round makes one attempt rather than one per event; once it answers, the backlog is worked by `ANALYSIS_CONCURRENCY` (4) workers, each sending up to `ANALYSIS_BATCH_SIZE` (50) events in one request to the engine's batch endpoint (one at a time to an engine without it). An event the engine cannot analyse in a batch is retried on its own terms; the others are not held up. Any number of gateway processes can work the queue together. Each attempt holds a two-minute lease, so two processes never analyse an event at once and an attempt lost with its process is taken up again. An event analysed twice raises its alert once, and the engine stores each event once (by `gateway_event_id`), so its correlations do not count it twice. An event the engine rejects as invalid (a 4xx answer) is not retried.
 
 The outcome is recorded on the event as `metadata.analysis`:
 
@@ -354,7 +354,8 @@ Settings come from the environment or a `.env` file in this directory (see [`.en
 | `CORE_ENGINE_URL` | unset | Base URL of the core engine. Unset: events are stored but not analysed. |
 | `CORE_ENGINE_TIMEOUT_SECONDS` | `10` | |
 | `ANALYSIS_INTERVAL_SECONDS` | `5` | How often queued events are sent to the engine |
-| `ANALYSIS_CONCURRENCY` | `4` | Events analysed at once while working through a backlog |
+| `ANALYSIS_CONCURRENCY` | `4` | Workers sending events to the engine while working through a backlog |
+| `ANALYSIS_BATCH_SIZE` | `50` | Events each worker sends to the engine in one request (the engine takes at most 100) |
 | `ANALYSIS_GIVE_UP_HOURS` | `24` | How long an event is retried before it is marked `error` (it can still be replayed) |
 | `METRICS_TOKEN` | unset | Bearer token for `GET /metrics`; unset, there are no metrics |
 | `METRICS_FLUSH_SECONDS` | `15` | How often each process adds its request counts to the totals |
