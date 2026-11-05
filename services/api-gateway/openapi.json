@@ -989,7 +989,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PasswordChange"
+                "$ref": "#/components/schemas/api__routes__auth__PasswordChange"
               }
             }
           },
@@ -9528,6 +9528,244 @@
         }
       }
     },
+    "/api/v1/platform/auth/login": {
+      "post": {
+        "tags": [
+          "operator sign-in"
+        ],
+        "summary": "Login",
+        "description": "The password. Then an authenticator code (`/mfa`), or, the first time, setting one up (`/enrol`).",
+        "operationId": "login_api_v1_platform_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credentials"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordStep"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/auth/mfa": {
+      "post": {
+        "tags": [
+          "operator sign-in"
+        ],
+        "summary": "Second Factor",
+        "description": "An authenticator code, or a recovery code (each works once).",
+        "operationId": "second_factor_api_v1_platform_auth_mfa_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Code"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Signed"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/auth/enrol": {
+      "post": {
+        "tags": [
+          "operator sign-in"
+        ],
+        "summary": "Enrol",
+        "description": "Set up the authenticator (first sign-in, or after a reset): a code from it proves it works. Recovery codes come back once.",
+        "operationId": "enrol_api_v1_platform_auth_enrol_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Code"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Signed"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/auth/refresh": {
+      "post": {
+        "tags": [
+          "operator sign-in"
+        ],
+        "summary": "Refresh",
+        "description": "A fresh token for the same session, while it lasts (it ends when idle or too old).",
+        "operationId": "refresh_api_v1_platform_auth_refresh_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Signed"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/platform/auth/me": {
+      "get": {
+        "tags": [
+          "operator sign-in"
+        ],
+        "summary": "Me",
+        "operationId": "me_api_v1_platform_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorAccount"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/platform/auth/password": {
+      "post": {
+        "tags": [
+          "operator sign-in"
+        ],
+        "summary": "Change Password",
+        "description": "Choose a new password (required after a temporary one). At least 12 characters.",
+        "operationId": "change_password_api_v1_platform_auth_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/api__routes__platform_auth__PasswordChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/platform/auth/logout": {
+      "post": {
+        "tags": [
+          "operator sign-in"
+        ],
+        "summary": "Logout",
+        "operationId": "logout_api_v1_platform_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/platform/organisations": {
       "get": {
         "tags": [
@@ -9554,7 +9792,7 @@
         },
         "security": [
           {
-            "OAuth2PasswordBearer": []
+            "HTTPBearer": []
           }
         ]
       },
@@ -9599,7 +9837,7 @@
         },
         "security": [
           {
-            "OAuth2PasswordBearer": []
+            "HTTPBearer": []
           }
         ]
       }
@@ -9613,7 +9851,7 @@
         "operationId": "organisation_api_v1_platform_organisations__tenant_id__get",
         "security": [
           {
-            "OAuth2PasswordBearer": []
+            "HTTPBearer": []
           }
         ],
         "parameters": [
@@ -9659,7 +9897,7 @@
         "operationId": "change_organisation_api_v1_platform_organisations__tenant_id__patch",
         "security": [
           {
-            "OAuth2PasswordBearer": []
+            "HTTPBearer": []
           }
         ],
         "parameters": [
@@ -9715,7 +9953,7 @@
         "operationId": "delete_organisation_api_v1_platform_organisations__tenant_id__delete",
         "security": [
           {
-            "OAuth2PasswordBearer": []
+            "HTTPBearer": []
           }
         ],
         "parameters": [
@@ -9775,7 +10013,7 @@
         "operationId": "add_administrator_api_v1_platform_organisations__tenant_id__administrators_post",
         "security": [
           {
-            "OAuth2PasswordBearer": []
+            "HTTPBearer": []
           }
         ],
         "parameters": [
@@ -9823,13 +10061,14 @@
         }
       }
     },
-    "/api/v1/platform/admins": {
+    "/api/v1/platform/operators": {
       "get": {
         "tags": [
           "platform"
         ],
-        "summary": "Platform Admins",
-        "operationId": "platform_admins_api_v1_platform_admins_get",
+        "summary": "List Operators",
+        "description": "Everyone who can use the operator console.",
+        "operationId": "list_operators_api_v1_platform_operators_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -9837,10 +10076,10 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/PlatformAdmin"
+                    "$ref": "#/components/schemas/OperatorAccount"
                   },
                   "type": "array",
-                  "title": "Response Platform Admins Api V1 Platform Admins Get"
+                  "title": "Response List Operators Api V1 Platform Operators Get"
                 }
               }
             }
@@ -9848,38 +10087,34 @@
         },
         "security": [
           {
-            "OAuth2PasswordBearer": []
+            "HTTPBearer": []
           }
         ]
       },
-      "put": {
+      "post": {
         "tags": [
           "platform"
         ],
-        "summary": "Set Platform Admin",
-        "description": "Make someone (by username, in any organisation) a platform administrator, or stop.",
-        "operationId": "set_platform_admin_api_v1_platform_admins_put",
+        "summary": "Add Operator",
+        "description": "Add an operator, with a temporary password shown once; they set up an authenticator at first sign-in.",
+        "operationId": "add_operator_api_v1_platform_operators_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PlatformAdminChange"
+                "$ref": "#/components/schemas/NewOperator"
               }
             }
           },
           "required": true
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/PlatformAdmin"
-                  },
-                  "type": "array",
-                  "title": "Response Set Platform Admin Api V1 Platform Admins Put"
+                  "$ref": "#/components/schemas/CreatedOperator"
                 }
               }
             }
@@ -9897,9 +10132,115 @@
         },
         "security": [
           {
-            "OAuth2PasswordBearer": []
+            "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/api/v1/platform/operators/{operator_id}": {
+      "patch": {
+        "tags": [
+          "platform"
+        ],
+        "summary": "Change Operator",
+        "description": "Deactivate an operator (their sessions end) or reactivate them. Never yourself, nor the last active one.",
+        "operationId": "change_operator_api_v1_platform_operators__operator_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "operator_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Operator Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperatorChange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorAccount"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/operators/{operator_id}/reset": {
+      "post": {
+        "tags": [
+          "platform"
+        ],
+        "summary": "Reset Operator",
+        "description": "A new temporary password and no authenticator, for an operator who lost theirs: they set both up again.",
+        "operationId": "reset_operator_api_v1_platform_operators__operator_id__reset_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "operator_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Operator Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedOperator"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/platform/audit-log": {
@@ -9912,7 +10253,7 @@
         "operationId": "platform_audit_log_api_v1_platform_audit_log_get",
         "security": [
           {
-            "OAuth2PasswordBearer": []
+            "HTTPBearer": []
           }
         ],
         "parameters": [
@@ -12949,6 +13290,26 @@
         ],
         "title": "ClientAlert"
       },
+      "Code": {
+        "properties": {
+          "step_token": {
+            "type": "string",
+            "title": "Step Token"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 6,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "step_token",
+          "code"
+        ],
+        "title": "Code"
+      },
       "ConsentResult": {
         "properties": {
           "state": {
@@ -13106,6 +13467,23 @@
         ],
         "title": "CreatedClient"
       },
+      "CreatedOperator": {
+        "properties": {
+          "operator": {
+            "$ref": "#/components/schemas/OperatorAccount"
+          },
+          "temporary_password": {
+            "type": "string",
+            "title": "Temporary Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "operator",
+          "temporary_password"
+        ],
+        "title": "CreatedOperator"
+      },
       "CreatedOrganisation": {
         "properties": {
           "administrator": {
@@ -13126,6 +13504,28 @@
           "tenant"
         ],
         "title": "CreatedOrganisation"
+      },
+      "Credentials": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "Credentials"
       },
       "CustomRole": {
         "properties": {
@@ -15031,6 +15431,28 @@
         ],
         "title": "NewClient"
       },
+      "NewOperator": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 3,
+            "title": "Username"
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "minLength": 3,
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "email"
+        ],
+        "title": "NewOperator"
+      },
       "NewOrganisation": {
         "properties": {
           "name": {
@@ -15384,6 +15806,87 @@
         ],
         "title": "OpenCase"
       },
+      "OperatorAccount": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active",
+            "default": true
+          },
+          "mfa": {
+            "type": "boolean",
+            "title": "Mfa",
+            "default": false
+          },
+          "must_change_password": {
+            "type": "boolean",
+            "title": "Must Change Password",
+            "default": false
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "last_sign_in": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Sign In"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username"
+        ],
+        "title": "OperatorAccount"
+      },
+      "OperatorChange": {
+        "properties": {
+          "active": {
+            "type": "boolean",
+            "title": "Active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "active"
+        ],
+        "title": "OperatorChange"
+      },
       "OrganisationChange": {
         "properties": {
           "suspended": {
@@ -15730,11 +16233,6 @@
             ],
             "title": "Last Sign In"
           },
-          "platform_admin": {
-            "type": "boolean",
-            "title": "Platform Admin",
-            "default": false
-          },
           "mfa": {
             "type": "boolean",
             "title": "Mfa",
@@ -15894,24 +16392,6 @@
         ],
         "title": "PasskeySignIn"
       },
-      "PasswordChange": {
-        "properties": {
-          "current_password": {
-            "type": "string",
-            "title": "Current Password"
-          },
-          "new_password": {
-            "type": "string",
-            "title": "New Password"
-          }
-        },
-        "type": "object",
-        "required": [
-          "current_password",
-          "new_password"
-        ],
-        "title": "PasswordChange"
-      },
       "PasswordReset": {
         "properties": {
           "token": {
@@ -15931,6 +16411,50 @@
           "new_password"
         ],
         "title": "PasswordReset"
+      },
+      "PasswordStep": {
+        "properties": {
+          "step": {
+            "type": "string",
+            "enum": [
+              "mfa",
+              "enrol"
+            ],
+            "title": "Step"
+          },
+          "step_token": {
+            "type": "string",
+            "title": "Step Token"
+          },
+          "secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secret"
+          },
+          "otpauth_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Otpauth Uri"
+          }
+        },
+        "type": "object",
+        "required": [
+          "step",
+          "step_token"
+        ],
+        "title": "PasswordStep"
       },
       "Permission": {
         "properties": {
@@ -15983,76 +16507,6 @@
           "read"
         ],
         "title": "PermissionArea"
-      },
-      "PlatformAdmin": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "username": {
-            "type": "string",
-            "title": "Username"
-          },
-          "email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Email"
-          },
-          "organisation": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Organisation"
-          },
-          "active": {
-            "type": "boolean",
-            "title": "Active",
-            "default": true
-          },
-          "mfa": {
-            "type": "boolean",
-            "title": "Mfa",
-            "default": false
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "username"
-        ],
-        "title": "PlatformAdmin"
-      },
-      "PlatformAdminChange": {
-        "properties": {
-          "username": {
-            "type": "string",
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Username"
-          },
-          "platform_admin": {
-            "type": "boolean",
-            "title": "Platform Admin"
-          }
-        },
-        "type": "object",
-        "required": [
-          "username",
-          "platform_admin"
-        ],
-        "title": "PlatformAdminChange"
       },
       "Playbook": {
         "properties": {
@@ -17553,6 +18007,47 @@
         ],
         "title": "SessionsEnded",
         "description": "How many sessions were signed out."
+      },
+      "Signed": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          },
+          "operator": {
+            "$ref": "#/components/schemas/OperatorAccount"
+          },
+          "recovery_codes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery Codes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "expires_in",
+          "operator"
+        ],
+        "title": "Signed"
       },
       "SigningSecret": {
         "properties": {
@@ -19122,11 +19617,6 @@
             "title": "Mfa Enabled",
             "default": false
           },
-          "platform_admin": {
-            "type": "boolean",
-            "title": "Platform Admin",
-            "default": false
-          },
           "custom_role_id": {
             "anyOf": [
               {
@@ -19667,6 +20157,46 @@
         ],
         "title": "Week"
       },
+      "api__routes__auth__PasswordChange": {
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "title": "Current Password"
+          },
+          "new_password": {
+            "type": "string",
+            "title": "New Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "PasswordChange"
+      },
+      "api__routes__platform_auth__PasswordChange": {
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Current Password"
+          },
+          "new_password": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 12,
+            "title": "New Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "PasswordChange"
+      },
       "core__models__report__Target": {
         "properties": {
           "type": {
@@ -19722,6 +20252,10 @@
             "tokenUrl": "/api/v1/auth/login"
           }
         }
+      },
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
       }
     }
   }

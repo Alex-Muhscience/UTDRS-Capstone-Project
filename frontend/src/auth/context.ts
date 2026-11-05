@@ -65,12 +65,6 @@ export function useCan(permission: string): boolean {
   return can(useAuth().user, permission)
 }
 
-/** Whether the signed-in user runs the platform (the console across organisations). */
-export function useIsPlatformAdmin(): boolean {
-  const { user } = useAuth()
-  return Boolean(user?.platform_admin)
-}
-
 /** Whether the signed-in user can only look (the read-only role). */
 export function useIsReadOnly(): boolean {
   const { user } = useAuth()

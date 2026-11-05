@@ -28,6 +28,8 @@ Each component has its own README with setup, configuration and tests. [`docs/ar
 flowchart LR
   analyst(["Analyst"]) --> web["Dashboard<br/>(React, TypeScript)"]
   web -- "REST /api/v1 + JWT" --> gateway["API gateway<br/>(FastAPI)"]
+  operator(["Platform operator"]) --> console["Operator console<br/>(React, its own app)"]
+  console -- "/api/v1/platform<br/>operator token + authenticator" --> gateway
   sources(["Agents and integrations"]) -- "POST /api/v1/events" --> gateway
   gateway -- "each event<br/>(internal token)" --> engine["Core engine<br/>(FastAPI)"]
   engine -- "alert or nothing" --> gateway
@@ -46,6 +48,8 @@ flowchart LR
 
 Devices report themselves through the scanner. An agent on each device sends its inventory (host name, operating system, hardware, network interfaces) to the scanner server, which stores it; the data processor delivers each stored scan to the gateway. There the device becomes an asset, kept up to date by later scans, and a device seen for the first time, or one whose inventory has changed, raises an event that follows steps 2 to 4 like any other.
 
+**Who signs in where.** People in organisations (administrators, analysts, read-only and custom roles, and service providers' staff) use the dashboard, and see only their organisation's data, or their clients'. Platform operators, who run the deployment, use the operator console: their own accounts, apart from every organisation, signing in with a password and always an authenticator, with tokens that work only on the platform API. Neither can sign in to the other's app. Machines use API keys (integrations, the MCP server), the SCIM token (identity providers) or internal tokens (between services).
+
 Each service owns its database. The gateway and the engine store differently shaped events and alerts, so they must never share one.
 
 ![An alert raised by the core engine](docs/screenshots/alert-triage.png)
@@ -61,7 +65,7 @@ docker compose up -d --build --wait
 docker compose run --rm seed     # optional: demo data
 ```
 
-Open http://localhost:8080 and sign in as `admin` with your `ADMIN_PASSWORD`, or register an analyst account. Then try **Events → Send test event**. The gateway's API documentation is at http://localhost:8000/api/v1/docs.
+Open http://localhost:8080 and sign in as `admin` with your `ADMIN_PASSWORD`, or register an analyst account. Whoever runs the deployment uses the operator console at http://localhost:8081, signing in as `PLATFORM_OPERATOR_USERNAME` (set it and `PLATFORM_OPERATOR_PASSWORD` in `.env`) with an authenticator app. Then try **Events → Send test event**. The gateway's API documentation is at http://localhost:8000/api/v1/docs.
 
 **[The Docker guide](docs/docker.md)** covers everything else: configuration, everyday commands, the optional data processor and scanner, backups, developing and testing against the containers, troubleshooting, and what to change before running it for real users.
 
@@ -133,7 +137,7 @@ Done:
 - [x] Make the scanner's collection server start and run safely, and verify the server's name on the agent
 - [x] One-command local stack (`docker compose up`) with seeded demo data
 - [x] Roles enforced (administrators, analysts and read-only, and custom roles from per-area permissions), user administration in the dashboard, and the first administrator created from settings
-- [x] Platform console: platform administrators create, rescue, suspend and delete organisations, with a second factor and an audit trail
+- [x] Operator console: a separate app for platform operators (their own accounts, sign-in with a mandatory authenticator, tokens and sessions, apart from every organisation) to create, rescue, suspend and delete organisations, with an audit trail
 - [x] Managed service providers: switch between client organisations with an all-client view of alerts, every action in the client's audit log, and clients able to end access
 - [x] Connect the scanner: one wire format between the agent and the server, and scans delivered through the data processor to the gateway as assets and events
 

@@ -27,6 +27,7 @@ jobs:
       gateway: ${{ steps.diff.outputs.gateway }}
       engine: ${{ steps.diff.outputs.engine }}
       frontend: ${{ steps.diff.outputs.frontend }}
+      console: ${{ steps.diff.outputs.console }}
       scanner: ${{ steps.diff.outputs.scanner }}
       processor: ${{ steps.diff.outputs.processor }}
       mcp: ${{ steps.diff.outputs.mcp }}
@@ -52,6 +53,7 @@ jobs:
           out gateway '^services/api-gateway/'
           out engine '^services/core-engine/'
           out frontend '^frontend/'
+          out console '^platform-console/'
           out scanner '^scanner/'
           out processor '^services/data-processor/'
           out mcp '^services/mcp-server/'
@@ -170,10 +172,33 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  operator-console:
+    name: Operator console checks
+    needs: changes
+    if: needs.changes.outputs.console == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: platform-console
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: platform-console/package-lock.json
+      - run: npm ci
+      - run: npm audit --omit=dev --audit-level=low
+      - run: npm audit --audit-level=high
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
   api-contract:
     name: API contract (gateway schema and dashboard types)
     needs: changes
-    if: needs.changes.outputs.gateway == 'true' || needs.changes.outputs.frontend == 'true'
+    if: needs.changes.outputs.gateway == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.console == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -191,9 +216,11 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci && npm run gen:api
         working-directory: frontend
+      - run: npm ci && npm run gen:api
+        working-directory: platform-console
       - name: Committed schema and types match the gateway
         run: |
-          git diff --exit-code -- services/api-gateway/openapi.json frontend/src/api/schema.d.ts || {
+          git diff --exit-code -- services/api-gateway/openapi.json frontend/src/api/schema.d.ts platform-console/src/api/schema.d.ts || {
             echo "::error::The gateway's API changed. Run scripts/export_openapi.py and npm run gen:api, then commit the results."
             exit 1
           }

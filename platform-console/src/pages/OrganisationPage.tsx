@@ -8,10 +8,8 @@ import {
   useDeleteOrganisation,
   useOrganisation,
   useOrganisations,
-  useSetOrganisationMsp,
-  useSetOrganisationSuspended,
+  useChangeOrganisation,
 } from "@/api/queries"
-import { useUser } from "@/auth/context"
 import { BackLink } from "@/components/ui/BackLink"
 import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
@@ -19,11 +17,11 @@ import { Card } from "@/components/ui/Card"
 import { Dialog } from "@/components/ui/Dialog"
 import { Field, Input, Select } from "@/components/ui/Field"
 import { PageHeader } from "@/components/ui/PageHeader"
-import { SkeletonRows } from "@/components/ui/States"
+import { ErrorState, SkeletonRows } from "@/components/ui/States"
 import { Table, Td, Th, Tr } from "@/components/ui/Table"
 import { formatDateTime, formatNumber, formatRelative, humanize } from "@/lib/format"
 
-import { OneTimePassword, PlatformError } from "./PlatformPage"
+import { OneTimePassword } from "@/components/OneTimePassword"
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -91,7 +89,7 @@ function DeleteDialog({ tenantId, name, open, onClose }: { tenantId: string; nam
           onSuccess: () => {
             toast.success(`${name} deleted`)
             onClose()
-            void navigate("/platform")
+            void navigate("/")
           },
           onError: (error) => toast.error(error.message),
         })
@@ -114,7 +112,7 @@ function DeleteDialog({ tenantId, name, open, onClose }: { tenantId: string; nam
 
 /** Whether the organisation is a managed service provider, or which one manages it. */
 function ServiceProviderCard({ org }: { org: OrganisationDetail }) {
-  const change = useSetOrganisationMsp(org.id)
+  const change = useChangeOrganisation(org.id)
   const organisations = useOrganisations()
   const providers = (organisations.data ?? []).filter((item) => item.msp && item.id !== org.id)
   const save = (body: { msp?: boolean; managed_by?: string }, done: string) =>
@@ -161,19 +159,18 @@ function ServiceProviderCard({ org }: { org: OrganisationDetail }) {
 
 export function OrganisationPage() {
   const { tenantId = "" } = useParams()
-  const me = useUser()
   const organisation = useOrganisation(tenantId)
-  const suspend = useSetOrganisationSuspended(tenantId)
+  const suspend = useChangeOrganisation(tenantId)
   const [adding, setAdding] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [created, setCreated] = useState<{ username: string; password: string } | null>(null)
 
-  const header = <BackLink to="/platform">Platform console</BackLink>
+  const header = <BackLink to="/">Organisations</BackLink>
   if (organisation.isError)
     return (
       <div className="space-y-6">
         {header}
-        <PlatformError error={organisation.error} onRetry={() => void organisation.refetch()} />
+        <ErrorState error={organisation.error} onRetry={() => void organisation.refetch()} />
       </div>
     )
   if (organisation.isPending)
@@ -186,8 +183,7 @@ export function OrganisationPage() {
 
   const org = organisation.data
   const suspended = org.status === "suspended"
-  const own = org.users.some((user) => user.username === me.username)
-  const protectedOrg = org.default || own
+  const protectedOrg = org.default
   return (
     <div className="space-y-6">
       {header}
@@ -203,12 +199,12 @@ export function OrganisationPage() {
         actions={
           <>
             <Button onClick={() => setAdding(true)}>Add an administrator</Button>
-            {!(own && !suspended) && (
+            {(
               <Button
                 variant={suspended ? "primary" : undefined}
                 loading={suspend.isPending}
                 onClick={() =>
-                  suspend.mutate(!suspended, {
+                  suspend.mutate({ suspended: !suspended }, {
                     onSuccess: () => toast.success(suspended ? `${org.name} reactivated` : `${org.name} suspended; everyone in it is signed out`),
                     onError: (error) => toast.error(error.message),
                   })
@@ -253,7 +249,6 @@ export function OrganisationPage() {
               <Tr key={user.id}>
                 <Td>
                   <span className="font-medium">{user.username}</span>
-                  {user.platform_admin && <Badge className="ml-2">Platform</Badge>}
                   {!user.active && <Badge className="ml-2">Deactivated</Badge>}
                   {user.mfa && <span className="ml-2 text-xs text-subtle">MFA</span>}
                 </Td>

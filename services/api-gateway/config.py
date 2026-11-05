@@ -65,6 +65,21 @@ class Settings(BaseSettings):
     ADMIN_EMAIL: Optional[str] = None
     ADMIN_PASSWORD: Optional[str] = None
 
+    # Platform operators (core/services/operators.py): who runs the deployment, apart from
+    # every organisation, through the operator console. The first is created on start-up
+    # (a password of at least 12 characters); it sets up an authenticator at first sign-in.
+    # PLATFORM_OPERATOR_RESET=true recovers that account (password from the setting, second
+    # factor cleared) when every operator is locked out: remove it once used.
+    PLATFORM_OPERATOR_USERNAME: Optional[str] = None
+    PLATFORM_OPERATOR_EMAIL: Optional[str] = None
+    PLATFORM_OPERATOR_PASSWORD: Optional[str] = None
+    PLATFORM_OPERATOR_RESET: bool = False
+    # Operators' tokens are signed with their own key (default: derived from JWT_SECRET, never equal to it).
+    OPERATOR_JWT_SECRET: Optional[str] = None
+    OPERATOR_TOKEN_MINUTES: int = 10
+    OPERATOR_SESSION_IDLE_MINUTES: int = 30
+    OPERATOR_SESSION_MAX_HOURS: int = 8
+
     # Integration services
     # When CORE_ENGINE_URL is set, every ingested event is sent to the core engine for
     # detection, and any threat it finds becomes an alert here.

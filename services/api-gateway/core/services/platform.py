@@ -1,10 +1,11 @@
 """
-The platform console: what whoever runs a UTDRS deployment does across organisations.
+The platform console: what operators (core/services/operators.py), who run a UTDRS
+deployment apart from every organisation, do across organisations.
 
-Platform administrators see every organisation and its numbers, create organisations with
-their first administrator, add an administrator to an organisation that is locked out,
-suspend and reactivate organisations, delete them with all their data, and decide who else
-is a platform administrator. Each action is recorded in the platform's audit log and, when
+Operators see every organisation and its numbers, create organisations with their first
+administrator, add an administrator to an organisation that is locked out, suspend and
+reactivate organisations, delete them with all their data, and set up service providers.
+Each action is recorded in the platform's audit log and, when
 it concerns an organisation, in that organisation's own, so it can see what was done to it.
 """
 import re
@@ -34,7 +35,7 @@ class PlatformError(ValueError):
 
 
 def _actor(admin) -> Dict[str, Any]:
-    return {"type": "platform_admin", "id": admin.id, "name": admin.username}
+    return {"type": "operator", "id": admin.id, "name": admin.username}
 
 
 async def _record(action: str, request, admin, tenant_id: Optional[str], details: Optional[Dict[str, Any]] = None) -> None:
@@ -46,7 +47,7 @@ async def _record(action: str, request, admin, tenant_id: Optional[str], details
 
 
 async def summaries(ids: Optional[List[str]] = None) -> List[Dict[str, Any]]:
-    """Every organisation (or those named), with what a platform administrator or MSP needs to see at a glance."""
+    """Every organisation (or those named), with what an operator or MSP needs to see at a glance."""
     database = get_database()
     week_ago = utcnow() - timedelta(days=7)
     only: Dict[str, Any] = {"tenant_id": {"$in": ids}} if ids is not None else {}
@@ -86,10 +87,10 @@ async def detail(tenant_id: str) -> Dict[str, Any]:
     if not found:
         raise LookupError("Organisation not found")
     users = await get_database()["users"].find(
-        {"tenant_id": tenant_id}, {"username": 1, "email": 1, "role": 1, "active": 1, "lastLogin": 1, "platform_admin": 1, "mfa.enabled": 1},
+        {"tenant_id": tenant_id}, {"username": 1, "email": 1, "role": 1, "active": 1, "lastLogin": 1, "mfa.enabled": 1},
     ).sort("username", 1).to_list(1000)
     found["users"] = [{"id": str(u["_id"]), "username": u["username"], "email": u.get("email"), "role": u.get("role"), "active": u.get("active", True),
-                       "last_sign_in": u.get("lastLogin"), "platform_admin": bool(u.get("platform_admin")),
+                       "last_sign_in": u.get("lastLogin"),
                        "mfa": bool((u.get("mfa") or {}).get("enabled"))} for u in users]
     return found
 
@@ -141,8 +142,6 @@ async def set_status(tenant_id: str, suspended: bool, request, admin) -> Dict[st
     tenant = await tenants.get(tenant_id)
     if not tenant:
         raise LookupError("Organisation not found")
-    if suspended and tenant_id == admin.tenant_id:
-        raise PlatformError("You cannot suspend your own organisation")
     await get_database()["tenants"].update_one({"_id": ObjectId(tenant_id)}, {"$set": {"status": "suspended" if suspended else "active", "updated_at": utcnow()}})
     tenants.forget_suspension(tenant_id)
     if suspended:
@@ -160,8 +159,8 @@ async def delete_organisation(tenant_id: str, confirm_name: str, request, admin)
         raise LookupError("Organisation not found")
     if confirm_name != tenant["name"]:
         raise PlatformError("Type the organisation's name exactly to confirm")
-    if tenant_id == admin.tenant_id or tenant_id == await tenants.default_id():
-        raise PlatformError("The platform's own organisation cannot be deleted")
+    if tenant_id == await tenants.default_id():
+        raise PlatformError("The default organisation (where people who register without one go) cannot be deleted")
     database = get_database()
     deleted: Dict[str, int] = {}
     for name in sorted(set(TENANT_SCOPED) | set(ALSO_BY_TENANT)):
@@ -207,31 +206,3 @@ async def set_msp(tenant_id: str, msp: Optional[bool], managed_by: Optional[str]
     except msp_service.MspError as e:
         raise PlatformError(str(e))
     return await detail(tenant_id)
-
-
-async def platform_admins() -> List[Dict[str, Any]]:
-    names = {str(t["_id"]): t["name"] async for t in get_database()["tenants"].find({}, {"name": 1})}
-    found = await get_database()["users"].find({"platform_admin": True}, {"username": 1, "email": 1, "tenant_id": 1, "active": 1, "mfa.enabled": 1}).to_list(100)
-    return [{"id": str(u["_id"]), "username": u["username"], "email": u.get("email"), "organisation": names.get(u["tenant_id"]),
-             "active": u.get("active", True), "mfa": bool((u.get("mfa") or {}).get("enabled"))} for u in found]
-
-
-async def set_platform_admin(user_id: str, value: bool, request, admin) -> List[Dict[str, Any]]:
-    if not ObjectId.is_valid(user_id):
-        raise LookupError("User not found")
-    user = await get_database()["users"].find_one({"_id": ObjectId(user_id)})
-    if not user:
-        raise LookupError("User not found")
-    if not value:
-        if user_id == admin.id:
-            raise PlatformError("You cannot remove your own platform access; ask another platform administrator")
-        if await get_database()["users"].count_documents({"platform_admin": True, "active": True, "_id": {"$ne": user["_id"]}}) == 0:
-            raise PlatformError("There must be at least one platform administrator")
-    await get_database()["users"].update_one({"_id": user["_id"]}, {"$set": {"platform_admin": value}})
-    await _record("platform.platform_admin_granted" if value else "platform.platform_admin_removed", request, admin, user["tenant_id"],
-                  {"user": user["username"]})
-    return await platform_admins()
-
-
-async def find_user(username: str) -> Optional[Dict[str, Any]]:
-    return await get_database()["users"].find_one({"username": username})
