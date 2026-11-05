@@ -192,7 +192,42 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
                 detail="Your organisation requires multi-factor authentication: set it up to continue",
                 headers={"X-MFA-Setup-Required": "true"},
             )
+
+    # A service provider's people working in a client organisation.
+    from core.services import msp
+
+    target = request.headers.get(msp.HEADER)
+    path = request.url.path.removeprefix(settings.API_PREFIX)
+    if target and target != user["tenant_id"] and not any(path.startswith(p) for p in msp.NOT_SWITCHED):
+        current = await _in_client(request, current, target, payload["sid"])
     return current
+
+
+async def _in_client(request: Request, current: User, client_id: str, session_id: str) -> User:
+    """Switch the request to a client organisation the person's service provider manages, with their role there."""
+    from core.services import msp, sessions, tenants
+
+    def refused(detail: str) -> HTTPException:
+        return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail, headers={"X-Organisation-Refused": "true"})
+
+    home = await tenants.get(current.tenant_id)
+    if not msp.is_msp(home):
+        raise refused("Only a service provider's people can work in another organisation")
+    client = await msp.client(current.tenant_id, client_id)
+    if not client:
+        raise refused("Your service provider does not manage that organisation")
+    if client.get("status") == "suspended":
+        raise refused("This organisation has been suspended; contact the service's operator")
+    if (client.get("security") or {}).get("require_mfa") and not current.mfa_enabled and await sessions.method(session_id) not in ("sso", "passkey"):
+        raise refused(f"{client['name']} requires multi-factor authentication: set it up on your account first")
+    role = msp.ROLE_IN_CLIENTS.get(current.role, "viewer")
+    acting = current.model_copy(update={"tenant_id": client_id, "role": role})
+    set_tenant(client_id)
+    request.state.home_tenant_id = current.tenant_id
+    # The client's audit log shows who did it, and for which service provider.
+    request.state.principal = {**request.state.principal, "role": role, "organisation": home["name"], "msp_id": current.tenant_id}
+    refuse_viewer_changes(acting, request)
+    return acting
 
 
 def require_scope(area: str):

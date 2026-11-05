@@ -164,6 +164,8 @@ function Organisations() {
                       {organisation.name}
                     </Link>
                     {organisation.default && <span className="ml-2 text-xs text-subtle">platform's own</span>}
+                    {organisation.msp && <Badge tone="accent" className="ml-2">MSP</Badge>}
+                    {organisation.managed_by_name && <span className="ml-2 text-xs text-subtle">managed by {organisation.managed_by_name}</span>}
                   </Td>
                   <Td>
                     <Badge tone={organisation.status === "active" ? "success" : "danger"}>{humanize(organisation.status)}</Badge>

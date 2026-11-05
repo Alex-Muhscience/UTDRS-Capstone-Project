@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { accessToken, gatewayUrl } from "@/api/client"
 
 import { POLL_INTERVAL_MS } from "./constants"
+import { ORGANISATION_HEADER, useActiveOrganisation } from "./organisation"
 
 /**
  * Live updates: the gateway's stream (/api/v1/live, Server-Sent Events) says what changed in
@@ -105,6 +106,8 @@ function handle(message: LiveMessage, queryClient: QueryClient, announce: (messa
 export function useLiveUpdates(): void {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  // A service provider switching organisation reconnects, to hear of that one's changes.
+  const organisation = useActiveOrganisation()
 
   useEffect(() => {
     const stop = new AbortController()
@@ -141,6 +144,7 @@ export function useLiveUpdates(): void {
       if (!token) return RETRY_MAX_MS
       const headers: Record<string, string> = { Authorization: `Bearer ${token}`, Accept: "text/event-stream" }
       if (lastId) headers["Last-Event-ID"] = lastId
+      if (organisation) headers[ORGANISATION_HEADER] = organisation
       const response = await fetch(new Request(`${gatewayUrl()}/api/v1/live`, { headers, signal: stop.signal, cache: "no-store" }))
       if (response.status === 404) return UNAVAILABLE_RETRY_MS
       if (!response.ok || !response.body) return retry
@@ -188,5 +192,5 @@ export function useLiveUpdates(): void {
       stop.abort()
       setConnected(false)
     }
-  }, [queryClient, navigate])
+  }, [queryClient, navigate, organisation])
 }

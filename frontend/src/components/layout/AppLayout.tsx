@@ -4,6 +4,7 @@ import {
   BookOpen,
   Briefcase,
   Building2,
+  Network,
   Eye,
   FileText,
   FlaskConical,
@@ -27,13 +28,16 @@ import {
 import { useEffect, useState } from "react"
 import { Link, NavLink, Outlet, useLocation } from "react-router"
 
-import { useActions, useAlertSummary, useCurrentTenant } from "@/api/queries"
+import { useActions, useAlertSummary, useMspOverview } from "@/api/queries"
 import { useAuth, useIsAdmin, useIsPlatformAdmin, useIsReadOnly, useUser } from "@/auth/context"
 import { cx } from "@/lib/cx"
 import { useLiveUpdates } from "@/lib/live"
 import { humanize } from "@/lib/format"
 
 import { ConfirmEmailBanner } from "./ConfirmEmailBanner"
+import { useOrganisationRefused } from "@/lib/useSwitchOrganisation"
+
+import { ActingBanner, OrganisationSwitcher } from "./OrganisationSwitcher"
 import { Logo } from "./Logo"
 import { SystemStatus } from "./SystemStatus"
 import { ThemeSwitcher } from "./ThemeSwitcher"
@@ -61,6 +65,8 @@ const ADMIN_NAVIGATION = [
   { to: "/email-log", label: "Email log", icon: Mail },
   { to: "/retention", label: "Data retention", icon: Archive },
 ] as const
+
+const MSP_NAVIGATION = [{ to: "/clients", label: "Clients", icon: Network }] as const
 
 const PLATFORM_NAVIGATION = [{ to: "/platform", label: "Platform", icon: Building2 }] as const
 
@@ -101,7 +107,8 @@ function PendingActionCount() {
 function Navigation({ onNavigate }: { onNavigate?: () => void }) {
   const isAdmin = useIsAdmin()
   const isPlatformAdmin = useIsPlatformAdmin()
-  const items = [...NAVIGATION, ...(isAdmin ? ADMIN_NAVIGATION : []), ...(isPlatformAdmin ? PLATFORM_NAVIGATION : [])]
+  const isMsp = Boolean(useMspOverview().data?.msp)
+  const items = [...(isMsp ? MSP_NAVIGATION : []), ...NAVIGATION, ...(isAdmin ? ADMIN_NAVIGATION : []), ...(isPlatformAdmin ? PLATFORM_NAVIGATION : [])]
   return (
     <nav aria-label="Main" className="space-y-0.5">
       {items.map(({ to, label, icon: Icon, ...rest }) => (
@@ -173,16 +180,6 @@ function UserPanel({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
-/** The organisation whose data is shown: every page is that organisation's alone. */
-function OrganisationName() {
-  const { data } = useCurrentTenant()
-  if (!data) return null
-  return (
-    <p className="truncate px-2 text-xs text-subtle" title={data.name}>
-      {data.name}
-    </p>
-  )
-}
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
@@ -191,7 +188,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <Link to="/" onClick={onNavigate} className="block px-2 pt-1" aria-label="UTDRS overview">
           <Logo />
         </Link>
-        <OrganisationName />
+        <OrganisationSwitcher />
       </div>
       <Navigation onNavigate={onNavigate} />
       <div className="mt-auto space-y-3">
@@ -204,6 +201,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AppLayout() {
   useLiveUpdates()
+  useOrganisationRefused()
   const [menuOpen, setMenuOpen] = useState(false)
   const location = useLocation()
 
@@ -261,6 +259,7 @@ export function AppLayout() {
         </header>
         <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8">
           <ConfirmEmailBanner />
+          <ActingBanner />
           <ReadOnlyBanner />
           <Outlet />
         </main>

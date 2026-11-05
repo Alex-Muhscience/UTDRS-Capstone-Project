@@ -338,6 +338,15 @@ UTDRS keeps each organisation's data apart: a *tenant*. Every user, event, alert
 
 Each action is recorded in the platform's audit log (`GET /api/v1/platform/audit-log`) and in the organisation's own, so an organisation sees what was done to it. Platform administrators do not otherwise see into an organisation's alerts or cases; the console shows counts.
 
+**Managed service providers (MSPs)** look after other organisations (`core/services/msp.py`). A platform administrator makes an organisation an MSP and can assign existing organisations to it; the MSP's administrators can also add new clients (`POST /api/v1/msp/clients`, optionally with an administrator of the client's own). Then:
+
+- **Working in a client.** An MSP's people send `X-UTDRS-Organisation: <client id>` and the request is the client's, decided in one place (`get_current_user`): the client must be managed by their MSP, active, and, if it requires multi-factor authentication, they must have it. They have the same role there as in the MSP (administrator, analyst or read-only). Anything else is refused with 403 and `X-Organisation-Refused: true`. Their own profile, sign-in security, notification preferences, API keys and the MSP's own view are never switched. API keys never switch.
+- **All clients at once.** `GET /api/v1/msp` lists the clients with their numbers (urgent and open alerts, events, connectors, last sign-in); `GET /api/v1/msp/alerts` lists open alerts across them, most severe first.
+- **Accountable.** What an MSP's people do in a client is in the client's audit log, under their name with the MSP's (`actor.organisation`, `actor.msp_id`). Clients being added or released are in both logs.
+- **The client decides.** A client sees which MSP manages it (`managed_by_name` on `/tenants/current`), and its own administrators can end that access at once (`DELETE /api/v1/tenants/current/msp`); only a platform administrator can restore it. An MSP cannot itself be managed, and stops being one only once it manages no one.
+
+MSP staff are not members of their clients: alerts and cases can be assigned only to a client's own people, and client notifications go to them.
+
 **Start-up** tasks (the default organisation, moving old data, indexes, the first administrator) run in every gateway process; a lock in MongoDB (`platform_locks`) makes the processes take turns, so they cannot race.
 
 ## API keys

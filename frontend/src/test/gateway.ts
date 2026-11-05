@@ -3,7 +3,7 @@ import { vi } from "vitest"
 type Body = Record<string, unknown> | unknown[] | Response | null
 type Handler = Body | ((request: Request, url: URL) => Body | Promise<Body>)
 
-export type Call = { method: string; path: string; url: URL; body: string | undefined }
+export type Call = { method: string; path: string; url: URL; headers: Headers; body: string | undefined }
 
 export function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } })
@@ -24,6 +24,7 @@ export function mockGateway(routes: Record<string, Handler>) {
         method: request.method,
         path: url.pathname,
         url,
+        headers: request.headers,
         body: request.method === "GET" ? undefined : await request.clone().text(),
       })
       const route = routes[key]

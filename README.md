@@ -134,6 +134,7 @@ Done:
 - [x] One-command local stack (`docker compose up`) with seeded demo data
 - [x] Roles enforced (administrators, analysts and read-only), user administration in the dashboard, and the first administrator created from settings
 - [x] Platform console: platform administrators create, rescue, suspend and delete organisations, with a second factor and an audit trail
+- [x] Managed service providers: switch between client organisations with an all-client view of alerts, every action in the client's audit log, and clients able to end access
 - [x] Connect the scanner: one wire format between the agent and the server, and scans delivered through the data processor to the gateway as assets and events
 
 Next:

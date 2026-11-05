@@ -3187,6 +3187,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/msp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Overview
+         * @description Whether you work for a service provider and, if so, the organisations it manages, with their numbers.
+         */
+        get: operations["overview_api_v1_msp_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/msp/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Client Alerts
+         * @description Open alerts across every organisation you manage, most severe and newest first.
+         */
+        get: operations["client_alerts_api_v1_msp_alerts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/msp/clients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Client
+         * @description Create an organisation your service provider manages (its administrators only).
+         */
+        post: operations["create_client_api_v1_msp_clients_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/live": {
         parameters: {
             query?: never;
@@ -3253,10 +3313,11 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Change Status
-         * @description Suspend an organisation (its people are signed out, and it can do nothing) or reactivate it.
+         * Change Organisation
+         * @description Suspend an organisation (its people are signed out, and it can do nothing) or reactivate it;
+         *     make it a managed service provider or not; or assign it to one.
          */
-        patch: operations["change_status_api_v1_platform_organisations__tenant_id__patch"];
+        patch: operations["change_organisation_api_v1_platform_organisations__tenant_id__patch"];
         trace?: never;
     };
     "/api/v1/platform/organisations/{tenant_id}/administrators": {
@@ -3391,7 +3452,7 @@ export interface paths {
         };
         /**
          * Get Current Tenant
-         * @description The organisation you belong to.
+         * @description The organisation you belong to (or, for a service provider's people, the one you are working in).
          */
         get: operations["get_current_tenant_api_v1_tenants_current_get"];
         put?: never;
@@ -3404,6 +3465,27 @@ export interface paths {
          * @description Rename your organisation (administrators only).
          */
         patch: operations["rename_current_tenant_api_v1_tenants_current_patch"];
+        trace?: never;
+    };
+    "/api/v1/tenants/current/msp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Release From Msp
+         * @description End your service provider's access (your own administrators only): its people can no longer
+         *     work in your organisation. A platform administrator can give it back.
+         */
+        delete: operations["release_from_msp_api_v1_tenants_current_msp_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/tenants/current/security": {
@@ -4344,6 +4426,25 @@ export interface components {
             /** Detail */
             detail: string;
         };
+        /** ClientAlert */
+        ClientAlert: {
+            /** Id */
+            id: string;
+            /** Title */
+            title?: string | null;
+            /** Severity */
+            severity?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Case Id */
+            case_id?: string | null;
+            /** Organisation Id */
+            organisation_id: string;
+            /** Organisation */
+            organisation?: string | null;
+        };
         /**
          * ConsentResult
          * @description What Microsoft sent back to the redirect page.
@@ -4382,6 +4483,13 @@ export interface components {
             administrator: components["schemas"]["Administrator"];
             /** Temporary Password */
             temporary_password: string;
+        };
+        /** CreatedClient */
+        CreatedClient: {
+            organisation: components["schemas"]["OrganisationSummary"];
+            administrator?: components["schemas"]["Administrator"] | null;
+            /** Temporary Password */
+            temporary_password?: string | null;
         };
         /** CreatedOrganisation */
         CreatedOrganisation: {
@@ -4984,12 +5092,37 @@ export interface components {
             /** Permissions */
             permissions: components["schemas"]["Permission"][];
         };
+        /** MspOverview */
+        MspOverview: {
+            /** Msp */
+            msp: boolean;
+            /** Organisation Id */
+            organisation_id: string;
+            /** Organisation */
+            organisation: string;
+            /** Role In Clients */
+            role_in_clients?: string | null;
+            /**
+             * Clients
+             * @default []
+             */
+            clients: components["schemas"]["OrganisationSummary"][];
+        };
         /** NewAdministrator */
         NewAdministrator: {
             /** Username */
             username: string;
             /** Email */
             email: string;
+        };
+        /** NewClient */
+        NewClient: {
+            /** Name */
+            name: string;
+            /** Admin Username */
+            admin_username?: string | null;
+            /** Admin Email */
+            admin_email?: string | null;
         };
         /** NewOrganisation */
         NewOrganisation: {
@@ -5118,6 +5251,18 @@ export interface components {
             /** Overdue */
             overdue: boolean;
         };
+        /**
+         * OrganisationChange
+         * @description What to change; anything left out stays as it is.
+         */
+        OrganisationChange: {
+            /** Suspended */
+            suspended?: boolean | null;
+            /** Msp */
+            msp?: boolean | null;
+            /** Managed By */
+            managed_by?: string | null;
+        };
         /** OrganisationDetail */
         OrganisationDetail: {
             /** Id */
@@ -5152,6 +5297,20 @@ export interface components {
              * @default false
              */
             mfa_required: boolean;
+            /**
+             * Urgent Alerts
+             * @default 0
+             */
+            urgent_alerts: number;
+            /**
+             * Msp
+             * @default false
+             */
+            msp: boolean;
+            /** Managed By */
+            managed_by?: string | null;
+            /** Managed By Name */
+            managed_by_name?: string | null;
             /**
              * Users
              * @default []
@@ -5192,6 +5351,20 @@ export interface components {
              * @default false
              */
             mfa_required: boolean;
+            /**
+             * Urgent Alerts
+             * @default 0
+             */
+            urgent_alerts: number;
+            /**
+             * Msp
+             * @default false
+             */
+            msp: boolean;
+            /** Managed By */
+            managed_by?: string | null;
+            /** Managed By Name */
+            managed_by_name?: string | null;
         };
         /** OrganisationUser */
         OrganisationUser: {
@@ -6158,11 +6331,6 @@ export interface components {
             /** Auto Provision */
             auto_provision?: boolean | null;
         };
-        /** StatusChange */
-        StatusChange: {
-            /** Suspended */
-            suspended: boolean;
-        };
         /** Step */
         Step: {
             /** Key */
@@ -6321,6 +6489,15 @@ export interface components {
              * @default false
              */
             require_mfa: boolean;
+            /**
+             * Msp
+             * @default false
+             */
+            msp: boolean;
+            /** Managed By */
+            managed_by?: string | null;
+            /** Managed By Name */
+            managed_by_name?: string | null;
         };
         /** TenantSecurity */
         TenantSecurity: {
@@ -12207,6 +12384,90 @@ export interface operations {
             };
         };
     };
+    overview_api_v1_msp_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MspOverview"];
+                };
+            };
+        };
+    };
+    client_alerts_api_v1_msp_alerts_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientAlert"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_client_api_v1_msp_clients_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewClient"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedClient"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     stream_api_v1_live_get: {
         parameters: {
             query?: never;
@@ -12359,7 +12620,7 @@ export interface operations {
             };
         };
     };
-    change_status_api_v1_platform_organisations__tenant_id__patch: {
+    change_organisation_api_v1_platform_organisations__tenant_id__patch: {
         parameters: {
             query?: never;
             header?: never;
@@ -12370,7 +12631,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["StatusChange"];
+                "application/json": components["schemas"]["OrganisationChange"];
             };
         };
         responses: {
@@ -12663,6 +12924,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    release_from_msp_api_v1_tenants_current_msp_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Tenant"];
                 };
             };
         };

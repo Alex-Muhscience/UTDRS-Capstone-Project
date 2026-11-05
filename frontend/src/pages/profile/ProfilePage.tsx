@@ -1,15 +1,17 @@
 import { useState, type FormEvent } from "react"
 import { toast } from "sonner"
 
-import { useChangePassword, useCurrentTenant, useRenameTenant, useRequireMfa, useUpdateProfile } from "@/api/queries"
+import { useChangePassword, useCurrentTenant, useReleaseFromMsp, useRenameTenant, useRequireMfa, useUpdateProfile } from "@/api/queries"
 import { useIsAdmin, useUser } from "@/auth/context"
 import { Badge } from "@/components/ui/Badge"
 import { Button, ButtonLink } from "@/components/ui/Button"
 import { Card } from "@/components/ui/Card"
+import { Dialog } from "@/components/ui/Dialog"
 import { DescriptionList } from "@/components/ui/DescriptionList"
 import { Field, Input } from "@/components/ui/Field"
 import { PageHeader } from "@/components/ui/PageHeader"
 import { formatDateTime, humanize } from "@/lib/format"
+import { useActiveOrganisation } from "@/lib/organisation"
 
 import { PasskeysCard } from "@/pages/security/PasskeysCard"
 import { SecurityCard } from "@/pages/security/SecurityCard"
@@ -53,7 +55,55 @@ function OrganisationCard() {
         <DescriptionList items={[["Name", tenant.data.name]]} />
       )}
       <RequireMfa required={tenant.data.require_mfa} isAdmin={isAdmin} />
+      {tenant.data.managed_by_name && <ServiceProvider name={tenant.data.managed_by_name} isAdmin={isAdmin} />}
     </Card>
+  )
+}
+
+/** The service provider that manages this organisation, and (for its own administrators) ending that. */
+function ServiceProvider({ name, isAdmin }: { name: string; isAdmin: boolean }) {
+  const release = useReleaseFromMsp()
+  const acting = useActiveOrganisation() !== null
+  const [confirming, setConfirming] = useState(false)
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-4 text-sm">
+      <p className="min-w-0 flex-1">
+        Managed by <strong>{name}</strong>: its people can work in this organisation, and what they do is in its audit log.
+      </p>
+      {isAdmin && !acting && (
+        <Button size="sm" variant="danger" onClick={() => setConfirming(true)}>
+          End their access
+        </Button>
+      )}
+      <Dialog
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        title={`End ${name}'s access?`}
+        description="Its people can no longer see or change anything here. Only the platform's operator can give it back."
+        footer={
+          <>
+            <Button onClick={() => setConfirming(false)}>Cancel</Button>
+            <Button
+              variant="danger"
+              loading={release.isPending}
+              onClick={() =>
+                release.mutate(undefined, {
+                  onSuccess: () => {
+                    setConfirming(false)
+                    toast.success(`${name} no longer has access`)
+                  },
+                  onError: (error) => toast.error(error.message),
+                })
+              }
+            >
+              End access
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-muted">This is recorded in your audit log and theirs.</p>
+      </Dialog>
+    </div>
   )
 }
 

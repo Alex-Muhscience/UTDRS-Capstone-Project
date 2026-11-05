@@ -1,6 +1,7 @@
 import createClient, { type Middleware } from "openapi-fetch"
 
 import { saveSession, tokenExpiry, UNAUTHORIZED_EVENT, type Session } from "@/auth/session"
+import { activeOrganisation, ORGANISATION_HEADER, ORGANISATION_REFUSED_EVENT, setActiveOrganisation } from "@/lib/organisation"
 
 import { deployedApiUrl } from "./deployment"
 import type { components, paths } from "./schema"
@@ -41,6 +42,7 @@ export type Webhook = Schemas["Webhook"]
 export type SessionInfo = Schemas["SessionInfo"]
 export type SsoSettings = Schemas["SsoSettings"]
 export type OrganisationSummary = Schemas["OrganisationSummary"]
+export type ClientAlert = Schemas["ClientAlert"]
 export type OrganisationDetail = Schemas["OrganisationDetail"]
 export type PlatformAdmin = Schemas["PlatformAdmin"]
 export type CreatedAdministrator = Schemas["CreatedAdministrator"]
@@ -146,9 +148,23 @@ const auth: Middleware = {
       await refreshSession()
     }
     if (current) request.headers.set("Authorization", `Bearer ${current.token}`)
+    const organisation = activeOrganisation()
+    if (organisation) request.headers.set(ORGANISATION_HEADER, organisation)
     return request
   },
   async onResponse({ request, response }) {
+    // The client organisation cannot be worked in any more: back to the person's own.
+    if (response.status === 403 && response.headers.get("X-Organisation-Refused") && activeOrganisation()) {
+      let reason: string | undefined
+      try {
+        const detail = ((await response.clone().json()) as FastApiError).detail
+        if (typeof detail === "string") reason = detail
+      } catch {
+        // No readable reason.
+      }
+      setActiveOrganisation(null)
+      window.dispatchEvent(new CustomEvent(ORGANISATION_REFUSED_EVENT, { detail: reason }))
+    }
     // A rejected session (ended, expired, or the user was deactivated): sign out, saying why.
     if (response.status === 401 && request.headers.has("Authorization") && !SELF_AUTHENTICATED.test(new URL(request.url).pathname)) {
       let reason: string | undefined
