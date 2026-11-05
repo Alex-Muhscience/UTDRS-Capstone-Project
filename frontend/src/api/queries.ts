@@ -293,6 +293,16 @@ export function useResetMfa() {
   })
 }
 
+/** Erase someone's personal data (cannot be undone). */
+export function useEraseUser() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ userId, confirmUsername }: { userId: string; confirmUsername: string }) =>
+      unwrap(api.POST("/api/v1/users/{user_id}/erase", { params: { path: { user_id: userId } }, body: { confirm_username: confirmUsername } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
+  })
+}
+
 export function useSignOutEverywhere() {
   return useMutation({
     mutationFn: (userId: string) => unwrap(api.POST("/api/v1/users/{user_id}/sign-out", { params: { path: { user_id: userId } } })),

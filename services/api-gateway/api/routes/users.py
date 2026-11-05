@@ -9,6 +9,7 @@ import secrets
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, status
+from pydantic import BaseModel, Field
 
 from core.database.repositories.user_repository import UserRepository
 from core.models.user import (
@@ -162,3 +163,30 @@ async def sign_out_everywhere(request: Request, user_id: str = Path(...), admin:
     user_repo = UserRepository()
     await find_user_or_404(user_repo, user_id)
     return {"ended": await end_sessions(user_id, admin, request, "Signed out by an administrator")}
+
+
+class Erasure(BaseModel):
+    # The person's current username, typed to confirm: erasing cannot be undone.
+    confirm_username: str = Field(min_length=1, max_length=200)
+
+
+@router.post("/{user_id}/erase", response_model=User)
+async def erase_user(body: Erasure, request: Request, user_id: str = Path(...), admin: User = Depends(require_admin)):
+    """
+    Erase someone's personal data (administrators only), such as on their request: their
+    name, username and email become placeholders, their account is deactivated and its sign-in
+    methods removed, their sessions end, and their name is replaced wherever it was copied.
+    The audit log is kept as it is (it is tamper-evident). This cannot be undone.
+    """
+    from core.services import erasure
+
+    user_repo = UserRepository()
+    user = await find_user_or_404(user_repo, user_id)
+    if body.confirm_username != user["username"]:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Type the person's username to confirm")
+    try:
+        done = await erasure.erase(user_id, admin.id)
+    except erasure.ErasureError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    request.state.audit_details = {"erased": done}
+    return User(**await user_repo.find_by_id(user_id))

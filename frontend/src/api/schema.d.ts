@@ -798,6 +798,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{user_id}/erase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Erase User
+         * @description Erase someone's personal data (administrators only), such as on their request: their
+         *     name, username and email become placeholders, their account is deactivated and its sign-in
+         *     methods removed, their sessions end, and their name is replaced wherever it was copied.
+         *     The audit log is kept as it is (it is tamper-evident). This cannot be undone.
+         */
+        post: operations["erase_user_api_v1_users__user_id__erase_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/alerts/": {
         parameters: {
             query?: never;
@@ -4466,6 +4489,11 @@ export interface components {
             /** Name */
             name?: string | null;
         };
+        /** Erasure */
+        Erasure: {
+            /** Confirm Username */
+            confirm_username: string;
+        };
         /**
          * Event
          * @example {
@@ -7459,6 +7487,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionsEnded"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    erase_user_api_v1_users__user_id__erase_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Erasure"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
                 };
             };
             /** @description Validation Error */

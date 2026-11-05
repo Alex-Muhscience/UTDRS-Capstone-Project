@@ -246,6 +246,10 @@ With email configured (`SMTP_HOST`), people manage this themselves (`core/servic
 
 Without email, `/auth/config` says `password_reset: false`, and administrators reset passwords (`POST /users/{id}/reset-password`).
 
+## Erasing a person
+
+An administrator can erase someone's personal data, such as when they ask (`POST /users/{id}/erase`, typing their username to confirm; Users → Erase). Their name, username and email become placeholders; the account is deactivated, and its password, multi-factor authentication, passkeys, SCIM link and preferences removed; their sessions (with devices and addresses) and pending links are deleted, their email address is replaced on past notifications, and their name is replaced wherever it was copied (case timelines and files, response actions, suppressions, verdicts, API keys, webhooks, connections) (`core/services/erasure.py`). The account record stays, so what refers to it still holds together. The audit log is kept unchanged: it is tamper-evident, and changing an entry would break its chain. Nobody can erase themselves, or the last active administrator.
+
 ## Sessions
 
 Signing in starts a session (`core/services/sessions.py`) and returns two tokens:
@@ -407,6 +411,7 @@ MONGODB_URI=mongodb://localhost:27017 python -m pytest
 
 237 tests. Those that need MongoDB run only when `MONGODB_URI` is set, each run in its own database, dropped afterwards. Without it, the database-free tests still run and the rest are skipped.
 
+- `tests/e2e/test_erasure.py`: erasing a person (confirmation needed; signed out and unable to sign in; their name gone from a case while the note stays; the audit log still verifying; not twice), never oneself, and administrators only.
 - `tests/e2e/test_flows.py`: registration and sign-in, events, alerts (filters, ordering, summary, status errors), assets, rules, role and password rules, response headers. Against a real MongoDB, with no mocks.
 - `tests/e2e/test_users.py`: role checks on rules and simulations, the team directory, account administration (create, role changes, deactivation, password resets), self-lockout protection, closed registration and the startup administrator.
 - `tests/e2e/test_account_email.py`: a forgotten password reset from an emailed link (sessions ended, once only, the address confirmed by it), the same answer whether or not the account exists, only the newest link working and three an hour, the link not kept once sent, confirming an address at registration and after changing it, requiring it before signing in, and no resetting without email.
