@@ -1,10 +1,11 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from bson import ObjectId
+from pymongo.errors import DuplicateKeyError
 
 from core.database.repositories.asset_repository import AssetRepository
-from core.database.repositories.event_repository import EventRepository
+from core.database.repositories.event_repository import EventRepository, api_external_id
 from core.models.event import Event, EventCreate, EventUpdate
 from utils.logger import get_logger
 
@@ -34,9 +35,25 @@ class EventService:
             event_id = await self.event_repo.create_event(event_data)
             logger.info(f"Created event with ID: {event_id}")
             return event_id
+        except DuplicateKeyError:
+            raise  # sent again; create_event_once handles it
         except Exception as e:
             logger.error(f"Error creating event: {str(e)}")
             raise
+
+    async def create_event_once(self, event_data: EventCreate) -> Tuple[str, bool]:
+        """Store an event unless one with its source and external_id exists. Returns its id, and whether it already existed."""
+        try:
+            return await self.create_event(event_data), False
+        except DuplicateKeyError:
+            if not event_data.external_id:
+                raise
+            existing = await self.event_repo.collection.find_one(
+                {"raw_data.external_id": api_external_id(event_data.source, event_data.external_id)}, {"_id": 1}
+            )
+            if existing is None:
+                raise
+            return str(existing["_id"]), True
 
     async def update_event(
         self, event_id: str, event_data: EventUpdate
