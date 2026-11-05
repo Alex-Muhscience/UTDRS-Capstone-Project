@@ -193,4 +193,4 @@ No open-source licence has been chosen yet, so all rights are reserved for now. 
 
 ## Deploying
 
-See [docs/deploy-render.md](docs/deploy-render.md).
+See [docs/deploy-render.md](docs/deploy-render.md), and [docs/production-readiness.md](docs/production-readiness.md) for what remains before real organisations rely on it.

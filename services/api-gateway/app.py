@@ -91,8 +91,8 @@ app = FastAPI(
     lifespan=lifespan,
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    openapi_url=f"{settings.API_PREFIX}/openapi.json",
-    docs_url=f"{settings.API_PREFIX}/docs",
+    openapi_url=f"{settings.API_PREFIX}/openapi.json" if settings.API_DOCS else None,
+    docs_url=f"{settings.API_PREFIX}/docs" if settings.API_DOCS else None,
 )
 
 # Enhance security middleware

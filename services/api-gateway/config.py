@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     ALLOWED_HOSTS: List[str] = ["*"]
 
     # Browser origins allowed to call the API with credentials. Set as a JSON list,
+    # The interactive API documentation (/api/v1/docs) and schema (/api/v1/openapi.json).
+    # On by default, for integrators; turn off to show neither publicly.
+    API_DOCS: bool = True
+
     # e.g. CORS_ORIGINS='["https://dashboard.example.com"]'. Never "*" with credentials.
     CORS_ORIGINS: List[str] = ["http://localhost:3001", "http://localhost:5173"]
     # Also allowed: origins matching this regular expression, for hosts whose preview

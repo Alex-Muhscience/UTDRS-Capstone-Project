@@ -20,7 +20,11 @@ export interface paths {
         post?: never;
         delete?: never;
         options?: never;
-        head?: never;
+        /**
+         * Health Check
+         * @description Health check endpoint to verify API and database are working.
+         */
+        head: operations["health_check_api_v1_health_get"];
         patch?: never;
         trace?: never;
     };
@@ -40,7 +44,11 @@ export interface paths {
         post?: never;
         delete?: never;
         options?: never;
-        head?: never;
+        /**
+         * Database Health Check
+         * @description Check database connection health.
+         */
+        head: operations["database_health_check_api_v1_health_db_get"];
         patch?: never;
         trace?: never;
     };
@@ -62,7 +70,13 @@ export interface paths {
         post?: never;
         delete?: never;
         options?: never;
-        head?: never;
+        /**
+         * Readiness Check
+         * @description For load balancers and uptime monitors: 200 when the gateway can serve (its database
+         *     answers), 503 when it cannot. `problems` lists what is failing on the platform (the
+         *     core engine, the analysis backlog, email, background loops), which does not stop it serving.
+         */
+        head: operations["readiness_check_api_v1_health_ready_get"];
         patch?: never;
         trace?: never;
     };
@@ -3785,7 +3799,7 @@ export interface paths {
         /**
          * Release From Msp
          * @description End your service provider's access (your own administrators only): its people can no longer
-         *     work in your organisation. A platform administrator can give it back.
+         *     work in your organisation. A platform operator can give it back.
          */
         delete: operations["release_from_msp_api_v1_tenants_current_msp_delete"];
         options?: never;
@@ -7344,7 +7358,67 @@ export interface operations {
             };
         };
     };
+    health_check_api_v1_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     database_health_check_api_v1_health_db_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    database_health_check_api_v1_health_db_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    readiness_check_api_v1_health_ready_get: {
         parameters: {
             query?: never;
             header?: never;

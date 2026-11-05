@@ -84,7 +84,10 @@ class SecurityMiddleware:
                 security_headers = {
                     b"x-content-type-options": b"nosniff",
                     b"x-frame-options": b"DENY",
-                    b"x-xss-protection": b"1; mode=block",
+                    # The old XSS filter is retired and could be abused; "0" is today's advice.
+                    b"x-xss-protection": b"0",
+                    # Browsers use HTTPS for the gateway from then on (ignored over plain HTTP).
+                    b"strict-transport-security": b"max-age=63072000; includeSubDomains",
                     b"referrer-policy": b"strict-origin-when-cross-origin",
                     b"content-security-policy": (
                         self.DOCS_CSP

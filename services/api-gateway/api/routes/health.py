@@ -5,17 +5,20 @@ from fastapi.responses import JSONResponse
 
 from config import settings
 from core.database.connection import get_database
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
 
-@router.get("/health")
+@router.api_route("/health", methods=["GET", "HEAD"])
 async def health_check():
     """Health check endpoint to verify API and database are working."""
     return {"status": "ok", "service": "api-gateway"}
 
 
-@router.get("/health/db")
+@router.api_route("/health/db", methods=["GET", "HEAD"])
 async def database_health_check():
     """Check database connection health."""
     db = get_database()
@@ -24,10 +27,11 @@ async def database_health_check():
         await db.command("ping")
         return {"status": "ok", "database": "connected"}
     except Exception as e:
-        return {"status": "error", "database": "disconnected", "detail": str(e)}
+        logger.error(f"Database health check failed: {e}")  # the reason is for the logs, not the public
+        return JSONResponse(status_code=503, content={"status": "error", "database": "disconnected"})
 
 
-@router.get("/health/ready")
+@router.api_route("/health/ready", methods=["GET", "HEAD"])
 async def readiness_check():
     """
     For load balancers and uptime monitors: 200 when the gateway can serve (its database
@@ -39,7 +43,8 @@ async def readiness_check():
     try:
         await get_database().command("ping")
     except Exception as e:
-        return JSONResponse(status_code=503, content={"status": "unavailable", "database": "disconnected", "detail": str(e)})
+        logger.error(f"Readiness check: the database does not answer: {e}")
+        return JSONResponse(status_code=503, content={"status": "unavailable", "database": "disconnected"})
     problems = await platform_health.summary()
     return {"status": "degraded" if problems else "ok", "database": "connected", "problems": problems}
 
