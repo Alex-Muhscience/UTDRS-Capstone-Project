@@ -31,6 +31,7 @@ TENANT_SCOPED = {
     "labels",
     "connections",
     "webhooks",
+    "rule_versions",
     "webhook_deliveries",
     "sessions",
     "assets",

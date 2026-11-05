@@ -5280,6 +5280,53 @@
         }
       }
     },
+    "/api/v1/detection/rules/test": {
+      "post": {
+        "tags": [
+          "detection"
+        ],
+        "summary": "Test Logic",
+        "description": "Run test cases against logic, before saving it: what the core engine would match.",
+        "operationId": "test_logic_api_v1_detection_rules_test_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleTestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleTestRun"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/detection/rules/{rule_id}": {
       "get": {
         "tags": [
@@ -5713,6 +5760,164 @@
                     "$ref": "#/components/schemas/DetectionRule"
                   },
                   "title": "Response Search Rules Api V1 Detection Rules Search  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/detection/rules/{rule_id}/test": {
+      "post": {
+        "tags": [
+          "detection"
+        ],
+        "summary": "Test Rule",
+        "description": "Run a saved rule's test cases.",
+        "operationId": "test_rule_api_v1_detection_rules__rule_id__test_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "rule_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Rule Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleTestRun"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/detection/rules/{rule_id}/versions": {
+      "get": {
+        "tags": [
+          "detection"
+        ],
+        "summary": "Rule History",
+        "description": "Every version of a rule, newest first: what it was, who changed it, and when.",
+        "operationId": "rule_history_api_v1_detection_rules__rule_id__versions_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "rule_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Rule Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RuleVersion"
+                  },
+                  "title": "Response Rule History Api V1 Detection Rules  Rule Id  Versions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/detection/rules/{rule_id}/versions/{version}/restore": {
+      "post": {
+        "tags": [
+          "detection"
+        ],
+        "summary": "Restore Rule Version",
+        "description": "Make a rule what it was at an earlier version (administrators). This makes a new\nversion: history is never rewritten. Its test cases must still pass.",
+        "operationId": "restore_rule_version_api_v1_detection_rules__rule_id__versions__version__restore_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "rule_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Rule Id"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DetectionRule"
                 }
               }
             }
@@ -11008,6 +11213,14 @@
             "type": "string",
             "title": "Logic"
           },
+          "test_cases": {
+            "items": {
+              "$ref": "#/components/schemas/RuleTestCase"
+            },
+            "type": "array",
+            "title": "Test Cases",
+            "default": []
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -11066,6 +11279,11 @@
             "type": "object",
             "title": "Metadata",
             "default": {}
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "default": 0
           },
           "engine": {
             "$ref": "#/components/schemas/RuleEngineStatus",
@@ -11152,6 +11370,14 @@
           "logic": {
             "type": "string",
             "title": "Logic"
+          },
+          "test_cases": {
+            "items": {
+              "$ref": "#/components/schemas/RuleTestCase"
+            },
+            "type": "array",
+            "title": "Test Cases",
+            "default": []
           },
           "created_by": {
             "anyOf": [
@@ -11279,6 +11505,20 @@
               }
             ],
             "title": "Notes"
+          },
+          "test_cases": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RuleTestCase"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Cases"
           }
         },
         "type": "object",
@@ -13716,6 +13956,174 @@
           "rules_sent"
         ],
         "title": "RuleSyncStatus"
+      },
+      "RuleTestCase": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "event": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Event"
+          },
+          "expect": {
+            "type": "string",
+            "enum": [
+              "match",
+              "no_match"
+            ],
+            "title": "Expect",
+            "default": "match"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "event"
+        ],
+        "title": "RuleTestCase",
+        "description": "An example event the rule must match, or must not."
+      },
+      "RuleTestRequest": {
+        "properties": {
+          "logic": {
+            "type": "string",
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Logic"
+          },
+          "test_cases": {
+            "items": {
+              "$ref": "#/components/schemas/RuleTestCase"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Test Cases",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "logic"
+        ],
+        "title": "RuleTestRequest",
+        "description": "Test logic before saving it."
+      },
+      "RuleTestResult": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "expect": {
+            "type": "string",
+            "title": "Expect"
+          },
+          "matched": {
+            "type": "boolean",
+            "title": "Matched"
+          },
+          "passed": {
+            "type": "boolean",
+            "title": "Passed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "expect",
+          "matched",
+          "passed"
+        ],
+        "title": "RuleTestResult"
+      },
+      "RuleTestRun": {
+        "properties": {
+          "ran": {
+            "type": "boolean",
+            "title": "Ran"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "passed": {
+            "type": "boolean",
+            "title": "Passed"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/RuleTestResult"
+            },
+            "type": "array",
+            "title": "Results",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "ran",
+          "passed"
+        ],
+        "title": "RuleTestRun"
+      },
+      "RuleVersion": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "change": {
+            "type": "string",
+            "title": "Change"
+          },
+          "changed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed By"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "rule": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Rule"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "change",
+          "at",
+          "rule"
+        ],
+        "title": "RuleVersion"
       },
       "ScanInterface": {
         "properties": {
