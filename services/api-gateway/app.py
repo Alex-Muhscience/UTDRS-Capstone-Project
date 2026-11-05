@@ -70,11 +70,13 @@ async def lifespan(app: FastAPI):
     yield
     for loop in loops:
         loop.cancel()
-    await playbook_service.idle()
-    await m365_ingest.idle()
+    # The loops first: one stopping mid-round can still start a playbook, which the waits
+    # below then see to the end.
     for loop in loops:
         with suppress(asyncio.CancelledError):
             await loop
+    await playbook_service.idle()
+    await m365_ingest.idle()
     with suppress(Exception):
         await metrics.flush()  # what this process counted since the last flush
     await close_mongo_connection()

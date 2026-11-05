@@ -22,11 +22,12 @@ async def ensure_indexes() -> None:
     await m365.ensure_indexes()
     await webhooks.ensure_indexes()
     await sessions.ensure_indexes()
-    from core.services import account_email, detection_pipeline, idempotency
+    from core.services import account_email, detection_pipeline, idempotency, sso
 
     await account_email.ensure_indexes()
     await detection_pipeline.ensure_indexes()
     await idempotency.ensure_indexes()
+    await sso.ensure_indexes()
 
     database = get_database()
     await database["tenants"].create_index("slug", unique=True)

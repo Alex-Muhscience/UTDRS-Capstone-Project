@@ -297,6 +297,90 @@
         }
       }
     },
+    "/api/v1/auth/sso/start": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Sso Start",
+        "description": "Where to send someone to sign in with their organisation's identity provider, found from their email's domain.",
+        "operationId": "sso_start_api_v1_auth_sso_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SsoStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoRedirect"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/sso/callback": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Sso Callback",
+        "description": "Finish signing in with single sign-on: the code and state the provider sent back to the\ndashboard. The provider's ID token is checked; then the person's account signs in.",
+        "operationId": "sso_callback_api_v1_auth_sso_callback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SsoCallback"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Token"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/refresh": {
       "post": {
         "tags": [
@@ -8118,6 +8202,144 @@
         ]
       }
     },
+    "/api/v1/tenants/current/sso": {
+      "get": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Get Sso",
+        "description": "Single sign-on settings (administrators only). The client secret is never shown.",
+        "operationId": "get_sso_api_v1_tenants_current_sso_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoSettings"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Save Sso",
+        "description": "Set up or change single sign-on with an OpenID Connect provider (administrators only).\nRegister UTDRS at the provider with the dashboard's /sso/callback as its redirect URI.\nEach domain must then be verified with a DNS TXT record before people from it can use it.",
+        "operationId": "save_sso_api_v1_tenants_current_sso_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SsoUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoSettings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Remove Sso",
+        "description": "Turn single sign-on off and forget its settings (administrators only). Passwords work again for everyone.",
+        "operationId": "remove_sso_api_v1_tenants_current_sso_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tenants/current/sso/domains/{domain}/verify": {
+      "post": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Verify Sso Domain",
+        "description": "Check the domain's DNS TXT record, so people from it can sign in with SSO (administrators only).",
+        "operationId": "verify_sso_domain_api_v1_tenants_current_sso_domains__domain__verify_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Domain"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoSettings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/": {
       "get": {
         "summary": "Root",
@@ -9743,6 +9965,11 @@
           "email_verification_required": {
             "type": "boolean",
             "title": "Email Verification Required",
+            "default": false
+          },
+          "sso_available": {
+            "type": "boolean",
+            "title": "Sso Available",
             "default": false
           }
         },
@@ -13780,6 +14007,255 @@
         },
         "type": "object",
         "title": "SimulationUpdate"
+      },
+      "SsoCallback": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Code"
+          },
+          "state": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 10,
+            "title": "State"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "state"
+        ],
+        "title": "SsoCallback"
+      },
+      "SsoDomain": {
+        "properties": {
+          "domain": {
+            "type": "string",
+            "title": "Domain"
+          },
+          "verified": {
+            "type": "boolean",
+            "title": "Verified"
+          },
+          "record_name": {
+            "type": "string",
+            "title": "Record Name"
+          },
+          "record_value": {
+            "type": "string",
+            "title": "Record Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "domain",
+          "verified",
+          "record_name",
+          "record_value"
+        ],
+        "title": "SsoDomain"
+      },
+      "SsoRedirect": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "SsoRedirect"
+      },
+      "SsoSettings": {
+        "properties": {
+          "configured": {
+            "type": "boolean",
+            "title": "Configured"
+          },
+          "issuer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "domains": {
+            "items": {
+              "$ref": "#/components/schemas/SsoDomain"
+            },
+            "type": "array",
+            "title": "Domains",
+            "default": []
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": false
+          },
+          "enforce": {
+            "type": "boolean",
+            "title": "Enforce",
+            "default": false
+          },
+          "auto_provision": {
+            "type": "boolean",
+            "title": "Auto Provision",
+            "default": false
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "encryption_available": {
+            "type": "boolean",
+            "title": "Encryption Available"
+          }
+        },
+        "type": "object",
+        "required": [
+          "configured",
+          "encryption_available"
+        ],
+        "title": "SsoSettings"
+      },
+      "SsoStart": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "minLength": 3,
+            "title": "Email"
+          },
+          "redirect_uri": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Redirect Uri"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "redirect_uri"
+        ],
+        "title": "SsoStart"
+      },
+      "SsoUpdate": {
+        "properties": {
+          "issuer": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Secret"
+          },
+          "domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domains"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "enforce": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enforce"
+          },
+          "auto_provision": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Provision"
+          }
+        },
+        "type": "object",
+        "title": "SsoUpdate"
       },
       "Step": {
         "properties": {

@@ -23,6 +23,8 @@ export type AuthValue = {
   login: (username: string, password: string) => Promise<{ mfaToken: string } | null>
   /** Finish signing in with a code from the authenticator app, or a recovery code. */
   loginWithCode: (mfaToken: string, code: string) => Promise<void>
+  /** Finish signing in with single sign-on: the code and state the identity provider sent back. */
+  loginWithSso: (code: string, state: string) => Promise<void>
   register: (registration: Registration) => Promise<void>
   logout: (notice?: string) => void
   retry: () => void

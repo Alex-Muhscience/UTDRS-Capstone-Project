@@ -18,6 +18,7 @@ import { CasesPage } from "@/pages/cases/CasesPage"
 import { AssetsPage } from "@/pages/assets/AssetsPage"
 import { ForgotPasswordPage, ResetPasswordPage, VerifyEmailPage } from "@/pages/auth/AccountPages"
 import { LoginPage } from "@/pages/auth/LoginPage"
+import { SsoCallbackPage } from "@/pages/auth/SsoPages"
 import { RegisterPage } from "@/pages/auth/RegisterPage"
 import { RouteError } from "@/pages/errors/RouteError"
 import { NotFoundPage } from "@/pages/errors/NotFoundPage"
@@ -47,6 +48,7 @@ export const routes: RouteObject[] = [
           { path: "/register", element: <RegisterPage /> },
           { path: "/forgot-password", element: <ForgotPasswordPage /> },
           { path: "/reset-password", element: <ResetPasswordPage /> },
+          { path: "/sso/callback", element: <SsoCallbackPage /> },
         ],
       },
       // Signed in or not: the link is opened from an email.

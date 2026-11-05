@@ -160,7 +160,8 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
     # The organisation requires MFA and this account has none: set it up, and nothing else.
     from core.services import mfa
 
-    if not current.mfa_enabled and await mfa.required():
+    # A session started with single sign-on had the identity provider's own second factor.
+    if not current.mfa_enabled and await mfa.required() and await sessions.method(payload["sid"]) != "sso":
         current.mfa_setup_required = True
         if not _allowed_before_mfa(request):
             raise HTTPException(

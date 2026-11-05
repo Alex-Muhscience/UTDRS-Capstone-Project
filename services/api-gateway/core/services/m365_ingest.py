@@ -477,8 +477,9 @@ def start_first_poll() -> None:
 
 async def idle() -> None:
     """Wait for first polls in progress (for tests and shutdown)."""
-    while _first_polls:
-        await asyncio.gather(*list(_first_polls), return_exceptions=True)
+    from core.services.playbooks import wait_for_tasks
+
+    await wait_for_tasks(_first_polls)
 
 
 async def poll_all() -> None:

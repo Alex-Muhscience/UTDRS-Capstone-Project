@@ -1,10 +1,11 @@
 """Your organisation."""
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from core.models.sso import SsoSettings, SsoUpdate
 from core.models.tenant import Tenant, TenantSecurity, TenantUpdate
 from core.models.user import User
 from core.database.repositories.user_repository import UserRepository
-from core.services import audit, mfa, tenants
+from core.services import audit, mfa, sso, tenants
 from core.tenancy import current_tenant
 from utils.security import get_current_active_user, require_admin
 
@@ -44,3 +45,45 @@ async def update_security(body: TenantSecurity, request: Request, admin: User = 
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     await audit.record("tenant.security_changed", request, target={"type": "tenant", "id": current_tenant()}, changes={"require_mfa": body.require_mfa})
     return await tenants.get(current_tenant())
+
+
+# ---------------------------------------------------------------------------- Single sign-on
+
+@router.get("/current/sso", response_model=SsoSettings)
+async def get_sso(admin: User = Depends(require_admin)):
+    """Single sign-on settings (administrators only). The client secret is never shown."""
+    return sso.public(await sso.get_config())
+
+
+@router.put("/current/sso", response_model=SsoSettings)
+async def save_sso(body: SsoUpdate, request: Request, admin: User = Depends(require_admin)):
+    """
+    Set up or change single sign-on with an OpenID Connect provider (administrators only).
+    Register UTDRS at the provider with the dashboard's /sso/callback as its redirect URI.
+    Each domain must then be verified with a DNS TXT record before people from it can use it.
+    """
+    try:
+        config = await sso.save(body.model_dump(exclude_unset=True))
+    except sso.SsoError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
+    await audit.record("tenant.sso_changed", request, target={"type": "tenant", "id": current_tenant()},
+                       details={"fields": sorted(k for k in body.model_dump(exclude_unset=True) if k != "client_secret") + (["client_secret"] if body.client_secret else [])})
+    return sso.public(config)
+
+
+@router.post("/current/sso/domains/{domain}/verify", response_model=SsoSettings)
+async def verify_sso_domain(domain: str, request: Request, admin: User = Depends(require_admin)):
+    """Check the domain's DNS TXT record, so people from it can sign in with SSO (administrators only)."""
+    try:
+        config = await sso.verify_domain(domain)
+    except sso.SsoError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    await audit.record("tenant.sso_domain_verified", request, target={"type": "tenant", "id": current_tenant()}, details={"domain": domain})
+    return sso.public(config)
+
+
+@router.delete("/current/sso", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_sso(request: Request, admin: User = Depends(require_admin)):
+    """Turn single sign-on off and forget its settings (administrators only). Passwords work again for everyone."""
+    if await sso.remove():
+        await audit.record("tenant.sso_removed", request, target={"type": "tenant", "id": current_tenant()})

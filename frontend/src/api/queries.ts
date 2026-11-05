@@ -30,6 +30,7 @@ import {
   type SuppressionCreate,
   type Simulation,
   type SimulationCreate,
+  type Schemas,
   type User,
 } from "./client"
 
@@ -120,6 +121,44 @@ export function useResendVerification() {
 /** Send the signed-in person the link to confirm their email address. */
 export function useSendMyVerification() {
   return useMutation({ mutationFn: () => unwrap(api.POST("/api/v1/auth/me/send-verification")) })
+}
+
+// ---------------------------------------------------------------------------- Single sign-on
+
+/** Where to send someone to sign in with their organisation's identity provider. */
+export function useStartSso() {
+  return useMutation({
+    mutationFn: (email: string) =>
+      unwrap(api.POST("/api/v1/auth/sso/start", { body: { email, redirect_uri: `${window.location.origin}/sso/callback` } })),
+  })
+}
+
+export function useSsoSettings(enabled = true) {
+  return useQuery({ queryKey: ["sso"], queryFn: () => unwrap(api.GET("/api/v1/tenants/current/sso")), enabled })
+}
+
+export function useSaveSso() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: Schemas["SsoUpdate"]) => unwrap(api.PUT("/api/v1/tenants/current/sso", { body })),
+    onSuccess: (settings) => queryClient.setQueryData(["sso"], settings),
+  })
+}
+
+export function useVerifySsoDomain() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (domain: string) => unwrap(api.POST("/api/v1/tenants/current/sso/domains/{domain}/verify", { params: { path: { domain } } })),
+    onSuccess: (settings) => queryClient.setQueryData(["sso"], settings),
+  })
+}
+
+export function useRemoveSso() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => unwrap(api.DELETE("/api/v1/tenants/current/sso")),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sso"] }),
+  })
 }
 
 export function useAuthConfig() {

@@ -39,6 +39,7 @@ export type DetectorQuality = Schemas["DetectorQuality"]
 export type Microsoft365 = Schemas["Microsoft365"]
 export type Webhook = Schemas["Webhook"]
 export type SessionInfo = Schemas["SessionInfo"]
+export type SsoSettings = Schemas["SsoSettings"]
 export type Delivery = Schemas["Delivery"]
 export type Role = Schemas["UserAdminUpdate"]["role"]
 
@@ -60,7 +61,7 @@ const refreshed = new Set<(session: Session) => void>()
 // Refresh this long before the access token expires, so requests never carry an expired one.
 const REFRESH_EARLY_MS = 30_000
 // Requests that authenticate themselves: never refreshed first, never reported as a lost session.
-const SELF_AUTHENTICATED = /\/auth\/(refresh|logout|login|login\/mfa|register)$/
+const SELF_AUTHENTICATED = /\/auth\/(refresh|logout|login|login\/mfa|register|sso\/start|sso\/callback)$/
 
 /** The session whose tokens are sent with every request; set by the auth provider. */
 export function setAuthSession(session: Session | null): void {
