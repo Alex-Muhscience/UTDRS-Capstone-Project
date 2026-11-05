@@ -121,7 +121,7 @@ Every pull request runs:
 
 ## Roadmap
 
-The plan for turning UTDRS into a commercial product, with every requirement and every gap in today's code, is in [docs/enterprise-plan.md](docs/enterprise-plan.md). The near-term list:
+The plan for turning UTDRS into a commercial product, with every requirement and every gap in today's code, is in [docs/enterprise-plan.md](docs/enterprise-plan.md). Drafts of the terms of service, privacy policy, data processing agreement and acceptable use policy, for a lawyer to review, are in [docs/legal](docs/legal/README.md). The near-term list:
 
 Done:
 
