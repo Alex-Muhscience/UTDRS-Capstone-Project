@@ -10,7 +10,14 @@ import { Field, Input, Textarea } from "@/components/ui/Field"
 import { ErrorState, SkeletonRows } from "@/components/ui/States"
 import { formatDateTime, formatRelative } from "@/lib/format"
 
-const SOURCES: Record<string, string> = { login: "Sign-ins", admin: "Administrator actions", token: "App authorisations", signing_in: "Signing in" }
+const SOURCES: Record<string, string> = {
+  login: "Sign-ins",
+  admin: "Administrator actions",
+  token: "App authorisations",
+  user_accounts: "Account settings",
+  drive: "Drive sharing",
+  signing_in: "Signing in",
+}
 
 /** Google Workspace: sign-ins, administrator actions and app authorisations, through a service account. */
 export function GoogleWorkspaceCard() {
@@ -56,7 +63,7 @@ export function GoogleWorkspaceCard() {
           )}
         </span>
       }
-      description="Sign-ins, suspicious sign-ins, administrator actions and app authorisations, every few minutes; and account actions."
+      description="Sign-ins, suspicious sign-ins, administrator actions, app authorisations, Drive sharing and mail forwarding, every few minutes; and account actions."
     >
       {data.connected ? (
         <div className="space-y-4">
@@ -69,7 +76,7 @@ export function GoogleWorkspaceCard() {
               [
                 "Last fetched",
                 data.last_poll_at
-                  ? `${formatRelative(data.last_poll_at)}: ${counts.login ?? 0} sign-ins, ${counts.admin ?? 0} administrator actions, ${counts.token ?? 0} app authorisations`
+                  ? `${formatRelative(data.last_poll_at)}: ${counts.login ?? 0} sign-ins, ${counts.admin ?? 0} administrator actions, ${counts.token ?? 0} app authorisations, ${counts.drive ?? 0} sharing changes, ${counts.user_accounts ?? 0} account settings`
                   : "Not yet",
               ],
               ["Last data received", data.last_data_at ? formatRelative(data.last_data_at) : "Nothing yet"],

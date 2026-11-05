@@ -8,9 +8,11 @@ Workspace administrators (`admin_email`). Its JSON key is stored encrypted (util
 bound to the organisation). UTDRS signs a JWT with the key and exchanges it for an access
 token (OAuth 2.0 for service accounts), cached until shortly before it expires.
 
-Every GOOGLE_POLL_INTERVAL_SECONDS the Admin SDK Reports API is read for three
-applications: `login` (sign-ins, failures, suspicious sign-ins, 2-step verification),
-`admin` (roles and privileges granted, accounts changed) and `token` (apps authorised).
+Every GOOGLE_POLL_INTERVAL_SECONDS the Admin SDK Reports API is read for: `login` (sign-ins,
+failures, suspicious sign-ins, 2-step verification), `admin` (roles and privileges granted,
+accounts changed), `token` (apps authorised), `user_accounts` (account settings, such as
+mail forwarded outside the domain) and `drive`, for sharing changes only (who a file is
+shared with, and its link sharing; only primary events).
 Google publishes these with some delay, so each poll reads from a little before the last
 activity it saw; each activity is stored once (raw_data.external_id). Sign-ins become
 `authentication` events, so the engine's identity correlations (password spraying and
@@ -46,7 +48,9 @@ SCOPES = [
 ]
 REPORTS = "https://admin.googleapis.com/admin/reports/v1"
 DIRECTORY = "https://admin.googleapis.com/admin/directory/v1"
-APPLICATIONS = ("login", "admin", "token")
+APPLICATIONS = ("login", "admin", "token", "user_accounts", "drive")
+# Only these Drive events are read: sharing changes. Views and edits are far too many to poll.
+DRIVE_EVENTS = ("change_user_access", "change_document_visibility", "change_document_access_scope")
 TOKEN_MARGIN_SECONDS = 120
 TIMEOUT = httpx.Timeout(20.0, connect=10.0)
 FIRST_LOOK_BACK = timedelta(days=1)
@@ -229,6 +233,23 @@ def activity_events(application: str, activity: Dict[str, Any]) -> List[EventCre
             if params.get("login_failure_type"):
                 description += f" ({params['login_failure_type']})"
             event_type = "authentication"
+        elif application == "drive":
+            if params.get("primary_event") is False:
+                continue  # one action can make several events; only its primary one is kept
+            title = params.get("doc_title") or "a file"
+            data["target_user"] = (params.get("target_user") or "").lower() or None
+            if name == "change_document_visibility":
+                description = f"{actor or 'Someone'} changed who can open {title} with its link to {params.get('new_value') or 'something else'}"
+            elif name == "change_document_access_scope":
+                description = f"{actor or 'Someone'} changed what people with the link to {title} can do to {params.get('new_value') or 'something else'}"
+            else:
+                description = f"{actor or 'Someone'} changed {params.get('target_user') or 'someone'}'s access to {title}"
+            if params.get("visibility_change") == "external":
+                description += ", sharing it outside your organisation"
+            event_type = "file_sharing"
+        elif application == "user_accounts":
+            description = f"{actor or 'Someone'}: {name.replace('_', ' ')} (Google account settings)"
+            event_type = "audit"
         elif application == "token":
             scopes = params.get("scope") or []
             data["scopes"] = " ".join(scopes) if isinstance(scopes, list) else str(scopes)
@@ -249,8 +270,22 @@ def activity_events(application: str, activity: Dict[str, Any]) -> List[EventCre
 # ---------------------------------------------------------------------------- Polling
 
 async def _fetch(http: httpx.AsyncClient, application: str, since: datetime) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+    if application == "drive":
+        found: List[Dict[str, Any]] = []
+        for event_name in DRIVE_EVENTS:
+            activities, error = await _fetch_one(http, application, since, event_name)
+            found += activities
+            if error:
+                return found, error
+        return found, None
+    return await _fetch_one(http, application, since)
+
+
+async def _fetch_one(http: httpx.AsyncClient, application: str, since: datetime, event_name: Optional[str] = None) -> Tuple[List[Dict[str, Any]], Optional[str]]:
     url = f"{REPORTS}/activity/users/all/applications/{application}"
     params: Dict[str, str] = {"startTime": since.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"), "maxResults": "1000"}
+    if event_name:
+        params["eventName"] = event_name
     activities: List[Dict[str, Any]] = []
     for _ in range(MAX_PAGES):
         response = await http.get(url, params=params)
@@ -390,6 +425,27 @@ RULES: List[Dict[str, Any]] = [
         "severity": "high",
         "tags": ["identity", "privilege-escalation", "T1098.003"],
         "logic": "source == 'google' and event_type == 'audit' and activity in ['ASSIGN_ROLE', 'GRANT_ADMIN_PRIVILEGE', 'GRANT_DELEGATED_ADMIN_PRIVILEGES']",
+    },
+    {
+        "name": "Google Workspace: file shared outside",
+        "description": "A Drive file was shared with people outside your organisation. Check it was meant to be: it is how data leaves.",
+        "severity": "medium",
+        "tags": ["data", "exfiltration", "T1567"],
+        "logic": "source == 'google' and event_type == 'file_sharing' and visibility_change == 'external'",
+    },
+    {
+        "name": "Google Workspace: file made public on the web",
+        "description": "A Drive file was made public on the web: anyone can find and open it, without signing in.",
+        "severity": "high",
+        "tags": ["data", "exfiltration", "T1567"],
+        "logic": "source == 'google' and event_type == 'file_sharing' and activity == 'change_document_visibility' and new_value == 'public_on_the_web'",
+    },
+    {
+        "name": "Google Workspace: mail forwarded outside",
+        "description": "An account was set to forward its mail outside your organisation: a common way to keep reading a taken-over mailbox.",
+        "severity": "high",
+        "tags": ["email", "inbox-rule", "T1114.003"],
+        "logic": "source == 'google' and event_type == 'audit' and activity == 'email_forwarding_out_of_domain'",
     },
     {
         "name": "Google Workspace: app given access to mail or files",
