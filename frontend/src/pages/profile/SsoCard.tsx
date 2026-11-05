@@ -7,7 +7,8 @@ import { useRemoveSso, useSaveSso, useSsoSettings, useVerifySsoDomain } from "@/
 import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
 import { Card } from "@/components/ui/Card"
-import { Field, Input } from "@/components/ui/Field"
+import { Field, Input, Textarea } from "@/components/ui/Field"
+import { formatDateTime } from "@/lib/format"
 
 const REDIRECT_URI = `${window.location.origin}/sso/callback`
 
@@ -68,18 +69,34 @@ export function SsoCard() {
   const save = useSaveSso()
   const remove = useRemoveSso()
   const [error, setError] = useState<string | null>(null)
+  const [chosen, setChosen] = useState<"oidc" | "saml" | null>(null)
   const settings = sso.data
+  // What is saved (OpenID Connect unless said otherwise), and what the form is showing.
+  const saved = settings?.provider ?? "oidc"
+  const provider = chosen ?? saved
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
     const text = (name: string) => String(form.get(name) ?? "").trim()
     setError(null)
+    const details =
+      provider === "saml"
+        ? {
+            provider: "saml" as const,
+            idp_entity_id: text("idp_entity_id"),
+            idp_sso_url: text("idp_sso_url"),
+            ...(text("idp_certificate") ? { idp_certificate: text("idp_certificate") } : {}),
+          }
+        : {
+            provider: "oidc" as const,
+            issuer: text("issuer"),
+            client_id: text("client_id"),
+            ...(text("client_secret") ? { client_secret: text("client_secret") } : {}),
+          }
     save.mutate(
       {
-        issuer: text("issuer"),
-        client_id: text("client_id"),
-        ...(text("client_secret") ? { client_secret: text("client_secret") } : {}),
+        ...details,
         domains: text("domains").split(/[\s,]+/).filter(Boolean),
         enabled: form.get("enabled") === "on",
         enforce: form.get("enforce") === "on",
@@ -98,24 +115,78 @@ export function SsoCard() {
         <p className="text-sm text-muted">{sso.isError ? sso.error.message : "Loading…"}</p>
       ) : (
         <div className="space-y-4">
-          <p className="text-xs text-muted">
-            Register UTDRS at the provider as a web application with the redirect URI{" "}
-            <code className="break-all text-fg">{REDIRECT_URI}</code>, then enter what it gives you.
-          </p>
+          <div className="flex gap-2" role="radiogroup" aria-label="Protocol">
+            {(["oidc", "saml"] as const).map((option) => (
+              <Button key={option} size="sm" variant={provider === option ? "primary" : "secondary"} aria-pressed={provider === option} onClick={() => setChosen(option)}>
+                {option === "oidc" ? "OpenID Connect" : "SAML 2.0"}
+              </Button>
+            ))}
+          </div>
+          {provider === "oidc" ? (
+            <p className="text-xs text-muted">
+              Register UTDRS at the provider as a web application with the redirect URI{" "}
+              <code className="break-all text-fg">{REDIRECT_URI}</code>, then enter what it gives you.
+            </p>
+          ) : settings.acs_url ? (
+            <p className="text-xs text-muted">
+              Add UTDRS to the identity provider as a SAML application with the entity ID{" "}
+              <code className="break-all text-fg">{settings.sp_entity_id}</code> and the reply (ACS) URL{" "}
+              <code className="break-all text-fg">{settings.acs_url}</code>, sending the email address as the NameID. Sign assertions (SHA-256) and do not encrypt them.
+            </p>
+          ) : (
+            <p className="text-sm text-warning">SAML needs GATEWAY_URL set on the gateway: its public address, which identity providers post to.</p>
+          )}
           {settings.configured && <Domains settings={settings} />}
           {/* Keyed on the saved settings, so the fields show what was saved. */}
           <form key={settings.updated_at ?? "new"} onSubmit={onSubmit} className="space-y-3">
-            <Field label="Issuer" required hint="Such as https://login.microsoftonline.com/<tenant id>/v2.0 or https://accounts.google.com.">
-              {(id, describedBy) => <Input id={id} name="issuer" required defaultValue={settings.issuer ?? ""} aria-describedby={describedBy} />}
-            </Field>
-            <Field label="Client ID" required>
-              {(id) => <Input id={id} name="client_id" required defaultValue={settings.client_id ?? ""} />}
-            </Field>
-            <Field label="Client secret" required={!settings.configured} hint={settings.configured ? "Leave empty to keep the current one." : undefined}>
-              {(id, describedBy) => (
-                <Input id={id} name="client_secret" type="password" autoComplete="off" required={!settings.configured} aria-describedby={describedBy} />
-              )}
-            </Field>
+            {provider === "oidc" ? (
+              <>
+                <Field label="Issuer" required hint="Such as https://login.microsoftonline.com/<tenant id>/v2.0 or https://accounts.google.com.">
+                  {(id, describedBy) => <Input id={id} name="issuer" required defaultValue={settings.issuer ?? ""} aria-describedby={describedBy} />}
+                </Field>
+                <Field label="Client ID" required>
+                  {(id) => <Input id={id} name="client_id" required defaultValue={settings.client_id ?? ""} />}
+                </Field>
+                <Field
+                  label="Client secret"
+                  required={!(settings.configured && saved === "oidc")}
+                  hint={settings.configured && saved === "oidc" ? "Leave empty to keep the current one." : undefined}
+                >
+                  {(id, describedBy) => (
+                    <Input id={id} name="client_secret" type="password" autoComplete="off" required={!(settings.configured && saved === "oidc")} aria-describedby={describedBy} />
+                  )}
+                </Field>
+              </>
+            ) : (
+              <>
+                <Field label="Identity provider entity ID" required>
+                  {(id) => <Input id={id} name="idp_entity_id" required defaultValue={settings.idp_entity_id ?? ""} />}
+                </Field>
+                <Field label="Single sign-on URL" required hint="Where UTDRS sends people to sign in (HTTPS).">
+                  {(id, describedBy) => <Input id={id} name="idp_sso_url" type="url" required defaultValue={settings.idp_sso_url ?? ""} aria-describedby={describedBy} />}
+                </Field>
+                <Field
+                  label="Signing certificate"
+                  required={!(settings.configured && saved === "saml")}
+                  hint={
+                    settings.idp_certificate_expires
+                      ? `Current one expires ${formatDateTime(settings.idp_certificate_expires)}; leave empty to keep it.`
+                      : "The provider's X.509 signing certificate (PEM, or the base64 from its metadata)."
+                  }
+                >
+                  {(id, describedBy) => (
+                    <Textarea
+                      id={id}
+                      name="idp_certificate"
+                      rows={3}
+                      className="font-mono text-xs"
+                      required={!(settings.configured && saved === "saml")}
+                      aria-describedby={describedBy}
+                    />
+                  )}
+                </Field>
+              </>
+            )}
             <Field label="Email domains" required hint="Separated by commas, such as contoso.com, contoso.co.uk.">
               {(id, describedBy) => (
                 <Input id={id} name="domains" required defaultValue={settings.domains.map((d) => d.domain).join(", ")} aria-describedby={describedBy} />

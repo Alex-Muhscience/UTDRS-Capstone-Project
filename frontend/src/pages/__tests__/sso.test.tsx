@@ -119,3 +119,39 @@ describe("provisioning (SCIM)", () => {
     await waitFor(() => expect(within(card).queryByLabelText("SCIM token")).not.toBeInTheDocument())
   })
 })
+
+describe("SAML", () => {
+  it("lets administrators set up a SAML identity provider", async () => {
+    const empty = {
+      configured: false, provider: "oidc", domains: [], enabled: false, enforce: false, auto_provision: false, encryption_available: true,
+      sp_entity_id: "https://gw.example/api/v1/auth/saml/metadata", acs_url: "https://gw.example/api/v1/auth/saml/acs",
+    }
+    const { calls } = mockGateway({
+      ...shellRoutes(admin),
+      "GET /api/v1/tenants/current/sso": empty,
+      "PUT /api/v1/tenants/current/sso": { ...empty, configured: true, provider: "saml" },
+      "GET /api/v1/tenants/current/scim": { enabled: false },
+      "GET /api/v1/notifications/preferences": { channels: {}, minimum_severity: "high" },
+      "GET /api/v1/auth/mfa": { enabled: false, enabled_at: null, recovery_codes_left: 0, required_by_organisation: false, encryption_available: true },
+      "GET /api/v1/auth/sessions": [],
+      "GET /api/v1/auth/passkeys": [],
+    })
+    const { user: person } = renderApp("/profile")
+    const card = (await screen.findByRole("heading", { name: "Single sign-on" })).closest("section") as HTMLElement
+    await person.click(await within(card).findByRole("button", { name: "SAML 2.0" }))
+    expect(within(card).getByText("https://gw.example/api/v1/auth/saml/acs")).toBeInTheDocument()
+    await person.type(within(card).getByLabelText(/Identity provider entity ID/), "https://adfs.contoso.com/adfs/services/trust")
+    await person.type(within(card).getByLabelText(/Single sign-on URL/), "https://adfs.contoso.com/adfs/ls/")
+    await person.click(within(card).getByLabelText(/Signing certificate/))
+    await person.paste("MIIC...")
+    await person.type(within(card).getByLabelText(/Email domains/), "contoso.com")
+    await person.click(within(card).getByRole("button", { name: "Save" }))
+    await waitFor(() => expect(calls.some((call) => call.method === "PUT")).toBe(true))
+    const sent = JSON.parse(calls.find((call) => call.method === "PUT")?.body ?? "{}")
+    expect(sent).toMatchObject({
+      provider: "saml", idp_entity_id: "https://adfs.contoso.com/adfs/services/trust", idp_sso_url: "https://adfs.contoso.com/adfs/ls/",
+      idp_certificate: "MIIC...", domains: ["contoso.com"],
+    })
+    expect(sent.client_id).toBeUndefined()
+  })
+})

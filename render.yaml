@@ -109,6 +109,9 @@ services:
         sync: false
       - key: MAIL_FROM
         sync: false
+      # The gateway's own public address, which SAML identity providers post to.
+      - key: GATEWAY_URL
+        value: https://utdrs-api-gateway-1pjf.onrender.com
       # The dashboard on Vercel, and its preview deployments.
       - key: DASHBOARD_URL
         value: https://utdrs-capstone-project.vercel.app

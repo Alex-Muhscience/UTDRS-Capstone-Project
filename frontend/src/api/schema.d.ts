@@ -210,6 +210,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/saml/metadata": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Saml Metadata
+         * @description UTDRS's SAML service provider metadata, to give an identity provider.
+         */
+        get: operations["saml_metadata_api_v1_auth_saml_metadata_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/saml/acs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Saml Acs
+         * @description Where SAML identity providers post their answers (HTTP-POST binding). The answer is
+         *     checked here, then the browser goes back to the dashboard to finish signing in.
+         */
+        post: operations["saml_acs_api_v1_auth_saml_acs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/sso/callback": {
         parameters: {
             query?: never;
@@ -5708,6 +5749,22 @@ export interface components {
         SsoSettings: {
             /** Configured */
             configured: boolean;
+            /**
+             * Provider
+             * @default oidc
+             * @enum {string}
+             */
+            provider: "oidc" | "saml";
+            /** Idp Entity Id */
+            idp_entity_id?: string | null;
+            /** Idp Sso Url */
+            idp_sso_url?: string | null;
+            /** Idp Certificate Expires */
+            idp_certificate_expires?: string | null;
+            /** Sp Entity Id */
+            sp_entity_id?: string | null;
+            /** Acs Url */
+            acs_url?: string | null;
             /** Issuer */
             issuer?: string | null;
             /** Client Id */
@@ -5746,6 +5803,14 @@ export interface components {
         };
         /** SsoUpdate */
         SsoUpdate: {
+            /** Provider */
+            provider?: ("oidc" | "saml") | null;
+            /** Idp Entity Id */
+            idp_entity_id?: string | null;
+            /** Idp Sso Url */
+            idp_sso_url?: string | null;
+            /** Idp Certificate */
+            idp_certificate?: string | null;
             /** Issuer */
             issuer?: string | null;
             /** Client Id */
@@ -6520,6 +6585,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    saml_metadata_api_v1_auth_saml_metadata_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    saml_acs_api_v1_auth_saml_acs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };
