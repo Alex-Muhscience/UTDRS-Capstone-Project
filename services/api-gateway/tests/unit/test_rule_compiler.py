@@ -56,7 +56,8 @@ def test_logic_compiles_to_engine_conditions(logic, expected):
 @pytest.mark.parametrize(
     "logic, reason",
     [
-        ("event_type == 'authentication' | count by source_ip > 10 in 5m", "Aggregations"),
+        ("event_type == 'authentication' | distinct source_ip", "'| distinct' is not run"),
+        ("a == 1 | count > 1 in 5m | count > 2 in 5m", "Only one"),
         ("hour(timestamp) not in 07..19", "Functions such as 'hour"),
         ("domain in threat_intel.domains", "Comparing with 'threat_intel.domains'"),
         ("a == 1 and (b == 2 or c == 3)", "Parentheses"),
@@ -85,4 +86,20 @@ def test_logic_the_engine_cannot_run_yet_is_kept_with_a_reason(logic, reason):
 )
 def test_malformed_logic_is_a_syntax_error(logic, message):
     with pytest.raises(RuleSyntaxError, match=message):
+        compile_logic(logic)
+
+
+
+def test_counting_compiles_to_an_aggregation():
+    assert compile_logic("event_type == 'authentication' and status == 'failure' | count by source_ip > 20 in 10m") == {
+        "condition_type": "AND",
+        "conditions": {"event_type": {"eq": "authentication"}, "data.status": {"eq": "failure"}},
+        "aggregation": {"group_by": "data.source_ip", "op": "gt", "threshold": 20, "window_seconds": 600},
+    }
+    assert compile_logic("x == 'a | b' | count >= 3 in 2h")["aggregation"] == {"group_by": None, "op": "gte", "threshold": 3, "window_seconds": 7200}
+
+
+@pytest.mark.parametrize("logic", ["x == 1 | count by user > 5", "x == 1 | count > 5 in 25h", "x == 1 | count > 5 in 0m"])
+def test_malformed_counting_is_refused(logic):
+    with pytest.raises(RuleSyntaxError):
         compile_logic(logic)

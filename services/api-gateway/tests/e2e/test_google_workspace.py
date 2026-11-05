@@ -128,7 +128,7 @@ def test_connecting_checks_the_key_and_keeps_it_secret(client, admin, google):
     assert body["connected"] and body["domain"] == "contoso.com" and body["client_id"] == "1234567890"
     assert "key" not in body and "private_key" not in json.dumps(body)
     rules = client.get(f"{API}/detection/rules", params={"limit": 500}, headers=admin).json()
-    assert sum(r["name"].startswith("Google Workspace:") for r in rules) == 9
+    assert sum(r["name"].startswith("Google Workspace:") for r in rules) == 10
 
 
 def test_activities_become_events_once_and_raise_alerts(client, admin, google, monkeypatch):
@@ -178,6 +178,7 @@ def test_rules_match_what_google_reports(client, admin, google):
         "Google Workspace: 2-step verification turned off": activity("login", "2sv_disable", "a@contoso.com"),
         "Google Workspace: administrator privileges granted": activity("admin", "ASSIGN_ROLE", "a@contoso.com"),
         "Google Workspace: app given access to mail or files": activity("token", "authorize", "a@contoso.com", [("scope", {"multiValue": ["https://www.googleapis.com/auth/drive"]})]),
+        "Google Workspace: many files shared outside": activity("drive", "change_user_access", "a@contoso.com", [("visibility_change", {"value": "external"})]),
         "Google Workspace: file shared outside": activity("drive", "change_user_access", "a@contoso.com", [("visibility_change", {"value": "external"})]),
         "Google Workspace: file made public on the web": activity("drive", "change_document_visibility", "a@contoso.com",
                                                                   [("new_value", {"value": "public_on_the_web"}), ("old_value", {"value": "private"})]),

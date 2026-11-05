@@ -52,8 +52,8 @@ def test_test_cases_say_what_the_engine_would_match(client, admin):
     wrong = client.post(f"{API}/rules/test", json={"logic": "process_name == 'cmd.exe'", "test_cases": CASES}, headers=admin).json()
     assert wrong["passed"] is False and wrong["results"][0]["passed"] is False
 
-    unsupported = client.post(f"{API}/rules/test", json={"logic": "event_type == 'x' | count by source_ip > 10", "test_cases": CASES}, headers=admin).json()
-    assert unsupported["ran"] is False and "Aggregations" in unsupported["reason"]
+    unsupported = client.post(f"{API}/rules/test", json={"logic": "event_type == 'x' | distinct source_ip", "test_cases": CASES}, headers=admin).json()
+    assert unsupported["ran"] is False and "not run by the engine" in unsupported["reason"]
 
 
 def test_a_rule_whose_tests_fail_is_not_saved(client, admin):
