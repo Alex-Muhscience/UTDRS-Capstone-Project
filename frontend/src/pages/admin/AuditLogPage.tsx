@@ -1,8 +1,9 @@
-import { ShieldCheck, ShieldX } from "lucide-react"
+import { Download, ShieldCheck, ShieldX } from "lucide-react"
 import { useState } from "react"
+import { toast } from "sonner"
 
 import type { AuditEntry } from "@/api/client"
-import { useAuditLog, useVerifyAuditLog } from "@/api/queries"
+import { useAuditLog, useExportAuditLog, useVerifyAuditLog } from "@/api/queries"
 import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
 import { Card } from "@/components/ui/Card"
@@ -71,6 +72,26 @@ function ChainCheck() {
   )
 }
 
+function ExportButtons({ action }: { action?: string }) {
+  const exporter = useExportAuditLog()
+  const run = (format: "jsonl" | "csv") =>
+    exporter.mutate({ format, action }, { onError: (error) => toast.error(error.message) })
+  return (
+    <>
+      <Button
+        title="Each line as it was written and hashed: check it outside UTDRS with scripts/verify_audit_export.py"
+        loading={exporter.isPending && exporter.variables?.format === "jsonl"}
+        onClick={() => run("jsonl")}
+      >
+        <Download className="size-4" aria-hidden /> Export (JSON Lines)
+      </Button>
+      <Button loading={exporter.isPending && exporter.variables?.format === "csv"} onClick={() => run("csv")}>
+        <Download className="size-4" aria-hidden /> Export (CSV)
+      </Button>
+    </>
+  )
+}
+
 export function AuditLogPage() {
   const { filters, page, setFilter, setPage } = useUrlFilters(["kind"] as const)
   const log = useAuditLog({ action: filters.kind, page })
@@ -81,7 +102,12 @@ export function AuditLogPage() {
       <PageHeader
         title="Audit log"
         description="Who did what, when and from where: sign-ins, and every change to users, rules, alerts, assets, simulations and API keys. Each entry is chained to the one before, so changes to the log can be detected."
-        actions={<ChainCheck />}
+        actions={
+          <>
+            <ExportButtons action={filters.kind || undefined} />
+            <ChainCheck />
+          </>
+        }
       />
       <Card bodyClassName="p-0">
         <div className="flex border-b border-border p-4">
