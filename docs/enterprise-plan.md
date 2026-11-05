@@ -261,7 +261,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 | FR-DET-02 | Rule service: one store of rules per tenant plus a global library, versioned, with test cases, enable/disable, and changes taking effect within a minute **Done: rules per organisation with the engine's built-in rules and a library added for Microsoft 365, enabled and disabled, in effect within a minute (#17, #25); versions with restore, and test cases checked on every save (#51); counting over time in rules (#58).** | P0 | 1 |
 | FR-DET-03 | Sigma rule support (import, convert to the engine's form, test) | P1 | 2 |
 | FR-DET-04 | Detection library for email and identity: phishing, business email compromise, malicious inbox rules, mass forwarding, impossible travel, MFA fatigue, password spraying, OAuth consent phishing, risky sign-ins **Identity (#25, #26), mailbox rules and forwarding (#29), and phishing with redirected replies (#30) done; deeper business email compromise detection remains.** | P0 | 1 |
-| FR-DET-05 | Phishing model v2: trained on current, multilingual phishing; uses headers, sender reputation, URLs and attachments, not only text; evaluated per language | P0 | 1 |
+| FR-DET-05 | Phishing model v2: trained on current, multilingual phishing; uses headers, sender reputation, URLs and attachments, not only text; evaluated per language **Blocked on data (#59): see GAP-ML-01.** | P0 | 1 |
 | FR-DET-06 | User and entity behaviour analytics (UEBA): per-user baselines for sign-in times, locations, devices, data volumes | P1 | 2 |
 | FR-DET-07 | Network detection: network model retrained on modern and customer-like traffic; Suricata signatures; DNS and TLS anomalies | P2 | 3 |
 | FR-DET-08 | Correlation across sources into incidents (for example, phishing email, then sign-in from a new country, then inbox rule) | P1 | 2 |
@@ -519,7 +519,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 
 | ID | Gap | Blocks | Priority |
 |---|---|---|---|
-| GAP-ML-01 | Phishing model trained on English email mostly from 2008 or earlier; text only; never evaluated on current phishing or on customers' mail ([model card](../services/core-engine/core/models/ml/phishing_email/MODEL_CARD.md)) | FR-DET-05 | P0 |
+| GAP-ML-01 | Phishing model trained on English email mostly from 2008 or earlier; text only; never evaluated on current phishing or on customers' mail ([model card](../services/core-engine/core/models/ml/phishing_email/MODEL_CARD.md)) **Investigated (#59): adding sender and link signals gives no gain on the licensed data, and what it learns is about the corpora (research/phishing_v2). Current, licensed, multilingual mail is still needed; the best public source (Phishing Pot) is non-commercial only.** | FR-DET-05 | P0 |
 | GAP-ML-02 | Network model trained on a 2015 lab dataset (UNSW-NB15); 20% of attacks missed at the chosen threshold; weak on fuzzing, shellcode and worms; no source of flow records in UTDRS yet ([model card](../services/core-engine/core/models/ml/network_threat/MODEL_CARD.md)) | FR-DET-07, FR-ING-08 | P2 |
 | GAP-ML-03 | No labelled data pipeline from customers (analyst verdicts, user reports of phishing) for retraining **Partly (#24): analysts' verdicts are kept as labels with their events and exported as JSON Lines; user reports of phishing and the retraining job remain.** | FR-DET-10, FR-DET-12 | P1 |
 | GAP-ML-04 | No evaluation harness in CI that fails a change when detection quality drops | NFR-15 | P1 |
