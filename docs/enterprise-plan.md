@@ -211,14 +211,14 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 
 | ID | Requirement | Priority | Phase |
 |---|---|---|---|
-| FR-TEN-01 | Every record belongs to a tenant; every API call and query is scoped to the caller's tenants; no cross-tenant access is possible, enforced in one place and tested | P0 | 1 |
+| FR-TEN-01 | Every record belongs to a tenant; every API call and query is scoped to the caller's tenants; no cross-tenant access is possible, enforced in one place and tested **Done (#19): every organisation's data carries its tenant, scoped in one place (`core/tenancy.py`) in the gateway and the engine, with isolation tests.** | P0 | 1 |
 | FR-TEN-02 | Organisation sign-up, with a first administrator and email verification **Done (#43): sign-up creates an organisation and its administrator (#19); email addresses confirmed by link, optionally required before signing in; forgotten passwords reset by email.** | P0 | 1 |
 | FR-TEN-03 | MSP accounts that own and switch between many client tenants, with per-client and all-client views | P1 | 2 |
 | FR-TEN-04 | Roles: owner, administrator, analyst, read-only, MSP technician, MSP administrator; custom roles with fine-grained permissions | P1 | 2 |
 | FR-TEN-05 | Single sign-on with OIDC (Entra ID, Google, Okta) and SAML; SCIM user provisioning | P1 | 2 |
 | FR-TEN-06 | Multi-factor authentication (TOTP, WebAuthn passkeys); enforceable per tenant **TOTP with recovery codes, enforceable per organisation, done (#33); passkeys remain.** | P0 | 1 |
 | FR-TEN-07 | Sessions: short-lived access tokens with refresh, revocation, idle timeout, list and end active sessions **Done (#41): 15-minute access tokens, single-use refresh tokens with reuse detection, idle and absolute limits, sign-out everywhere by people and administrators.** | P0 | 1 |
-| FR-TEN-08 | Audit log of every change and every response action, by whom, when, from where; exportable; tamper-evident | P0 | 1 |
+| FR-TEN-08 | Audit log of every change and every response action, by whom, when, from where; exportable; tamper-evident **Done (#18): every change and sign-in, by whom, when and from where, hash-chained and verifiable (`GET /audit/verify`), listed and searchable through the API; response actions recorded (#21). A file export remains.** | P0 | 1 |
 | FR-TEN-09 | Data residency: choose the region a tenant's data is stored in | P2 | 3 |
 | FR-TEN-10 | Tenant deletion and export of all its data | P1 | 2 |
 
@@ -258,7 +258,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 | ID | Requirement | Priority | Phase |
 |---|---|---|---|
 | FR-DET-01 | Stream detection: every event evaluated within seconds, horizontally scalable workers | P0 | 1 |
-| FR-DET-02 | Rule service: one store of rules per tenant plus a global library, versioned, with test cases, enable/disable, and changes taking effect within a minute | P0 | 1 |
+| FR-DET-02 | Rule service: one store of rules per tenant plus a global library, versioned, with test cases, enable/disable, and changes taking effect within a minute **Partly done (#17, #25): rules per organisation with the engine's built-in rules and a library added for Microsoft 365, enabled and disabled, in effect within a minute (rule sync); versions and test cases remain.** | P0 | 1 |
 | FR-DET-03 | Sigma rule support (import, convert to the engine's form, test) | P1 | 2 |
 | FR-DET-04 | Detection library for email and identity: phishing, business email compromise, malicious inbox rules, mass forwarding, impossible travel, MFA fatigue, password spraying, OAuth consent phishing, risky sign-ins **Identity (#25, #26), mailbox rules and forwarding (#29), and phishing with redirected replies (#30) done; deeper business email compromise detection remains.** | P0 | 1 |
 | FR-DET-05 | Phishing model v2: trained on current, multilingual phishing; uses headers, sender reputation, URLs and attachments, not only text; evaluated per language | P0 | 1 |
@@ -275,10 +275,10 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 
 | ID | Requirement | Priority | Phase |
 |---|---|---|---|
-| FR-CAS-01 | Alerts grouped into cases (incidents) by entity and time; deduplication | P0 | 1 |
-| FR-CAS-02 | Case workflow: status, owner, priority, SLA timers, notes, attachments, timeline | P0 | 1 |
-| FR-CAS-03 | Evidence view: the events behind an alert, the entities involved (user, device, IP, message), their history | P0 | 1 |
-| FR-CAS-04 | Plain-language explanation of every alert: what happened, why it matters, what was done, what to do next | P0 | 1 |
+| FR-CAS-01 | Alerts grouped into cases (incidents) by entity and time; deduplication **Done (#20): alerts grouped into cases by strong entities within a time window, each alert once.** | P0 | 1 |
+| FR-CAS-02 | Case workflow: status, owner, priority, SLA timers, notes, attachments, timeline **Done (#20) except attachments: status, owner, priority, SLA deadlines, notes and a timeline.** | P0 | 1 |
+| FR-CAS-03 | Evidence view: the events behind an alert, the entities involved (user, device, IP, message), their history **Done (#20): a case's events, alerts and entities (users, devices, addresses, messages).** | P0 | 1 |
+| FR-CAS-04 | Plain-language explanation of every alert: what happened, why it matters, what was done, what to do next **Done (#20): each case explains what happened, why it matters, what was done and what to do next; explaining model verdicts remains (GAP-ML-05).** | P0 | 1 |
 | FR-CAS-05 | Event search across all retained data with a query language, saved searches and time ranges | P1 | 2 |
 | FR-CAS-06 | AI investigation assistant: summarise a case, propose next steps, draft the customer message; grounded in the case's data, with citations | P2 | 3 |
 | FR-CAS-07 | Export to ticketing (Jira, ServiceNow, Autotask, ConnectWise, HaloPSA) with two-way status sync | P1 | 2 |
@@ -333,8 +333,8 @@ Detailed in [section 7](#7-public-api-mcp-server-and-integrations).
 
 | ID | Requirement | Priority | Phase |
 |---|---|---|---|
-| FR-API-01 | Versioned public REST API covering everything the dashboard can do, documented with OpenAPI | P0 | 1 |
-| FR-API-02 | API keys and OAuth 2.0 client credentials with scopes, per-tenant | P0 | 1 |
+| FR-API-01 | Versioned public REST API covering everything the dashboard can do, documented with OpenAPI **Partly done: every dashboard action is in the `/api/v1` API, documented with OpenAPI (`openapi.json`, `/api/v1/docs`); a stability policy for public versions remains.** | P0 | 1 |
+| FR-API-02 | API keys and OAuth 2.0 client credentials with scopes, per-tenant **API keys with scopes per area, per organisation, done (#18); OAuth 2.0 client credentials remain.** | P0 | 1 |
 | FR-API-03 | Webhooks with signed payloads, retries and delivery log **Done (#34).** | P1 | 2 |
 | FR-API-04 | MCP server with read tools, guarded response tools and resources **v1 done (#35): read tools, case and verdict tools, guarded action proposals, resources and prompts, over Streamable HTTP and stdio with API keys; OAuth 2.1 remains.** | P1 | 2 |
 | FR-API-05 | SIEM forwarding: Splunk HEC, Microsoft Sentinel, Elastic, syslog/CEF | P2 | 3 |
