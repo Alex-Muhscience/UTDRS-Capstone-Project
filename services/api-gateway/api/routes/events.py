@@ -1,12 +1,15 @@
+import json
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query, Request, status
-from pydantic import BaseModel, Field
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, ValidationError
 
 from core.models.event import Event, EventCreate, EventUpdate
 from core.models.user import User
-from core.services import audit, detection_pipeline
+from core.services import audit, detection_pipeline, idempotency
 from core.services.event_service import EventService
 from utils.security import get_current_active_user, require_admin
 
@@ -47,9 +50,22 @@ async def get_events(
         return await event_service.get_events(limit, skip)
 
 
-@router.post("/", response_model=Event, status_code=status.HTTP_201_CREATED)
+MAX_BATCH = 500
+
+
+async def _store(event: EventCreate, background_tasks: BackgroundTasks) -> Tuple[str, bool]:
+    """Store an event (once, by its external_id) and queue it for analysis. Returns its id and whether it was already there."""
+    event_id, duplicate = await EventService().create_event_once(event)
+    if not duplicate and await detection_pipeline.queue(event_id):
+        background_tasks.add_task(detection_pipeline.analyse_queued, event_id)
+    return event_id, duplicate
+
+
+@router.post("/", response_model=Event, status_code=status.HTTP_201_CREATED,
+             responses={200: {"model": Event, "description": "Already received: the event with this source and external_id"}})
 async def create_event(
     event: EventCreate,
+    request: Request,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_active_user),
 ):
@@ -59,20 +75,90 @@ async def create_event(
     When a core engine is configured, the event is queued and analysed in the background;
     if the engine cannot be reached it is tried again until it can (for up to a day). The
     result is recorded on the event (metadata.analysis) and a threat raises an alert.
+
+    Sending again is safe: an event with the same `source` and `external_id` is stored
+    once (200 with the stored event, `X-Duplicate: true`), and a request repeated with the
+    same `Idempotency-Key` header gets the first answer.
     """
-    event_service = EventService()
-    event_id = await event_service.create_event(event)
-    if await detection_pipeline.queue(event_id):
-        background_tasks.add_task(detection_pipeline.analyse_queued, event_id)
+    record, replay = await idempotency.begin(request, event.model_dump_json().encode())
+    if replay:
+        return JSONResponse(status_code=replay["status_code"], content=replay["content"], headers={"Idempotent-Replayed": "true"})
+    try:
+        event_id, duplicate = await _store(event, background_tasks)
+        stored = await EventService().get_event_by_id(event_id)
+        if not stored:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create event")
+    except BaseException:
+        await idempotency.abandon(record)
+        raise
+    code = status.HTTP_200_OK if duplicate else status.HTTP_201_CREATED
+    content = jsonable_encoder(Event(**stored))
+    await idempotency.finish(record, code, content)
+    return JSONResponse(status_code=code, content=content, headers={"X-Duplicate": "true"} if duplicate else None)
 
-    created_event = await event_service.get_event_by_id(event_id)
-    if not created_event:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create event",
-        )
 
-    return created_event
+class EventBatch(BaseModel):
+    # Each event as for POST /events/; each is checked on its own.
+    events: List[Dict[str, Any]] = Field(min_length=1, max_length=MAX_BATCH)
+
+
+class BatchItem(BaseModel):
+    index: int
+    status: Literal["created", "duplicate", "rejected"]
+    id: Optional[str] = None
+    error: Optional[str] = None
+
+
+class BatchResult(BaseModel):
+    created: int
+    duplicates: int
+    rejected: int
+    results: List[BatchItem]
+
+
+def _first_error(error: ValidationError) -> str:
+    first = error.errors()[0]
+    field = ".".join(str(part) for part in first.get("loc", ()))
+    return f"{field}: {first.get('msg')}" if field else str(first.get("msg"))
+
+
+@router.post("/batch", response_model=BatchResult)
+async def create_events(
+    batch: EventBatch,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Send up to 500 events at once (gzip the body with `Content-Encoding: gzip` for large
+    batches). Each event is checked on its own: invalid ones are listed as rejected and the
+    rest stored. Events with a `source` and `external_id` already received count as
+    duplicates, so a batch can be sent again safely; so can a request with the same
+    `Idempotency-Key`. `results` follows the order of `events`.
+    """
+    record, replay = await idempotency.begin(request, json.dumps(batch.events, sort_keys=True, default=str).encode())
+    if replay:
+        return JSONResponse(status_code=replay["status_code"], content=replay["content"], headers={"Idempotent-Replayed": "true"})
+    results: List[BatchItem] = []
+    try:
+        for index, raw in enumerate(batch.events):
+            try:
+                event = EventCreate.model_validate(raw)
+            except ValidationError as e:
+                results.append(BatchItem(index=index, status="rejected", error=_first_error(e)))
+                continue
+            event_id, duplicate = await _store(event, background_tasks)
+            results.append(BatchItem(index=index, status="duplicate" if duplicate else "created", id=event_id))
+    except BaseException:
+        await idempotency.abandon(record)
+        raise
+    result = BatchResult(
+        created=sum(r.status == "created" for r in results), duplicates=sum(r.status == "duplicate" for r in results),
+        rejected=sum(r.status == "rejected" for r in results), results=results,
+    )
+    content = jsonable_encoder(result)
+    await idempotency.finish(record, 200, content)
+    return content
 
 
 class Reanalysis(BaseModel):
