@@ -3187,6 +3187,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live updates
+         * @description Changes in your organisation as Server-Sent Events. Each says what changed (with an alert's
+         *     title and severity); fetch the details through the API. Send `Last-Event-ID` when reconnecting
+         *     to get what you missed; `resync` means fetch everything again. The stream ends every few
+         *     minutes; reconnect.
+         */
+        get: operations["stream_api_v1_live_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform/organisations": {
         parameters: {
             query?: never;
@@ -12180,6 +12203,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    stream_api_v1_live_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Last-Event-ID"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server-Sent Events: alert.created, alert.updated, case.created, case.updated, action.approval_requested, action.completed, report.ready, connector.unhealthy, and resync. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

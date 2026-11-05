@@ -19,7 +19,7 @@ The web interface for UTDRS: where an analyst sees what needs attention, triages
 | Profile | Change your name and email, change your password | `PUT /auth/me`, `POST /auth/me/change-password` |
 | Users *(administrators)* | Add people (with a temporary password shown once), change roles, deactivate and reactivate accounts, reset passwords | `/users/` endpoints |
 
-Administrators manage users, detection rules and simulations; analysts triage alerts and work with events and assets. The dashboard hides what your role cannot do, and the gateway enforces it. New registrations are analysts, and the sign-in page hides registration when the gateway has it closed. Lists that change on their own (alerts, events, system status) refresh every 15 seconds, and an event page refreshes until the engine's verdict arrives. Pushing new alerts to the browser as they happen is on the [roadmap](../README.md#roadmap).
+Administrators manage users, detection rules and simulations; analysts triage alerts and work with events and assets. The dashboard hides what your role cannot do, and the gateway enforces it. New registrations are analysts, and the sign-in page hides registration when the gateway has it closed. Alerts, cases and response actions update as they change: the dashboard keeps a live connection to the gateway (`src/lib/live.ts`, Server-Sent Events), announces critical and high alerts and actions waiting for a decision, and shows "Live" beside the detection status. Without the connection, and for other lists (events, system status), it refreshes every 15 seconds; an event page refreshes until the engine's verdict arrives.
 
 ### Try the detection pipeline
 

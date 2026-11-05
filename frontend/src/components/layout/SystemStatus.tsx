@@ -1,9 +1,11 @@
 import { useDetectionStatus } from "@/api/queries"
 import { cx } from "@/lib/cx"
+import { useLive } from "@/lib/live"
 
 /** Whether detection is running: the gateway can reach the core engine. */
 export function SystemStatus() {
   const { data, isError } = useDetectionStatus()
+  const live = useLive()
 
   let tone = "bg-subtle"
   let label = "Checking detection…"
@@ -35,6 +37,11 @@ export function SystemStatus() {
         <span className={cx("relative inline-flex size-2 rounded-full", tone)} />
       </span>
       {label}
+      {live && (
+        <span className="text-subtle" title="New alerts and changes appear as they happen">
+          · Live
+        </span>
+      )}
     </span>
   )
 }

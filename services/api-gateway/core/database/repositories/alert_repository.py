@@ -9,6 +9,13 @@ from core.models.alert import AlertCreate, AlertUpdate
 from utils.time import utcnow
 
 
+async def _changed(alert: Dict[str, Any]) -> None:
+    """Tell the organisation's dashboards (live updates)."""
+    from core.services import live
+
+    await live.publish("alert.updated", {"id": str(alert["_id"]), **{k: alert[k] for k in ("status", "assigned_to", "severity") if k in alert}})
+
+
 class AlertRepository(BaseRepository):
     def __init__(self):
         super().__init__("alerts")
@@ -65,6 +72,8 @@ class AlertRepository(BaseRepository):
                 {"$set": update_data},
                 return_document=ReturnDocument.AFTER,
             )
+            if result:
+                await _changed(result)
             return result
         return await self.find_by_id(id)
 
@@ -76,6 +85,8 @@ class AlertRepository(BaseRepository):
             {"_id": ObjectId(id)},
             {"$set": {"assigned_to": assigned_to, "updated_at": utcnow()}},
         )
+        if result.modified_count:
+            await _changed({"_id": id, "assigned_to": assigned_to})
         return result.modified_count > 0
 
     async def update_status(
@@ -92,6 +103,8 @@ class AlertRepository(BaseRepository):
         result = await self.collection.update_one(
             {"_id": ObjectId(id)}, {"$set": update_doc}
         )
+        if result.modified_count:
+            await _changed({"_id": id, "status": status})
         return result.modified_count > 0
 
     async def add_event_to_alert(self, alert_id: str, event_id: str) -> bool:

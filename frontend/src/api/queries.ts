@@ -9,6 +9,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { PAGE_SIZE, POLL_INTERVAL_MS, type CaseStatus } from "@/lib/constants"
+import { livePoll } from "@/lib/live"
 import { createPasskey } from "@/lib/webauthn"
 
 import type { paths } from "./schema"
@@ -415,7 +416,7 @@ export function useCases({ status, page }: { status?: string; page: number }) {
       return toPage(await unwrap(api.GET("/api/v1/cases/", { params: { query: { ...query, ...pageQuery(page) } } })))
     },
     placeholderData: keepPreviousData,
-    refetchInterval: POLL_INTERVAL_MS,
+    refetchInterval: livePoll,
   })
 }
 
@@ -471,7 +472,7 @@ export function useCase(caseId: string) {
   return useQuery({
     queryKey: ["cases", "detail", caseId],
     queryFn: () => unwrap(api.GET("/api/v1/cases/{case_id}", { params: { path: { case_id: caseId } } })),
-    refetchInterval: POLL_INTERVAL_MS,
+    refetchInterval: livePoll,
   })
 }
 
@@ -513,7 +514,7 @@ export function useActions({ status, caseId, page = 0 }: { status?: ActionStatus
     queryFn: async () =>
       toPage(await unwrap(api.GET("/api/v1/response/actions", { params: { query: { status, case_id: caseId, ...pageQuery(page) } } }))),
     placeholderData: keepPreviousData,
-    refetchInterval: POLL_INTERVAL_MS,
+    refetchInterval: livePoll,
   })
 }
 
@@ -986,7 +987,7 @@ export function useAlerts({ status, severity, search, page }: AlertFilters) {
       return toPage(rows)
     },
     placeholderData: keepPreviousData,
-    refetchInterval: POLL_INTERVAL_MS,
+    refetchInterval: livePoll,
   })
 }
 
@@ -994,7 +995,7 @@ export function useLatestAlerts(limit: number) {
   return useQuery({
     queryKey: ["alerts", "latest", limit],
     queryFn: () => unwrap(api.GET("/api/v1/alerts/", { params: { query: { limit } } })),
-    refetchInterval: POLL_INTERVAL_MS,
+    refetchInterval: livePoll,
   })
 }
 
@@ -1002,7 +1003,7 @@ export function useAlertSummary() {
   return useQuery({
     queryKey: ["alerts", "summary"],
     queryFn: () => unwrap(api.GET("/api/v1/alerts/summary")),
-    refetchInterval: POLL_INTERVAL_MS,
+    refetchInterval: livePoll,
   })
 }
 
@@ -1010,7 +1011,7 @@ export function useAlert(alertId: string) {
   return useQuery({
     queryKey: ["alerts", "detail", alertId],
     queryFn: () => unwrap(api.GET("/api/v1/alerts/{alert_id}", { params: { path: { alert_id: alertId } } })),
-    refetchInterval: POLL_INTERVAL_MS,
+    refetchInterval: livePoll,
   })
 }
 

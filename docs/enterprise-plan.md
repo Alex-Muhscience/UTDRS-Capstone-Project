@@ -467,7 +467,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 | GAP-ARC-03 | No common event schema; events are free-form dicts mapped ad hoc (`DETECTOR_FIELDS` in `detection_pipeline.py`) | FR-ING-01 | P0 |
 | GAP-ARC-04 | MongoDB is the only store, including for high-volume events; the engine's anomaly and correlation detectors query raw event history in MongoDB per event (`anomaly_detector.py`, `correlation_detector.py`), which will not scale | NFR-02, FR-CAS-05 | P1 |
 | GAP-ARC-05 | Two copies of detection rules (gateway catalogue and engine rules) that never sync; dashboard edits have no effect on detection **Done (#17): the gateway compiles its rules and sends them to the engine after each change and every minute; logic the engine cannot run yet is kept and marked. Built-in rules are not yet shown in the dashboard.** | FR-DET-02 | P0 |
-| GAP-ARC-06 | No real-time push to the dashboard (15 s polling, `frontend/src/lib/constants.ts`) | FR-API-03, UX | P1 |
+| GAP-ARC-06 | No real-time push to the dashboard (15 s polling, `frontend/src/lib/constants.ts`) **Done (#64): Server-Sent Events from the gateway (`/api/v1/live`), through MongoDB so every process and worker reaches every dashboard, with resumption; polling remains as a slow safety net.** | FR-API-03, UX | P1 |
 | GAP-ARC-07 | No background job system for scheduled work (reports, retention, connector polling, model retraining) **Partly: the gateway runs its scheduled work (rule sync, email delivery, monthly reports) as background loops made safe across processes; a general job system is still to come.** | FR-PLT-02, FR-RPT-01, FR-ING-02 | P0 |
 | GAP-ARC-08 | No production deployment: Compose only, no Kubernetes manifests or Helm chart, no infrastructure-as-code, no environments (staging/production) | NFR-03, NFR-16 | P1 |
 | GAP-ARC-09 | Service-to-service traffic is plain HTTP with one shared static token (`INTERNAL_API_TOKEN`); no mTLS, no per-service identity, no rotation | NFR-07 | P1 |
@@ -556,7 +556,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 | GAP-WEB-02 | No cases, investigation graph, search, playbooks, connectors, response approvals, reports or settings pages **Cases (#20), playbooks and response approvals (#21), notification settings (#22) and reports (#23) done.** | Sections 5.5 to 5.8 | P0/P1 |
 | GAP-WEB-03 | No onboarding flow **Done (#27).** | FR-PLT-03 | P0 |
 | GAP-WEB-04 | No MFA, SSO or API-key management screens **Done: API keys (#18), MFA (#33) and SSO (#48).** | FR-TEN-05, FR-TEN-06, FR-API-02 | P0 |
-| GAP-WEB-05 | Polling rather than push; no notifications centre | GAP-ARC-06 | P1 |
+| GAP-WEB-05 | Polling rather than push; no notifications centre **Push done (#64): alerts, cases and actions refresh as they change, and serious alerts and actions waiting for a decision are announced. A notifications centre remains.** | GAP-ARC-06 | P1 |
 | GAP-WEB-06 | English only; accessibility not audited | FR-PLT-06, NFR-13 | P2 |
 
 ### 8.9 Operations, observability and quality
