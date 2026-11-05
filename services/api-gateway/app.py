@@ -64,7 +64,8 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(google_workspace.poll_periodically()),
         asyncio.create_task(retention.run_periodically()),
         asyncio.create_task(webhooks.deliver_periodically()),
-        asyncio.create_task(detection_pipeline.analyse_periodically()),
+        # Analysis: here, unless dedicated workers (worker.py) do it (ANALYSIS_IN_API false).
+        *([asyncio.create_task(detection_pipeline.analyse_periodically())] if settings.ANALYSIS_IN_API else []),
         asyncio.create_task(metrics.flush_periodically()),
         asyncio.create_task(platform_health.check_periodically()),
     ]

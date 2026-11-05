@@ -257,7 +257,7 @@ Each requirement: ID, priority, phase (see [section 9](#9-roadmap)), and its rel
 
 | ID | Requirement | Priority | Phase |
 |---|---|---|---|
-| FR-DET-01 | Stream detection: every event evaluated within seconds, horizontally scalable workers **Partly done (#42, #54): a durable queue any number of gateway processes work together, batches of events per request to the engine, and correlations whose cost per event no longer grows with the square of recent events (measured: 2 to 107 events a second on one engine). A stream platform remains for larger scale.** | P0 | 1 |
+| FR-DET-01 | Stream detection: every event evaluated within seconds, horizontally scalable workers **Partly done (#42, #54): a durable queue any number of gateway processes work together, batches of events per request to the engine, and correlations whose cost per event no longer grows with the square of recent events (measured: 2 to 107 events a second on one engine); dedicated workers fed by Redis Streams, with MongoDB as the record of truth (#62).** | P0 | 1 |
 | FR-DET-02 | Rule service: one store of rules per tenant plus a global library, versioned, with test cases, enable/disable, and changes taking effect within a minute **Done: rules per organisation with the engine's built-in rules and a library added for Microsoft 365, enabled and disabled, in effect within a minute (#17, #25); versions with restore, and test cases checked on every save (#51); counting over time in rules (#58).** | P0 | 1 |
 | FR-DET-03 | Sigma rule support (import, convert to the engine's form, test) | P1 | 2 |
 | FR-DET-04 | Detection library for email and identity: phishing, business email compromise, malicious inbox rules, mass forwarding, impossible travel, MFA fatigue, password spraying, OAuth consent phishing, risky sign-ins **Identity (#25, #26), mailbox rules and forwarding (#29), and phishing with redirected replies (#30) done; deeper business email compromise detection remains.** | P0 | 1 |
@@ -505,7 +505,7 @@ What is missing or wrong in today's code against the requirements above. Each ga
 
 | ID | Gap | Blocks | Priority |
 |---|---|---|---|
-| GAP-ENG-01 | Processes one event per HTTP request; not a stream consumer; no horizontal scaling story **Partly done (#54): the engine takes batches, and its correlation detector no longer re-examines every window for every event. Still one engine process per request stream.** | FR-DET-01 | P0 |
+| GAP-ENG-01 | Processes one event per HTTP request; not a stream consumer; no horizontal scaling story **Done (#54, #62): the engine takes batches, its correlation detector no longer re-examines every window for every event, and dedicated workers consume a Redis stream, scaling out.** | FR-DET-01 | P0 |
 | GAP-ENG-02 | Returns only the single most specific verdict per event (`engine.py`); other detectors' findings are dropped rather than recorded | FR-CAS-03, FR-DET-08 | P1 |
 | GAP-ENG-03 | Malware and user-behaviour ML detectors are hand-written indicator scores (`ml_detector.py`); placeholder pickles in `ml_models/` | FR-DET-06 | P1 |
 | GAP-ENG-04 | No Sigma support; rules are the engine's own format | FR-DET-03 | P1 |

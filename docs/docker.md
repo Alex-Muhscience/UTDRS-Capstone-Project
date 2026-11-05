@@ -176,6 +176,16 @@ Other settings are fixed in `docker-compose.yml`: the database names, the intern
 
 **Opening the stack to your network.** With `BIND_ADDRESS=0.0.0.0`, anyone who can reach your machine can open the dashboard and, unless you set `ALLOW_REGISTRATION=false`, create an analyst account. Only do it on a network you trust, and see [Beyond your laptop](#beyond-your-laptop) before going further.
 
+## Scaling analysis
+
+For more events than one gateway analyses comfortably, run dedicated analysis workers fed by a Redis stream: set `REDIS_URL=redis://redis:6379/0` and `ANALYSIS_IN_API=false` in `.env`, then
+
+```bash
+docker compose --profile scale up -d --scale analysis-worker=3
+```
+
+Workers share the work; one that stops has its work taken over. If Redis is down, nothing is lost: the queue lives in MongoDB, and workers find events there (more slowly).
+
 ## Monitoring
 
 - `http://localhost:8000/api/v1/health/ready` answers 200 while the gateway can serve, and lists what is failing (`problems`). Point an uptime monitor at it.
