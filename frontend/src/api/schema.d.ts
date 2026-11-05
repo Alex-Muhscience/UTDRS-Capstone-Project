@@ -44,6 +44,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/health/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Readiness Check
+         * @description For load balancers and uptime monitors: 200 when the gateway can serve (its database
+         *     answers), 503 when it cannot. `problems` lists what is failing on the platform (the
+         *     core engine, the analysis backlog, email, background loops), which does not stop it serving.
+         */
+        get: operations["readiness_check_api_v1_health_ready_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/config": {
         parameters: {
             query?: never;
@@ -3991,6 +4013,10 @@ export interface components {
             last_poll: {
                 [key: string]: number;
             };
+            /** Last Data At */
+            last_data_at?: string | null;
+            /** Error Since */
+            error_since?: string | null;
             /**
              * Errors
              * @default {}
@@ -5330,6 +5356,26 @@ export interface operations {
         };
     };
     database_health_check_api_v1_health_db_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    readiness_check_api_v1_health_ready_get: {
         parameters: {
             query?: never;
             header?: never;

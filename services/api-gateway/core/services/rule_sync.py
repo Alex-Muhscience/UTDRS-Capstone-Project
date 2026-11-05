@@ -11,6 +11,7 @@ import asyncio
 from typing import Any, Dict, List, Optional
 
 from config import settings
+from core.services import heartbeat
 from core.database.connection import get_database
 from core.services import tenants
 from core.tenancy import current_tenant, scoped, tenant_context
@@ -87,8 +88,11 @@ async def sync_all_tenants() -> None:
 async def sync_periodically() -> None:
     """Run for the life of the process: sync now, then every RULE_SYNC_INTERVAL_SECONDS."""
     while True:
+        error = None
         try:
             await sync_all_tenants()
         except Exception as e:  # never let the loop die
             logger.error(f"Rule sync failed: {e}")
+            error = e
+        await heartbeat.beat("rule_sync", settings.RULE_SYNC_INTERVAL_SECONDS, error)
         await asyncio.sleep(settings.RULE_SYNC_INTERVAL_SECONDS)

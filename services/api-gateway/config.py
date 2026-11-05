@@ -113,6 +113,17 @@ class Settings(BaseSettings):
     RETENTION_MAX_DAYS: int = 730
     RETENTION_INTERVAL_SECONDS: int = 3600
 
+    # Operations. Prometheus metrics at /api/v1/metrics need METRICS_TOKEN as a bearer
+    # token (unset: no metrics). Platform problems (core engine, analysis backlog, email,
+    # background loops) are emailed to OPERATOR_EMAILS once they last
+    # HEALTH_ALERT_AFTER_MINUTES; organisations' administrators hear about their connectors.
+    METRICS_TOKEN: Optional[str] = None
+    METRICS_FLUSH_SECONDS: int = 15
+    OPERATOR_EMAILS: List[str] = []
+    HEALTH_CHECK_INTERVAL_SECONDS: int = 60
+    HEALTH_ALERT_AFTER_MINUTES: int = 5
+    ANALYSIS_BACKLOG_ALERT_MINUTES: int = 15
+    CONNECTOR_SILENT_HOURS: int = 24
     # Analysing events (core/services/detection_pipeline.py): how often queued events are
     # sent to the core engine, how many at once, and how long to keep trying.
     ANALYSIS_INTERVAL_SECONDS: int = 5

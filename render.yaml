@@ -91,6 +91,11 @@ services:
         value: "false"
       - key: REGISTRATION_MODE
         value: organisation
+      # Operations: Prometheus metrics at /api/v1/metrics need this as a bearer token, and
+      # who is emailed about the platform's health (a JSON list, such as ["ops@example.com"]).
+      - key: METRICS_TOKEN
+        generateValue: true
+      - key: OPERATOR_EMAILS
       # Email (notifications, password resets, confirming addresses), from any SMTP
       # service: for example SendGrid, Mailgun, Amazon SES or Postmark. Without SMTP_HOST,
       # nothing is sent, and administrators reset forgotten passwords.

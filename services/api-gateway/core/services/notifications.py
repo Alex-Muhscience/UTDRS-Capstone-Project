@@ -26,6 +26,7 @@ from bson import ObjectId
 from pymongo import ReturnDocument
 
 from config import settings
+from core.services import heartbeat
 from core.database.connection import get_database
 from core.services import case_service
 from core.tenancy import scoped
@@ -303,11 +304,14 @@ async def deliver_due(limit: int = 50) -> int:
 async def deliver_periodically() -> None:
     """Run for the life of the process: send what is due every NOTIFY_INTERVAL_SECONDS."""
     while True:
+        error = None
         try:
             if configured():
                 await deliver_due()
         except Exception as e:  # never let the loop die
             logger.error(f"Email delivery failed: {e}")
+            error = e
+        await heartbeat.beat("email_delivery", settings.NOTIFY_INTERVAL_SECONDS, error)
         await asyncio.sleep(settings.NOTIFY_INTERVAL_SECONDS)
 
 

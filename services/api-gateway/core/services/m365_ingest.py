@@ -31,6 +31,7 @@ from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 from config import settings
+from core.services import heartbeat
 from core.database.connection import get_database
 from core.models.alert import AlertCreate
 from core.models.detection import DetectionRuleCreate
@@ -445,9 +446,16 @@ async def poll() -> Optional[Dict[str, Any]]:
             if error:
                 errors["mailbox"] = error
     finally:
+        done = utcnow()
+        health: Dict[str, Any] = {
+            # When it last brought anything in, and since when it has been failing.
+            "error_since": (connection.get("error_since") or done) if errors else None,
+        }
+        if any(counts.values()):
+            health["last_data_at"] = done
         await connections.update_one({"_id": connection["_id"]}, {"$set": {
-            "cursors": cursors, "last_poll_at": utcnow(), "last_poll": counts, "errors": errors,
-            "status": "error" if errors else "connected", "poll_lease_until": None,
+            "cursors": cursors, "last_poll_at": done, "last_poll": counts, "errors": errors,
+            "status": "error" if errors else "connected", "poll_lease_until": None, **health,
         }})
     if errors and connection.get("status") != "error":  # it has just become unhealthy
         from core.services import webhooks
@@ -487,10 +495,13 @@ async def poll_all() -> None:
 async def poll_periodically() -> None:
     """Run for the life of the process: poll every M365_POLL_INTERVAL_SECONDS."""
     while True:
+        error = None
         try:
             await poll_all()
         except Exception as e:  # never let the loop die
             logger.error(f"Microsoft 365 polling failed: {e}")
+            error = e
+        await heartbeat.beat("m365_polling", settings.M365_POLL_INTERVAL_SECONDS, error)
         await asyncio.sleep(settings.M365_POLL_INTERVAL_SECONDS)
 
 

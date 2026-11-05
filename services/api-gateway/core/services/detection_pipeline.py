@@ -247,11 +247,16 @@ async def analyse_due(limit: int = 500) -> int:
 
 
 async def analyse_periodically() -> None:
+    from core.services import heartbeat
+
     while True:
+        error = None
         try:
             await analyse_due()
         except Exception as e:  # never let the loop die
             logger.error(f"Analysing queued events failed: {e}")
+            error = e
+        await heartbeat.beat("analysis", settings.ANALYSIS_INTERVAL_SECONDS, error)
         await asyncio.sleep(settings.ANALYSIS_INTERVAL_SECONDS)
 
 

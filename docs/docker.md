@@ -176,6 +176,12 @@ Other settings are fixed in `docker-compose.yml`: the database names, the intern
 
 **Opening the stack to your network.** With `BIND_ADDRESS=0.0.0.0`, anyone who can reach your machine can open the dashboard and, unless you set `ALLOW_REGISTRATION=false`, create an analyst account. Only do it on a network you trust, and see [Beyond your laptop](#beyond-your-laptop) before going further.
 
+## Monitoring
+
+- `http://localhost:8000/api/v1/health/ready` answers 200 while the gateway can serve, and lists what is failing (`problems`). Point an uptime monitor at it.
+- Set `METRICS_TOKEN` in `.env` and Prometheus can scrape `http://localhost:8000/api/v1/metrics` with it as a bearer token (`authorization: {credentials: <token>}` in its scrape config).
+- Set `OPERATOR_EMAILS` (a JSON list, such as `["you@example.com"]`) and email (`SMTP_HOST`) to be told when the core engine, the analysis queue, email or a background loop stops working, and when it recovers.
+
 ## Optional services
 
 ### Device scanner (`scanner`)

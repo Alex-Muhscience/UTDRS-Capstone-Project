@@ -86,6 +86,8 @@ describe("connectors", () => {
         connected_at: now,
         last_poll_at: now,
         last_poll: { signins: 3, audits: 2, alerts: 1 },
+        last_data_at: now,
+        error_since: now,
         errors: { signins: "Not allowed: check UTDRS's permissions in Microsoft 365" },
         checks: [
           { name: "Signing in", ok: true, detail: "Signed in to tenant 72f988bf" },
@@ -99,6 +101,8 @@ describe("connectors", () => {
     expect(screen.getByText("Contoso")).toBeInTheDocument()
     expect(screen.getByText(/3 sign-ins, 2 audit records, 1 Defender alerts/)).toBeInTheDocument()
     expect(screen.getByText("sign-ins: Not allowed: check UTDRS's permissions in Microsoft 365")).toBeInTheDocument()
+    expect(screen.getByText("Last data received")).toBeInTheDocument()
+    expect(screen.getByText(/Failing since/)).toBeInTheDocument()
     const checks = screen.getByRole("list", { name: "What UTDRS can read" })
     expect(within(checks).getByLabelText("Does not work")).toBeInTheDocument()
 

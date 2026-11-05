@@ -99,10 +99,17 @@ function Connected({ status }: { status: Microsoft365 }) {
               ? `${formatRelative(status.last_poll_at)}: ${counts.signins ?? 0} sign-ins, ${counts.audits ?? 0} audit records, ${counts.alerts ?? 0} Defender alerts`
               : "Not yet",
           ],
+          ["Last data received", status.last_data_at ? <span title={formatDateTime(status.last_data_at)}>{formatRelative(status.last_data_at)}</span> : "Nothing yet"],
         ]}
       />
       {errors.length > 0 && (
         <ul className="space-y-1 rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
+          {status.error_since && (
+            <li className="font-medium">
+              Failing since <span title={formatDateTime(status.error_since)}>{formatRelative(status.error_since)}</span>. Administrators are
+              emailed if it lasts.
+            </li>
+          )}
           {errors.map(([source, message]) => (
             <li key={source}>
               {SOURCES[source] ?? source}: {message}

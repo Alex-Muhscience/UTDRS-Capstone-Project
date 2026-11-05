@@ -29,6 +29,9 @@ class Microsoft365(BaseModel):
     last_poll_at: Optional[datetime] = None
     # How many sign-ins, audit records and Defender alerts the last poll brought in.
     last_poll: Dict[str, int] = {}
+    # When a poll last brought in anything, and since when polling has been failing.
+    last_data_at: Optional[datetime] = None
+    error_since: Optional[datetime] = None
     errors: Dict[str, str] = {}
     checks: List[Check] = []
     # Whether "Connect with Microsoft" is offered, and whether an own app's secret can be stored.

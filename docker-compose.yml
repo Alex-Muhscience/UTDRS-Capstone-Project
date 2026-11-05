@@ -80,6 +80,9 @@ services:
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_SECURITY: ${SMTP_SECURITY:-starttls}
+      # Operations: metrics for Prometheus, and who hears about the platform's health.
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+      OPERATOR_EMAILS: ${OPERATOR_EMAILS:-[]}
       # People who register confirm their email address before signing in.
       REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-false}
       MAIL_FROM: ${MAIL_FROM:-UTDRS <utdrs@localhost>}
