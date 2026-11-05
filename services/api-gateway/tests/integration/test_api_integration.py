@@ -33,7 +33,7 @@ async def setup_db():
 @pytest_asyncio.fixture
 async def auth_token():
     # Create a test token
-    token = create_access_token(data={"sub": "integration_test_user"})
+    token = create_access_token(data={"sub": "integration_test_user", "sid": "665f1c2ab1e2c3d4e5f60999"})
     return {"Authorization": f"Bearer {token}"}
 
 

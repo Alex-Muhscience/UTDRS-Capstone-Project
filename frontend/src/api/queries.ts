@@ -60,9 +60,33 @@ export function useUpdateProfile() {
 }
 
 export function useChangePassword() {
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (body: { current_password: string; new_password: string }) =>
       unwrap(api.POST("/api/v1/auth/me/change-password", { body })),
+    // Changing the password signs out everywhere else.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sessions"] }),
+  })
+}
+
+/** Where the signed-in person is signed in. */
+export function useMySessions() {
+  return useQuery({ queryKey: ["sessions"], queryFn: () => unwrap(api.GET("/api/v1/auth/sessions")) })
+}
+
+export function useEndSession() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (sessionId: string) => unwrap(api.DELETE("/api/v1/auth/sessions/{session_id}", { params: { path: { session_id: sessionId } } })),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["sessions"] }),
+  })
+}
+
+export function useEndOtherSessions() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => unwrap(api.POST("/api/v1/auth/sessions/end-others")),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["sessions"] }),
   })
 }
 
@@ -142,6 +166,12 @@ export function useResetMfa() {
   return useMutation({
     mutationFn: (userId: string) => unwrap(api.POST("/api/v1/users/{user_id}/reset-mfa", { params: { path: { user_id: userId } } })),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
+  })
+}
+
+export function useSignOutEverywhere() {
+  return useMutation({
+    mutationFn: (userId: string) => unwrap(api.POST("/api/v1/users/{user_id}/sign-out", { params: { path: { user_id: userId } } })),
   })
 }
 

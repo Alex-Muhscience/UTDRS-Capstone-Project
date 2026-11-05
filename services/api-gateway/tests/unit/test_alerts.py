@@ -2,6 +2,7 @@ import json
 from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from bson import ObjectId
 from fastapi.testclient import TestClient
 
@@ -9,6 +10,13 @@ from app import app
 from utils.security import create_access_token
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def open_session():
+    """The tokens below name a session; these tests have no database to look it up in."""
+    with patch("core.services.sessions.is_active", new_callable=AsyncMock, return_value=None):
+        yield
 
 # Mock alert data
 mock_alert_data = {
@@ -48,7 +56,7 @@ mock_user_data = {
 
 # Helper function to get authorization headers
 def get_auth_headers():
-    token = create_access_token(data={"sub": str(mock_user_data["_id"])})
+    token = create_access_token(data={"sub": str(mock_user_data["_id"]), "sid": "665f1c2ab1e2c3d4e5f60999"})
     return {"Authorization": f"Bearer {token}"}
 
 

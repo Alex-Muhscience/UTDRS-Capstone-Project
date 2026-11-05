@@ -109,6 +109,167 @@
         }
       }
     },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Refresh",
+        "description": "A new access token, and a new refresh token, for a refresh token. Each refresh token\nworks once; using one twice ends the session, as it means it was copied.",
+        "operationId": "refresh_api_v1_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Token"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Logout",
+        "description": "Sign out: this session ends, and its tokens stop working.",
+        "operationId": "logout_api_v1_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/sessions": {
+      "get": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "My Sessions",
+        "description": "Where you are signed in, most recently active first.",
+        "operationId": "my_sessions_api_v1_auth_sessions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SessionInfo"
+                  },
+                  "type": "array",
+                  "title": "Response My Sessions Api V1 Auth Sessions Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/sessions/{session_id}": {
+      "delete": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "End Session",
+        "description": "Sign out one of your sessions, such as one on a device you no longer have.",
+        "operationId": "end_session_api_v1_auth_sessions__session_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/sessions/end-others": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "End Other Sessions",
+        "description": "Sign out everywhere except here.",
+        "operationId": "end_other_sessions_api_v1_auth_sessions_end_others_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionsEnded"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/auth/login/mfa": {
       "post": {
         "tags": [
@@ -829,6 +990,54 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/sign-out": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Sign Out Everywhere",
+        "description": "Sign someone out of every session (admins only), for example when a device is lost or stolen.",
+        "operationId": "sign_out_everywhere_api_v1_users__user_id__sign_out_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionsEnded"
                 }
               }
             }
@@ -9096,12 +9305,17 @@
           "registration_mode": {
             "type": "string",
             "title": "Registration Mode"
+          },
+          "session_idle_minutes": {
+            "type": "integer",
+            "title": "Session Idle Minutes"
           }
         },
         "type": "object",
         "required": [
           "allow_registration",
-          "registration_mode"
+          "registration_mode",
+          "session_idle_minutes"
         ],
         "title": "AuthConfig"
       },
@@ -11627,6 +11841,21 @@
         "title": "RecoveryCodes",
         "description": "Single-use codes for when the phone is not at hand. Shown once: keep them safe."
       },
+      "RefreshRequest": {
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 10,
+            "title": "Refresh Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refresh_token"
+        ],
+        "title": "RefreshRequest"
+      },
       "Registration": {
         "properties": {
           "username": {
@@ -12387,6 +12616,84 @@
           "new_device"
         ],
         "title": "ScanResult"
+      },
+      "SessionInfo": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "device": {
+            "type": "string",
+            "title": "Device"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "last_used_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Used At"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "mfa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mfa"
+          },
+          "current": {
+            "type": "boolean",
+            "title": "Current",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "device",
+          "created_at",
+          "last_used_at",
+          "expires_at"
+        ],
+        "title": "SessionInfo",
+        "description": "Where someone is signed in."
+      },
+      "SessionsEnded": {
+        "properties": {
+          "ended": {
+            "type": "integer",
+            "title": "Ended"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ended"
+        ],
+        "title": "SessionsEnded",
+        "description": "How many sessions were signed out."
       },
       "SigningSecret": {
         "properties": {
@@ -13427,6 +13734,28 @@
               }
             ],
             "title": "Mfa Token"
+          },
+          "refresh_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Token"
+          },
+          "expires_in": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In"
           }
         },
         "type": "object",

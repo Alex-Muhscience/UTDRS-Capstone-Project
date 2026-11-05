@@ -1,5 +1,6 @@
 /**
- * The signed-in session: the gateway's JWT and when it expires.
+ * The signed-in session: the gateway's short-lived access token (a JWT) and when it
+ * expires, and the refresh token that gets the next one (each works once).
  *
  * Kept in sessionStorage, so it survives a reload but not closing the tab, and is
  * never shared between tabs. The gateway issues bearer tokens (no cookies), so the
@@ -8,7 +9,7 @@
  */
 const KEY = "utdrs-session"
 
-export type Session = { token: string; expiresAt: number | null }
+export type Session = { token: string; expiresAt: number | null; refreshToken: string | null }
 
 /** Expiry (ms since epoch) from a JWT's `exp` claim, or null if it has none. */
 export function tokenExpiry(token: string): number | null {
@@ -32,7 +33,8 @@ export function readSession(): Session | null {
     const raw = sessionStorage.getItem(KEY)
     if (!raw) return null
     const session = JSON.parse(raw) as Session
-    if (typeof session.token !== "string" || isExpired(session)) {
+    // An expired access token is fine while there is a refresh token to replace it.
+    if (typeof session.token !== "string" || (isExpired(session) && !session.refreshToken)) {
       sessionStorage.removeItem(KEY)
       return null
     }
@@ -42,8 +44,8 @@ export function readSession(): Session | null {
   }
 }
 
-export function saveSession(token: string): Session {
-  const session = { token, expiresAt: tokenExpiry(token) }
+export function saveSession(token: string, refreshToken: string | null = null): Session {
+  const session = { token, expiresAt: tokenExpiry(token), refreshToken }
   try {
     sessionStorage.setItem(KEY, JSON.stringify(session))
   } catch {
@@ -60,5 +62,5 @@ export function clearSession(): void {
   }
 }
 
-/** Dispatched when the gateway rejects the token, so the app can sign out. */
+/** Dispatched when the gateway rejects the session, so the app can sign out; `detail` says why. */
 export const UNAUTHORIZED_EVENT = "utdrs:unauthorized"

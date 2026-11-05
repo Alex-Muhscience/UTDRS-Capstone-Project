@@ -176,7 +176,10 @@ def test_an_administrator_resets_a_lost_phone(client, monkeypatch):
     assert sign_in(client, name, created["temporary_password"])["mfa_required"] is True
     reset = client.post(f"{API}/users/{created['user']['id']}/reset-mfa", headers=admin).json()
     assert reset["mfa_enabled"] is False
-    assert sign_in(client, name, created["temporary_password"])["Authorization"]
+    # Resetting signs them out everywhere: the old session no longer works.
+    assert client.get(f"{API}/auth/me", headers=person).status_code == 401
+    person = sign_in(client, name, created["temporary_password"])
+    assert person["Authorization"]
     assert client.post(f"{API}/users/{created['user']['id']}/reset-mfa", headers=person).status_code == 403
 
 

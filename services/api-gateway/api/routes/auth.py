@@ -3,13 +3,15 @@ from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 from config import settings
 from core.database.repositories.user_repository import UserRepository
-from core.services import audit, login_throttle, mfa, tenants
+from core.services import audit, login_throttle, mfa, sessions, tenants
 from core.tenancy import PLATFORM, set_tenant, tenant_context
+from core.models.common import IdString
 from core.models.user import (
+    SessionsEnded,
     User,
     UserCreate,
     UserSelfUpdate,
@@ -40,6 +42,27 @@ class Token(BaseModel):
     # The password was right; send a code with mfa_token to /auth/login/mfa within five minutes.
     mfa_required: bool = False
     mfa_token: Optional[str] = None
+    # For /auth/refresh, before the access token expires (in expires_in seconds). Works once.
+    refresh_token: Optional[str] = None
+    expires_in: Optional[int] = None
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(min_length=10, max_length=200)
+
+
+class SessionInfo(BaseModel):
+    """Where someone is signed in."""
+
+    id: IdString = Field(validation_alias=AliasChoices("_id", "id"))
+    device: str
+    address: Optional[str] = None
+    created_at: datetime
+    last_used_at: datetime
+    expires_at: datetime
+    mfa: Optional[str] = None
+    # The session this request comes from.
+    current: bool = False
 
 
 class MfaLogin(BaseModel):
@@ -88,6 +111,8 @@ class AuthConfig(BaseModel):
     # "join": registering adds an analyst to the existing organisation. "organisation":
     # registering creates a new organisation, with the person as its administrator.
     registration_mode: str
+    # Minutes without activity after which a session ends.
+    session_idle_minutes: int
 
 
 class Registration(UserCreate):
@@ -98,7 +123,10 @@ class Registration(UserCreate):
 @router.get("/config", response_model=AuthConfig)
 async def auth_config() -> Any:
     """What the sign-in page needs to know, such as whether anyone can register."""
-    return AuthConfig(allow_registration=settings.ALLOW_REGISTRATION, registration_mode=settings.REGISTRATION_MODE)
+    return AuthConfig(
+        allow_registration=settings.ALLOW_REGISTRATION, registration_mode=settings.REGISTRATION_MODE,
+        session_idle_minutes=settings.SESSION_IDLE_MINUTES,
+    )
 
 
 @router.post("/login", response_model=Token)
@@ -169,9 +197,67 @@ def _actor(user: dict) -> dict:
 
 async def _signed_in(request: Request, user: dict, details: Optional[dict] = None) -> dict:
     await UserRepository().update_last_login(str(user["_id"]))
-    await audit.record("auth.login_succeeded", request, actor=_actor(user), details=details)
-    token = create_access_token(data={"sub": str(user["_id"])}, expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
-    return {"access_token": token, "token_type": "bearer", "user": User(**user)}
+    session_id, refresh_token = await sessions.start(user, request, (details or {}).get("mfa"))
+    await audit.record("auth.login_succeeded", request, actor=_actor(user), details={**(details or {}), "session": session_id})
+    return _tokens(user, session_id, refresh_token)
+
+
+def _tokens(user: dict, session_id: str, refresh_token: str) -> dict:
+    token = create_access_token(
+        data={"sub": str(user["_id"]), "sid": session_id}, expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    return {
+        "access_token": token, "token_type": "bearer", "user": User(**user), "refresh_token": refresh_token,
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    }
+
+
+@router.post("/refresh", response_model=Token)
+async def refresh(body: RefreshRequest) -> Any:
+    """
+    A new access token, and a new refresh token, for a refresh token. Each refresh token
+    works once; using one twice ends the session, as it means it was copied.
+    """
+    try:
+        session, refresh_token = await sessions.refresh(body.refresh_token)
+    except sessions.SessionEnded as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e), headers={"WWW-Authenticate": "Bearer"})
+    with tenant_context(session["tenant_id"]):
+        user = await UserRepository().find_by_id(session["user_id"])
+    if not user or not user.get("active", True):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="This account has been deactivated")
+    return _tokens(user, str(session["_id"]), refresh_token)
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(request: Request, current_user: User = Depends(get_current_active_user)) -> None:
+    """Sign out: this session ends, and its tokens stop working."""
+    session_id = getattr(request.state, "session_id", None)
+    if session_id:
+        await sessions.end(session_id, "You signed out")
+        await audit.record("auth.logout", request, target={"type": "session", "id": session_id})
+
+
+@router.get("/sessions", response_model=List[SessionInfo])
+async def my_sessions(request: Request, current_user: User = Depends(get_current_active_user)) -> Any:
+    """Where you are signed in, most recently active first."""
+    return await sessions.list_for(current_user.id, getattr(request.state, "session_id", None))
+
+
+@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def end_session(session_id: str, request: Request, current_user: User = Depends(get_current_active_user)) -> None:
+    """Sign out one of your sessions, such as one on a device you no longer have."""
+    if not await sessions.end(session_id, "Signed out from another session", user_id=current_user.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    await audit.record("auth.session_ended", request, target={"type": "session", "id": session_id})
+
+
+@router.post("/sessions/end-others", response_model=SessionsEnded)
+async def end_other_sessions(request: Request, current_user: User = Depends(get_current_active_user)) -> Any:
+    """Sign out everywhere except here."""
+    ended = await sessions.end_all(current_user.id, "Signed out from another session", keep=getattr(request.state, "session_id", None))
+    await audit.record("auth.sessions_ended", request, details={"ended": ended})
+    return {"ended": ended}
 
 
 @router.post("/login/mfa", response_model=Token)
@@ -334,8 +420,11 @@ async def change_password(
             detail="Failed to change password",
         )
 
-    await audit.record("auth.password_changed", request, target={"type": "user", "id": current_user.id, "name": current_user.username})
-    return {"message": "Password changed successfully"}
+    # Anyone who knew the old password is signed out everywhere but here.
+    ended = await sessions.end_all(current_user.id, "Signed out because the password was changed", keep=getattr(request.state, "session_id", None))
+    await audit.record("auth.password_changed", request, target={"type": "user", "id": current_user.id, "name": current_user.username},
+                       details={"other_sessions_ended": ended})
+    return {"message": "Password changed successfully", "other_sessions_ended": ended}
 
 
 # ---------------------------------------------------------------------------- MFA

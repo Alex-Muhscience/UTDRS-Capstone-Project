@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, sta
 
 from core.database.repositories.user_repository import UserRepository
 from core.models.user import (
+    SessionsEnded,
     AdminUserCreate,
     Role,
     User,
@@ -20,6 +21,7 @@ from core.models.user import (
     UserUpdate,
     UserWithPassword,
 )
+from core.services import sessions
 from core.services.audit import created
 from utils.security import get_current_active_user, require_admin
 
@@ -110,11 +112,19 @@ async def update_user(
         )
 
     updated = await user_repo.update_user(user_id, UserUpdate(**changes))
+    if changes.get("active") is False:
+            await sessions.end_all(user_id, "This account has been deactivated")
     return User(**updated)
 
 
+async def end_sessions(user_id: str, admin: User, request: Request, reason: str) -> int:
+    """End someone's sessions; an administrator acting on themselves keeps the one they are using."""
+    keep = getattr(request.state, "session_id", None) if user_id == admin.id else None
+    return await sessions.end_all(user_id, reason, keep=keep)
+
+
 @router.post("/{user_id}/reset-password", response_model=UserWithPassword)
-async def reset_password(user_id: str = Path(...), admin: User = Depends(require_admin)):
+async def reset_password(request: Request, user_id: str = Path(...), admin: User = Depends(require_admin)):
     """
     Give someone a new temporary password (admins only), for example when they have
     forgotten theirs. It is shown only this once.
@@ -123,11 +133,12 @@ async def reset_password(user_id: str = Path(...), admin: User = Depends(require
     user = await find_user_or_404(user_repo, user_id)
     password = temporary_password()
     await user_repo.change_password(user_id, password)
+    await end_sessions(user_id, admin, request, "Signed out because an administrator reset the password")
     return UserWithPassword(user=User(**user), temporary_password=password)
 
 
 @router.post("/{user_id}/reset-mfa", response_model=User)
-async def reset_mfa(user_id: str = Path(...), admin: User = Depends(require_admin)):
+async def reset_mfa(request: Request, user_id: str = Path(...), admin: User = Depends(require_admin)):
     """
     Turn off someone's multi-factor authentication (admins only), for example when they
     have lost their phone. If the organisation requires MFA, they set it up again when
@@ -138,4 +149,16 @@ async def reset_mfa(user_id: str = Path(...), admin: User = Depends(require_admi
     user_repo = UserRepository()
     await find_user_or_404(user_repo, user_id)
     await mfa.reset(user_id)
+    await end_sessions(user_id, admin, request, "Signed out because an administrator reset multi-factor authentication")
     return User(**await user_repo.find_by_id(user_id))
+
+
+@router.post("/{user_id}/sign-out", response_model=SessionsEnded)
+async def sign_out_everywhere(request: Request, user_id: str = Path(...), admin: User = Depends(require_admin)):
+    """
+    Sign someone out of every session (admins only), for example when a device is lost or
+    stolen. Administrators signing themselves out keep the session they are using.
+    """
+    user_repo = UserRepository()
+    await find_user_or_404(user_repo, user_id)
+    return {"ended": await end_sessions(user_id, admin, request, "Signed out by an administrator")}

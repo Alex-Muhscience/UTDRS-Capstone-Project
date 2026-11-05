@@ -150,3 +150,9 @@ class UserWithPassword(BaseModel):
 
     user: User
     temporary_password: str
+
+
+class SessionsEnded(BaseModel):
+    """How many sessions were signed out."""
+
+    ended: int

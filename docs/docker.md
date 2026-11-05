@@ -166,7 +166,9 @@ Every setting lives in `.env`. Restart with `docker compose up -d --wait` after 
 | `GATEWAY_PORT` | `8000` | |
 | `PROCESSOR_PORT` | `5000` | Data processor (profile `scanner`) |
 | `SCANNER_PORT` | `8443` | Scanner server (profile `scanner`) |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | How long a sign-in lasts |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `15` | How long an access token lasts (the dashboard refreshes it) |
+| `SESSION_IDLE_MINUTES` | `60` | Signed out after this long without using the dashboard |
+| `SESSION_MAX_HOURS` | `12` | Signed out this long after signing in, however active |
 | `ENABLE_THREAT_INTEL` | `false` | Turns on the engine's threat-intelligence lookups |
 | `VIRUSTOTAL_API_KEY`, `ABUSEIPDB_API_KEY`, `OTX_API_KEY` | empty | Keys for those lookups; each provider is used only when its key is set |
 
@@ -308,7 +310,7 @@ They register an analyst, send the ransomware test event, wait for the engine's 
 
 **Events show "Not analysed".** The gateway has no engine configured. With this Compose file that cannot happen, unless an override removed `CORE_ENGINE_URL`.
 
-**Everyone was signed out.** `JWT_SECRET` changed, or sign-ins expired (30 minutes by default; change `ACCESS_TOKEN_EXPIRE_MINUTES`). Sign in again.
+**Everyone was signed out.** `JWT_SECRET` changed, or sessions ended: after `SESSION_IDLE_MINUTES` without use (60 by default) or `SESSION_MAX_HOURS` after signing in (12). The sign-in page says which. Sign in again.
 
 **The dashboard answers `502 Bad Gateway` on `/api`.** The gateway is down or restarting: check `docker compose ps`. If it is healthy and the error persists, `docker compose restart dashboard` makes nginx look the gateway up again.
 

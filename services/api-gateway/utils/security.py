@@ -1,5 +1,6 @@
 # utils/security.py
 import hmac
+import secrets
 from datetime import timedelta
 from typing import Any, Dict, Optional
 
@@ -53,7 +54,8 @@ def create_access_token(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
 
-    to_encode.update({"exp": expire})
+    # A unique id, so no two tokens are the same even when issued in the same second.
+    to_encode.update({"exp": expire, "iat": utcnow(), "jti": secrets.token_hex(8)})
     return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
@@ -120,7 +122,7 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
         user_id: str = payload.get("sub")
         # Only session tokens: not the short-lived token between password and MFA code,
         # or any other token signed with the same secret for another purpose.
-        if user_id is None or payload.get("purpose"):
+        if user_id is None or payload.get("purpose") or not payload.get("sid"):
             raise credentials_exception
     except (jwt.PyJWTError, ValidationError):
         raise credentials_exception
@@ -134,6 +136,14 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
 
     if user is None:
         raise credentials_exception
+
+    # The session must not have been ended (signed out, by an administrator, ...).
+    from core.services import sessions
+
+    ended = await sessions.is_active(payload["sid"])
+    if ended:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=ended, headers={"WWW-Authenticate": "Bearer"})
+    request.state.session_id = payload["sid"]
 
     if not user.get("active", False):
         # A deactivated account's tokens stop working, so clients sign out.
