@@ -1130,6 +1130,47 @@ export function useRules({ status, severity, search, page }: RuleFilters) {
   })
 }
 
+export type RuleTestCase = Schemas["RuleTestCase"]
+
+/** Run a saved rule's test cases. */
+export function useRunRuleTests(ruleId: string) {
+  return useMutation({
+    mutationFn: () => unwrap(api.POST("/api/v1/detection/rules/{rule_id}/test", { params: { path: { rule_id: ruleId } } })),
+  })
+}
+
+/** Replace a rule's test cases (refused when they would fail). */
+export function useSaveRuleTestCases(ruleId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (testCases: RuleTestCase[]) =>
+      unwrap(api.PUT("/api/v1/detection/rules/{rule_id}", { params: { path: { rule_id: ruleId } }, body: { test_cases: testCases } })),
+    onSuccess: (rule) => {
+      queryClient.setQueryData(["rules", "detail", ruleId], rule)
+      void queryClient.invalidateQueries({ queryKey: ["rules", "versions", ruleId] })
+    },
+  })
+}
+
+export function useRuleVersions(ruleId: string) {
+  return useQuery({
+    queryKey: ["rules", "versions", ruleId],
+    queryFn: () => unwrap(api.GET("/api/v1/detection/rules/{rule_id}/versions", { params: { path: { rule_id: ruleId } } })),
+  })
+}
+
+export function useRestoreRuleVersion(ruleId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (version: number) =>
+      unwrap(api.POST("/api/v1/detection/rules/{rule_id}/versions/{version}/restore", { params: { path: { rule_id: ruleId, version } } })),
+    onSuccess: (rule) => {
+      queryClient.setQueryData(["rules", "detail", ruleId], rule)
+      void queryClient.invalidateQueries({ queryKey: ["rules"] })
+    },
+  })
+}
+
 export function useRule(ruleId: string) {
   return useQuery({
     queryKey: ["rules", "detail", ruleId],

@@ -1810,6 +1810,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/detection/rules/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Logic
+         * @description Run test cases against logic, before saving it: what the core engine would match.
+         */
+        post: operations["test_logic_api_v1_detection_rules_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/detection/rules/{rule_id}": {
         parameters: {
             query?: never;
@@ -1941,6 +1961,67 @@ export interface paths {
         get: operations["search_rules_api_v1_detection_rules_search__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/detection/rules/{rule_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Rule
+         * @description Run a saved rule's test cases.
+         */
+        post: operations["test_rule_api_v1_detection_rules__rule_id__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/detection/rules/{rule_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rule History
+         * @description Every version of a rule, newest first: what it was, who changed it, and when.
+         */
+        get: operations["rule_history_api_v1_detection_rules__rule_id__versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/detection/rules/{rule_id}/versions/{version}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Rule Version
+         * @description Make a rule what it was at an earlier version (administrators). This makes a new
+         *     version: history is never rewritten. Its test cases must still pass.
+         */
+        post: operations["restore_rule_version_api_v1_detection_rules__rule_id__versions__version__restore_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3862,6 +3943,11 @@ export interface components {
             tags: string[];
             /** Logic */
             logic: string;
+            /**
+             * Test Cases
+             * @default []
+             */
+            test_cases: components["schemas"]["RuleTestCase"][];
             /** Id */
             id: string;
             /**
@@ -3894,6 +3980,11 @@ export interface components {
             metadata: {
                 [key: string]: unknown;
             };
+            /**
+             * Version
+             * @default 0
+             */
+            version: number;
             readonly engine: components["schemas"]["RuleEngineStatus"];
         };
         /** DetectionRuleCreate */
@@ -3920,6 +4011,11 @@ export interface components {
             tags: string[];
             /** Logic */
             logic: string;
+            /**
+             * Test Cases
+             * @default []
+             */
+            test_cases: components["schemas"]["RuleTestCase"][];
             /** Created By */
             created_by?: string | null;
         };
@@ -3943,6 +4039,8 @@ export interface components {
             logic?: string | null;
             /** Notes */
             notes?: string | null;
+            /** Test Cases */
+            test_cases?: components["schemas"]["RuleTestCase"][] | null;
         };
         /** DetectionStatus */
         DetectionStatus: {
@@ -4839,6 +4937,80 @@ export interface components {
             rules_sent: number;
             /** Succeeded At */
             succeeded_at?: string | null;
+        };
+        /**
+         * RuleTestCase
+         * @description An example event the rule must match, or must not.
+         */
+        RuleTestCase: {
+            /** Name */
+            name: string;
+            /** Event */
+            event: {
+                [key: string]: unknown;
+            };
+            /**
+             * Expect
+             * @default match
+             * @enum {string}
+             */
+            expect: "match" | "no_match";
+        };
+        /**
+         * RuleTestRequest
+         * @description Test logic before saving it.
+         */
+        RuleTestRequest: {
+            /** Logic */
+            logic: string;
+            /**
+             * Test Cases
+             * @default []
+             */
+            test_cases: components["schemas"]["RuleTestCase"][];
+        };
+        /** RuleTestResult */
+        RuleTestResult: {
+            /** Name */
+            name?: string | null;
+            /** Expect */
+            expect: string;
+            /** Matched */
+            matched: boolean;
+            /** Passed */
+            passed: boolean;
+        };
+        /** RuleTestRun */
+        RuleTestRun: {
+            /** Ran */
+            ran: boolean;
+            /** Reason */
+            reason?: string | null;
+            /** Passed */
+            passed: boolean;
+            /**
+             * Results
+             * @default []
+             */
+            results: components["schemas"]["RuleTestResult"][];
+        };
+        /** RuleVersion */
+        RuleVersion: {
+            /** Version */
+            version: number;
+            /** Change */
+            change: string;
+            /** Changed By */
+            changed_by?: string | null;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Rule */
+            rule: {
+                [key: string]: unknown;
+            };
         };
         /** ScanInterface */
         ScanInterface: {
@@ -8793,6 +8965,39 @@ export interface operations {
             };
         };
     };
+    test_logic_api_v1_detection_rules_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleTestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleTestRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_rule_api_v1_detection_rules__rule_id__get: {
         parameters: {
             query?: never;
@@ -9044,6 +9249,100 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DetectionRule"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_rule_api_v1_detection_rules__rule_id__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleTestRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rule_history_api_v1_detection_rules__rule_id__versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleVersion"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_rule_version_api_v1_detection_rules__rule_id__versions__version__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetectionRule"];
                 };
             };
             /** @description Validation Error */

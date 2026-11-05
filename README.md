@@ -159,6 +159,7 @@ Next:
 - [x] Onboarding: a checklist from sign-up to first results the same day, worked out from the organisation's state
 - [x] Microsoft 365 connector: admin consent or an own app registration, encrypted secrets, Entra ID sign-ins and audit logs, Exchange mailbox audit, Defender alerts and phishing checks of the emails they name, built-in identity, mailbox and email detections, and response actions through it (built against Graph's documented formats; not yet run against a live tenant)
 - [x] Identity correlations in the engine: impossible travel, password spraying, password guessing, success after repeated failures and MFA fatigue
+- [x] Detection rules with test cases checked on every save, and versions that can be restored
 - [x] Detection tuning: analysts' verdicts, suppressions and allow-lists with safety limits, noisy-detector reporting, and labels exported for retraining
 - [x] Monthly executive report: figures against the month before, threats, actions, what is still open and what to do next; on the web and as a PDF, made and emailed on the 1st
 - [ ] Trained models for the remaining indicator-based ML detectors (malware, user behaviour)

@@ -51,6 +51,8 @@ function NewRuleDialog({ open, onClose }: { open: boolean; onClose: () => void }
               .split(",")
               .map((tag) => tag.trim())
               .filter(Boolean),
+            // Added on the rule's page once it exists.
+            test_cases: [],
           },
           {
             onSuccess: (rule) => {

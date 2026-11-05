@@ -7,9 +7,13 @@ from core.models.detection import (
     DetectionRuleCreate,
     DetectionRuleUpdate,
     DetectionStatus,
+    RuleTestRequest,
+    RuleTestRun,
+    RuleVersion,
 )
 from core.models.user import User
 from core.services.audit import created
+from core.services import rule_tests, rule_versions
 from core.services.detection_service import DetectionService
 from core.services.rule_compiler import RuleSyntaxError, compile_logic
 from core.services.rule_sync import sync_rules
@@ -79,6 +83,23 @@ async def get_rules(
         return await detection_service.get_rules(limit, skip)
 
 
+def _check_tests(logic: str, test_cases: list) -> None:
+    """Refuse a rule whose test cases fail (when the engine can run its logic)."""
+    if not test_cases:
+        return
+    cases = [c.model_dump() if hasattr(c, "model_dump") else c for c in test_cases]
+    problem = rule_tests.failures(rule_tests.run(logic, cases))
+    if problem:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=f"Not saved: {problem}")
+
+
+@router.post("/rules/test", response_model=RuleTestRun)
+async def test_logic(body: RuleTestRequest, current_user: User = Depends(get_current_active_user)):
+    """Run test cases against logic, before saving it: what the core engine would match."""
+    _check_logic(body.logic)
+    return rule_tests.run(body.logic, [c.model_dump() for c in body.test_cases])
+
+
 @router.post(
     "/rules", response_model=DetectionRule, status_code=status.HTTP_201_CREATED
 )
@@ -93,6 +114,7 @@ async def create_rule(
     and the engine can run its logic (see `engine` in the response), the core engine runs it.
     """
     _check_logic(rule.logic)
+    _check_tests(rule.logic, rule.test_cases)
     detection_service = DetectionService()
     rule_id = await detection_service.create_rule(rule, current_user.id)
 
@@ -141,6 +163,10 @@ async def update_rule(
     """
     _check_logic(rule_update.logic)
     detection_service = DetectionService()
+    if rule_update.logic is not None or rule_update.test_cases is not None:
+        existing = await detection_service.get_rule_by_id(rule_id) or {}
+        _check_tests(rule_update.logic if rule_update.logic is not None else existing.get("logic", ""),
+                     rule_update.test_cases if rule_update.test_cases is not None else existing.get("test_cases") or [])
     updated_rule = await detection_service.update_rule(
         rule_id, rule_update, current_user.id
     )
@@ -177,6 +203,9 @@ async def update_rule_status(
             detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}",
         )
 
+    if new_status == "enabled":
+        existing = await detection_service.get_rule_by_id(rule_id) or {}
+        _check_tests(existing.get("logic", ""), existing.get("test_cases") or [])
     result = await detection_service.update_rule_status(
         rule_id, new_status, current_user.id
     )
@@ -223,7 +252,7 @@ async def add_tag_to_rule(
     """
     detection_service = DetectionService()
 
-    result = await detection_service.add_tag_to_rule(rule_id, tag)
+    result = await detection_service.add_tag_to_rule(rule_id, tag, current_user.id)
     if not result:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -250,7 +279,7 @@ async def remove_tag_from_rule(
     """
     detection_service = DetectionService()
 
-    result = await detection_service.remove_tag_from_rule(rule_id, tag)
+    result = await detection_service.remove_tag_from_rule(rule_id, tag, current_user.id)
     if not result:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -307,3 +336,44 @@ async def search_rules(
     """
     detection_service = DetectionService()
     return await detection_service.search_rules(query, limit, skip)
+
+
+@router.post("/rules/{rule_id}/test", response_model=RuleTestRun)
+async def test_rule(rule_id: str = Path(...), current_user: User = Depends(get_current_active_user)):
+    """Run a saved rule's test cases."""
+    rule = await DetectionService().get_rule_by_id(rule_id)
+    if not rule:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Detection rule with ID {rule_id} not found")
+    return rule_tests.run(rule.get("logic", ""), rule.get("test_cases") or [])
+
+
+@router.get("/rules/{rule_id}/versions", response_model=List[RuleVersion])
+async def rule_history(rule_id: str = Path(...), current_user: User = Depends(get_current_active_user)):
+    """Every version of a rule, newest first: what it was, who changed it, and when."""
+    if not await DetectionService().get_rule_by_id(rule_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Detection rule with ID {rule_id} not found")
+    return await rule_versions.history(rule_id)
+
+
+@router.post("/rules/{rule_id}/versions/{version}/restore", response_model=DetectionRule)
+async def restore_rule_version(
+    background_tasks: BackgroundTasks,
+    rule_id: str = Path(...),
+    version: int = Path(..., ge=1),
+    current_user: User = Depends(require_admin),
+):
+    """
+    Make a rule what it was at an earlier version (administrators). This makes a new
+    version: history is never rewritten. Its test cases must still pass.
+    """
+    found = await rule_versions.get(rule_id, version)
+    if not found:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Version {version} of this rule not found")
+    snapshot = {k: v for k, v in found["rule"].items() if k in rule_versions.FIELDS}
+    snapshot["test_cases"] = snapshot.get("test_cases") or []
+    _check_tests(snapshot.get("logic", ""), snapshot["test_cases"])
+    restored = await DetectionService().update_rule(rule_id, DetectionRuleUpdate(**snapshot), current_user.id, change=f"restored from version {version}")
+    if not restored:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Detection rule with ID {rule_id} not found")
+    background_tasks.add_task(sync_rules)
+    return restored

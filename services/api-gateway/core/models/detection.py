@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from bson import ObjectId
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, computed_field
@@ -8,6 +8,46 @@ from core.services.rule_compiler import engine_status
 
 from utils.time import utcnow
 from core.models.common import IdString, PyObjectId
+
+
+class RuleTestCase(BaseModel):
+    """An example event the rule must match, or must not."""
+
+    name: str = Field(min_length=1, max_length=200)
+    # As sent to POST /events/: event_type, source, and the rest (raw_data, or fields given directly).
+    event: Dict[str, Any]
+    expect: Literal["match", "no_match"] = "match"
+
+
+class RuleTestResult(BaseModel):
+    name: Optional[str] = None
+    expect: str
+    matched: bool
+    passed: bool
+
+
+class RuleTestRun(BaseModel):
+    # False when the engine cannot run the logic: then nothing was tested, and `reason` says why.
+    ran: bool
+    reason: Optional[str] = None
+    passed: bool
+    results: List[RuleTestResult] = []
+
+
+class RuleTestRequest(BaseModel):
+    """Test logic before saving it."""
+
+    logic: str = Field(min_length=1, max_length=5000)
+    test_cases: List[RuleTestCase] = Field(default=[], max_length=50)
+
+
+class RuleVersion(BaseModel):
+    version: int
+    # created, updated, status, tags, restored from N
+    change: str
+    changed_by: Optional[str] = None
+    at: datetime
+    rule: Dict[str, Any]
 
 
 class DetectionRuleBase(BaseModel):
@@ -19,6 +59,8 @@ class DetectionRuleBase(BaseModel):
     status: str = "enabled"  # enabled, disabled, testing
     tags: List[str] = []
     logic: str  # The actual rule logic/query
+    # Example events the rule must match, or must not; checked when the rule is saved.
+    test_cases: List[RuleTestCase] = []
 
 
 class DetectionRuleCreate(DetectionRuleBase):
@@ -35,6 +77,7 @@ class DetectionRuleUpdate(BaseModel):
     tags: Optional[List[str]] = None
     logic: Optional[str] = None
     notes: Optional[str] = None
+    test_cases: Optional[List[RuleTestCase]] = None
 
 
 class DetectionRuleInDB(DetectionRuleBase):
@@ -99,6 +142,8 @@ class DetectionRule(DetectionRuleBase):
     notes: Optional[str] = None
     performance_metrics: Dict[str, Any] = {}
     metadata: Dict[str, Any] = {}
+    # Changes so far (rule_versions); 0 for a rule from before versions.
+    version: int = 0
 
     model_config = ConfigDict(
         populate_by_name=True,

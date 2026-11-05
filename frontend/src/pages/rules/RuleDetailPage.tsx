@@ -11,6 +11,7 @@ import { ErrorState, SkeletonRows } from "@/components/ui/States"
 import { formatDateTime, humanize } from "@/lib/format"
 
 import { EngineBadge } from "./EngineBadge"
+import { RuleHistory, RuleTests } from "./RuleTesting"
 import { RuleStatusSelect } from "./RuleStatusSelect"
 
 export function RuleDetailPage() {
@@ -57,6 +58,7 @@ export function RuleDetailPage() {
                 : `The core engine does not run this rule: ${data.engine.reason}`}
             </p>
           </Card>
+          <RuleTests rule={data} />
           {Object.keys(metrics).length > 0 && (
             <Card title="Performance">
               <JsonBlock value={metrics} label="Performance metrics" />
@@ -81,9 +83,13 @@ export function RuleDetailPage() {
                 ) : null,
               ],
               ["Notes", data.notes],
+              ["Version", String(data.version ?? 0)],
             ]}
           />
         </Card>
+        <div className="xl:col-start-3">
+          <RuleHistory rule={data} />
+        </div>
       </div>
     </>
   )

@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 from bson import ObjectId
 
 from core.database.repositories.detection_repository import DetectionRepository
-from core.services import core_engine_client, detection_pipeline, rule_sync
+from core.services import core_engine_client, detection_pipeline, rule_sync, rule_versions
 from core.models.detection import (
     DetectionRule,
     DetectionRuleCreate,
@@ -45,6 +45,7 @@ class DetectionService:
                     return str(existing_rule["_id"])
 
             rule_id = await self.detection_repo.create_rule(rule_data, user_id)
+            await rule_versions.record(rule_id, user_id, "created")
             logger.info(f"Created detection rule with ID: {rule_id}")
 
             return rule_id
@@ -57,6 +58,7 @@ class DetectionService:
         rule_id: str,
         rule_data: DetectionRuleUpdate,
         user_id: Optional[str] = None,
+        change: str = "updated",
     ) -> Optional[Dict[str, Any]]:
         """Update an existing detection rule."""
         try:
@@ -65,8 +67,8 @@ class DetectionService:
             )
             if updated_rule:
                 logger.info(f"Updated detection rule with ID: {rule_id}")
-
-                return updated_rule
+                await rule_versions.record(rule_id, user_id, change)
+                return await self.detection_repo.find_by_id(rule_id)
             logger.warning(f"Detection rule with ID {rule_id} not found for update")
             return None
         except Exception as e:
@@ -86,6 +88,7 @@ class DetectionService:
             result = await self.detection_repo.update_status(rule_id, status, user_id)
             if result:
                 logger.info(f"Updated detection rule {rule_id} status to {status}")
+                await rule_versions.record(rule_id, user_id, f"status: {status}")
 
                 return True
             logger.warning(f"Failed to update detection rule {rule_id} status")
@@ -130,13 +133,19 @@ class DetectionService:
         """Search detection rules by keyword."""
         return await self.detection_repo.search_rules(query, limit, skip)
 
-    async def add_tag_to_rule(self, rule_id: str, tag: str) -> bool:
+    async def add_tag_to_rule(self, rule_id: str, tag: str, user_id: Optional[str] = None) -> bool:
         """Add a tag to a detection rule."""
-        return await self.detection_repo.add_tag(rule_id, tag)
+        added = await self.detection_repo.add_tag(rule_id, tag)
+        if added:
+            await rule_versions.record(rule_id, user_id, f"tag added: {tag}")
+        return added
 
-    async def remove_tag_from_rule(self, rule_id: str, tag: str) -> bool:
+    async def remove_tag_from_rule(self, rule_id: str, tag: str, user_id: Optional[str] = None) -> bool:
         """Remove a tag from a detection rule."""
-        return await self.detection_repo.remove_tag(rule_id, tag)
+        removed = await self.detection_repo.remove_tag(rule_id, tag)
+        if removed:
+            await rule_versions.record(rule_id, user_id, f"tag removed: {tag}")
+        return removed
 
     async def update_rule_performance_metrics(
         self, rule_id: str, metrics: Dict[str, Any]
