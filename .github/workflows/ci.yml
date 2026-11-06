@@ -28,6 +28,7 @@ jobs:
       engine: ${{ steps.diff.outputs.engine }}
       frontend: ${{ steps.diff.outputs.frontend }}
       console: ${{ steps.diff.outputs.console }}
+      backup: ${{ steps.diff.outputs.backup }}
       scanner: ${{ steps.diff.outputs.scanner }}
       processor: ${{ steps.diff.outputs.processor }}
       mcp: ${{ steps.diff.outputs.mcp }}
@@ -54,6 +55,7 @@ jobs:
           out engine '^services/core-engine/'
           out frontend '^frontend/'
           out console '^platform-console/'
+          out backup '^ops/backup/'
           out scanner '^scanner/'
           out processor '^services/data-processor/'
           out mcp '^services/mcp-server/'
@@ -194,6 +196,17 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  backup:
+    name: Backup job checks
+    needs: changes
+    if: needs.changes.outputs.backup == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker run --rm -v "$PWD/ops/backup:/mnt:ro" koalaman/shellcheck:v0.10.0 -S warning /mnt/backup.sh
+      - run: docker build -t utdrs-backup ops/backup
+      - run: docker run --rm --entrypoint rclone utdrs-backup version
 
   api-contract:
     name: API contract (gateway schema and dashboard types)

@@ -214,20 +214,27 @@ services:
         condition: service_healthy
 
   # Backups: a checked, compressed copy of the gateway's and the engine's databases every
-  # BACKUP_INTERVAL_HOURS, with its restore tested, kept BACKUP_KEEP_DAYS, in BACKUP_PATH.
+  # BACKUP_INTERVAL_HOURS, with its restore tested, kept BACKUP_KEEP_DAYS, in BACKUP_PATH,
+  # and copied off-site when BACKUP_S3_BUCKET is set.
   # docker compose --profile backup up -d   (see ops/backup/README.md)
   backup:
-    image: mongo:7
+    build: ./ops/backup
     profiles: ["backup"]
     restart: unless-stopped
-    entrypoint: ["bash", "/backup.sh"]
     environment:
       MONGODB_URI: mongodb://mongodb:27017
       BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
       BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
+      BACKUP_S3_PROVIDER: ${BACKUP_S3_PROVIDER:-Other}
+      BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+      BACKUP_S3_REGION: ${BACKUP_S3_REGION:-}
+      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
+      BACKUP_S3_PREFIX: ${BACKUP_S3_PREFIX:-utdrs/}
+      BACKUP_S3_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY_ID:-}
+      BACKUP_S3_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_ACCESS_KEY:-}
+      BACKUP_REMOTE_KEEP_DAYS: ${BACKUP_REMOTE_KEEP_DAYS:-30}
     volumes:
-      - ./ops/backup/backup.sh:/backup.sh:ro
       - ${BACKUP_PATH:-./backups}:/backups
     depends_on:
       mongodb:
