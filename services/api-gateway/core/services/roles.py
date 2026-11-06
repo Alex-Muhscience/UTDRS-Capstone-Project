@@ -131,6 +131,9 @@ async def delete(role_id: str) -> None:
     people = (await _counts()).get(role_id, 0)
     if people:
         raise RoleError(f"{people} {'person has' if people == 1 else 'people have'} this role: give them another first")
+    groups = await scoped(get_database(), "scim_groups").count_documents({"custom_role_id": role_id})
+    if groups:
+        raise RoleError(f"{groups} SCIM {'group gives' if groups == 1 else 'groups give'} this role: change {'it' if groups == 1 else 'them'} first")
     await _roles().delete_one({"_id": role["_id"]})
 
 

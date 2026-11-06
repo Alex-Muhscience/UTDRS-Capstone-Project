@@ -198,6 +198,23 @@ export function useScimStatus() {
   return useQuery({ queryKey: ["scim"], queryFn: async () => (await unwrap(api.GET("/api/v1/tenants/current/scim"))) as ScimStatus })
 }
 
+/** The groups the identity provider manages, and the role each gives. */
+export function useScimGroups(enabled = true) {
+  return useQuery({ queryKey: ["scim", "groups"], queryFn: () => unwrap(api.GET("/api/v1/tenants/current/scim/groups")), enabled })
+}
+
+export function useSetScimGroupRole() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ groupId, ...body }: { groupId: string; role: "admin" | "analyst" | "viewer" | "custom" | null; custom_role_id?: string | null }) =>
+      unwrap(api.PUT("/api/v1/tenants/current/scim/groups/{group_id}/role", { params: { path: { group_id: groupId } }, body })),
+    onSuccess: (groups) => {
+      queryClient.setQueryData(["scim", "groups"], groups)
+      void queryClient.invalidateQueries({ queryKey: ["users"] })
+    },
+  })
+}
+
 /** Make the organisation's SCIM token (replacing any), shown once. */
 export function useNewScimToken() {
   const queryClient = useQueryClient()

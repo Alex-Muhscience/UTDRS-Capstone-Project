@@ -120,6 +120,34 @@ describe("provisioning (SCIM)", () => {
   })
 })
 
+describe("SCIM groups", () => {
+  it("lets administrators choose the role each group gives", async () => {
+    const groups = [
+      { id: "g1", display_name: "UTDRS leads", members: 2, role: null, custom_role_id: null, custom_role_name: null, updated_at: "2026-11-05T10:00:00Z" },
+      { id: "g2", display_name: "Triage team", members: 5, role: "custom", custom_role_id: "r1", custom_role_name: "Triage", updated_at: "2026-11-05T10:00:00Z" },
+    ]
+    const { calls } = mockGateway({
+      ...shellRoutes(admin),
+      "GET /api/v1/tenants/current/sso": { configured: false, domains: [], enabled: false, enforce: false, auto_provision: false, encryption_available: true },
+      "GET /api/v1/tenants/current/scim": { enabled: true, created_at: "2026-11-05T10:00:00Z", last_used_at: null },
+      "GET /api/v1/tenants/current/scim/groups": groups,
+      "PUT /api/v1/tenants/current/scim/groups/g1/role": [{ ...groups[0], role: "admin" }, groups[1]],
+      "GET /api/v1/roles": [{ id: "r1", name: "Triage", description: "", permissions: ["alerts:read"], people: 5, created_at: null, updated_at: null }],
+      "GET /api/v1/notifications/preferences": { channels: {}, minimum_severity: "high" },
+      "GET /api/v1/auth/mfa": { enabled: false, enabled_at: null, recovery_codes_left: 0, required_by_organisation: false, encryption_available: true },
+      "GET /api/v1/auth/sessions": [],
+      "GET /api/v1/auth/passkeys": [],
+    })
+    const { user: person } = renderApp("/profile")
+    const list = await screen.findByRole("list", { name: "SCIM groups" })
+    const triage = within(list).getByRole("combobox", { name: "Role from Triage team" })
+    await waitFor(() => expect(triage).toHaveValue("custom:r1"))
+    await person.selectOptions(within(list).getByRole("combobox", { name: "Role from UTDRS leads" }), "Administrator")
+    await waitFor(() => expect(calls.some((call) => call.method === "PUT")).toBe(true))
+    expect(JSON.parse(calls.find((call) => call.method === "PUT")?.body ?? "{}")).toEqual({ role: "admin", custom_role_id: null })
+  })
+})
+
 describe("SAML", () => {
   it("lets administrators set up a SAML identity provider", async () => {
     const empty = {

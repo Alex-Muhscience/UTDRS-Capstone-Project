@@ -1,11 +1,15 @@
 """Your organisation."""
+from datetime import datetime
+from typing import List, Literal, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel
 
 from core.models.sso import SsoSettings, SsoUpdate
 from core.models.tenant import Tenant, TenantSecurity, TenantUpdate
 from core.models.user import User
 from core.database.repositories.user_repository import UserRepository
-from core.services import audit, mfa, msp, scim, sso, tenants
+from core.services import audit, mfa, msp, scim, scim_groups, sso, tenants
 from core.tenancy import current_tenant
 from utils.security import get_current_active_user, require_admin
 
@@ -129,3 +133,41 @@ async def revoke_scim_token(request: Request, admin: User = Depends(require_admi
     if not await scim.revoke(current_tenant()):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="There is no SCIM token")
     await audit.record("tenant.scim_token_revoked", request, target={"type": "tenant", "id": current_tenant()})
+
+
+class ScimGroup(BaseModel):
+    id: str
+    display_name: str
+    # How many people the identity provider has put in it.
+    members: int
+    # What it gives its members in UTDRS: admin, analyst, viewer, custom (with custom_role_id), or nothing.
+    role: Optional[str] = None
+    custom_role_id: Optional[str] = None
+    custom_role_name: Optional[str] = None
+    updated_at: Optional[datetime] = None
+
+
+class ScimGroupRole(BaseModel):
+    role: Optional[Literal["admin", "analyst", "viewer", "custom"]] = None
+    custom_role_id: Optional[str] = None
+
+
+@router.get("/current/scim/groups", response_model=List[ScimGroup])
+async def list_scim_groups(admin: User = Depends(require_admin)):
+    """The groups your identity provider manages through SCIM, and the role each gives (administrators only)."""
+    return await scim_groups.summaries()
+
+
+@router.put("/current/scim/groups/{group_id}/role", response_model=List[ScimGroup])
+async def set_scim_group_role(group_id: str, body: ScimGroupRole, request: Request, admin: User = Depends(require_admin)):
+    """
+    What a SCIM group gives its members (administrators only): a role, or nothing. Members' roles
+    change at once; the organisation's last active administrator is never demoted.
+    """
+    try:
+        await scim_groups.set_role(group_id, body.role, body.custom_role_id, request)
+    except LookupError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e).strip("'"))
+    except scim_groups.GroupError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
+    return await scim_groups.summaries()
