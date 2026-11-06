@@ -376,6 +376,8 @@ Each action is recorded in the platform's audit log (`GET /api/v1/platform/audit
 - **Accountable.** What an MSP's people do in a client is in the client's audit log, under their name with the MSP's (`actor.organisation`, `actor.msp_id`). Clients being added or released are in both logs.
 - **The client decides.** A client sees which MSP manages it (`managed_by_name` on `/tenants/current`), and its own administrators can end that access at once (`DELETE /api/v1/tenants/current/msp`); only an operator can restore it. An MSP cannot itself be managed, and stops being one only once it manages no one.
 
+- **Which clients each person reaches.** An MSP's administrators choose (`PUT /api/v1/msp/staff-access`): its staff work in every client (`all`, the default), or only in the clients assigned to each (`assigned`; `PUT /api/v1/msp/staff/{user}/clients`, listed by `GET /api/v1/msp/staff`). Someone not assigned to a client cannot switch into it (403, `X-Organisation-Refused`), and does not see it in the list or in the alerts across clients. The MSP's administrators always reach every client. Both changes are in the MSP's audit log.
+
 MSP staff are not members of their clients: alerts and cases can be assigned only to a client's own people, and client notifications go to them.
 
 **Start-up** tasks (the default organisation, moving old data, indexes, the first administrator) run in every gateway process; a lock in MongoDB (`platform_locks`) makes the processes take turns, so they cannot race.

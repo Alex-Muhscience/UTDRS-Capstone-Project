@@ -10,6 +10,10 @@ read-only people can only look. Everything they do in a client is in the client'
 log, under their name and the MSP's.
 
 A client's administrators see which MSP manages them, and can end that at any time.
+
+An MSP decides how far its staff reach (`staff_access` on the MSP): "all" (the default), every
+client; or "assigned", only the clients assigned to each person (`msp_clients` on their
+account). The MSP's administrators always reach every client.
 """
 from typing import Any, Dict, List, Optional
 
@@ -17,6 +21,7 @@ from bson import ObjectId
 
 from core.database.connection import get_database
 from core.services import audit, tenants
+from core.tenancy import scoped, tenant_context
 from utils.logger import get_logger
 from utils.time import utcnow
 
@@ -28,6 +33,7 @@ ROLE_IN_CLIENTS = {"admin": "admin", "analyst": "analyst", "viewer": "viewer", "
 # Paths that are about the person or the MSP itself, never switched to a client.
 NOT_SWITCHED = ("/auth/", "/notifications/preferences", "/platform", "/msp", "/api-keys", "/inbox")
 OPEN_STATUSES = ["open", "in_progress"]
+STAFF_ACCESS = ("all", "assigned")
 SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
 
 
@@ -51,17 +57,73 @@ async def client_ids(msp_id: str) -> List[str]:
     return [str(t["_id"]) async for t in get_database()["tenants"].find({"managed_by": msp_id}, {"_id": 1})]
 
 
-async def overview(msp_id: str) -> List[Dict[str, Any]]:
-    """Each client, with what an MSP needs to see at a glance (as the platform console shows)."""
+def staff_access(home: Optional[Dict[str, Any]]) -> str:
+    return (home or {}).get("msp_staff_access", "all")
+
+
+def reaches(home: Optional[Dict[str, Any]], person: Any, client_id: str) -> bool:
+    """Whether this person of the MSP may work in this client (which the MSP manages)."""
+    role = person.get("role") if isinstance(person, dict) else person.role
+    if role == "admin" or staff_access(home) == "all":
+        return True
+    assigned = (person.get("msp_clients") if isinstance(person, dict) else person.msp_clients) or []
+    return client_id in assigned
+
+
+async def reachable_ids(msp_id: str, person: Any) -> List[str]:
+    """The clients this person of the MSP may work in."""
+    home = await tenants.get(msp_id)
+    return [i for i in await client_ids(msp_id) if reaches(home, person, i)]
+
+
+async def overview(msp_id: str, person: Any) -> List[Dict[str, Any]]:
+    """Each client this person may work in, with what an MSP needs to see at a glance."""
     from core.services import platform
 
-    ids = await client_ids(msp_id)
+    ids = await reachable_ids(msp_id, person)
     return await platform.summaries(ids) if ids else []
 
 
-async def open_alerts(msp_id: str, limit: int = 50) -> List[Dict[str, Any]]:
-    """Open alerts across every client, most severe and newest first, each with its client."""
-    ids = await client_ids(msp_id)
+async def set_staff_access(msp_id: str, value: str, request) -> str:
+    if value not in STAFF_ACCESS:
+        raise MspError("Choose all (every client) or assigned (only each person's clients)")
+    await get_database()["tenants"].update_one({"_id": ObjectId(msp_id)}, {"$set": {"msp_staff_access": value, "updated_at": utcnow()}})
+    await audit.record("msp.staff_access_changed", request, changes={"staff_access": value}, tenant_id=msp_id)
+    return value
+
+
+async def staff(msp_id: str) -> List[Dict[str, Any]]:
+    """The MSP's people, with the clients assigned to each."""
+    with tenant_context(msp_id):
+        people = await scoped(get_database(), "users").find({}, {"username": 1, "email": 1, "role": 1, "active": 1, "msp_clients": 1}).sort("username", 1).to_list(1000)
+    return [{"id": str(p["_id"]), "username": p["username"], "email": p.get("email"), "role": p.get("role"), "active": p.get("active", True),
+             "clients": p.get("msp_clients") or []} for p in people]
+
+
+async def assign(msp_id: str, user_id: str, clients: List[str], request) -> Dict[str, Any]:
+    """Set the clients a person of the MSP may work in (when the MSP's staff access is "assigned")."""
+    managed = set(await client_ids(msp_id))
+    unknown = [c for c in clients if c not in managed]
+    if unknown:
+        raise MspError("Only organisations your service provider manages can be assigned")
+    if not ObjectId.is_valid(user_id):
+        raise LookupError("Person not found")
+    with tenant_context(msp_id):
+        users = scoped(get_database(), "users")
+        person = await users.find_one({"_id": ObjectId(user_id)})
+        if not person:
+            raise LookupError("Person not found")
+        chosen = sorted(set(clients))
+        await users.update_one({"_id": person["_id"]}, {"$set": {"msp_clients": chosen}})
+    await audit.record("msp.clients_assigned", request, target={"type": "user", "id": user_id, "name": person["username"]},
+                       changes={"clients": [person.get("msp_clients") or [], chosen]}, tenant_id=msp_id)
+    return {"id": user_id, "username": person["username"], "email": person.get("email"), "role": person.get("role"),
+            "active": person.get("active", True), "clients": chosen}
+
+
+async def open_alerts(msp_id: str, person: Any, limit: int = 50) -> List[Dict[str, Any]]:
+    """Open alerts across every client this person may work in, most severe and newest first, each with its client."""
+    ids = await reachable_ids(msp_id, person)
     if not ids:
         return []
     names = {str(t["_id"]): t["name"] async for t in get_database()["tenants"].find({"_id": {"$in": [ObjectId(i) for i in ids]}}, {"name": 1})}

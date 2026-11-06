@@ -86,3 +86,34 @@ describe("service providers", () => {
     await waitFor(() => expect(screen.queryByText("SafeHands IT")).not.toBeInTheDocument())
   })
 })
+
+describe("service providers' team access", () => {
+  it("lets administrators limit staff to the clients assigned to them", async () => {
+    const staff = [
+      { id: "s1", username: "ana", email: "ana@msp.example", role: "analyst", active: true, clients: [] },
+      { id: "s2", username: "boss", email: "boss@msp.example", role: "admin", active: true, clients: [] },
+    ]
+    const { calls } = mockGateway({
+      ...shellRoutes(admin),
+      "GET /api/v1/msp": { ...overview, staff_access: "assigned" },
+      "GET /api/v1/msp/alerts": [],
+      "GET /api/v1/msp/staff": staff,
+      "PUT /api/v1/msp/staff/s1/clients": { ...staff[0], clients: [globex.id] },
+      "PUT /api/v1/msp/staff-access": { staff_access: "all" },
+    })
+    const { user: person } = renderApp("/clients")
+    const list = await screen.findByRole("list", { name: "Staff and their clients" })
+    expect(within(list).queryByText("boss")).not.toBeInTheDocument() // administrators always reach every client
+    expect(within(list).getByText("No clients yet")).toBeInTheDocument()
+    await person.click(within(list).getByRole("button", { name: "Assign clients" }))
+    const dialog = screen.getByRole("dialog")
+    await person.click(within(dialog).getByRole("checkbox", { name: "Globex" }))
+    await person.click(within(dialog).getByRole("button", { name: "Save" }))
+    await waitFor(() => expect(calls.some((call) => call.path === "/api/v1/msp/staff/s1/clients")).toBe(true))
+    expect(JSON.parse(calls.find((call) => call.path === "/api/v1/msp/staff/s1/clients")?.body ?? "{}")).toEqual({ clients: [globex.id] })
+
+    await person.click(screen.getByRole("radio", { name: /Every client/ }))
+    await waitFor(() => expect(calls.some((call) => call.path === "/api/v1/msp/staff-access")).toBe(true))
+    expect(JSON.parse(calls.find((call) => call.path === "/api/v1/msp/staff-access")?.body ?? "{}")).toEqual({ staff_access: "all" })
+  })
+})

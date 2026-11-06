@@ -17,6 +17,8 @@ import { formatDateTime, formatNumber, formatRelative, humanize } from "@/lib/fo
 import { NotFoundPage } from "@/pages/errors/NotFoundPage"
 import { OneTimePassword } from "@/components/OneTimePassword"
 
+import { TeamAccessCard } from "./TeamAccessCard"
+
 function NewClientDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (username: string, password: string) => void }) {
   const create = useCreateClient()
   return (
@@ -116,7 +118,7 @@ export function ClientsPage() {
   if (overview.isPending) return <SkeletonRows rows={4} columns={5} />
   if (overview.isError) return <ErrorState error={overview.error} onRetry={() => void overview.refetch()} />
   if (!overview.data.msp) return <NotFoundPage />
-  const { clients, organisation, role_in_clients } = overview.data
+  const { clients, organisation, role_in_clients, staff_access } = overview.data
 
   return (
     <div className="space-y-6">
@@ -170,6 +172,7 @@ export function ClientsPage() {
         )}
       </Card>
       <OpenAlerts />
+      {isAdmin && <TeamAccessCard staffAccess={staff_access ?? "all"} clients={clients} />}
       <NewClientDialog open={adding} onClose={() => setAdding(false)} onCreated={(username, password) => setCreated({ username, password })} />
       <OneTimePassword username={created?.username ?? ""} password={created?.password ?? null} onClose={() => setCreated(null)} />
     </div>
