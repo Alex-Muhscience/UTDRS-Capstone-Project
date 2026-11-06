@@ -180,3 +180,38 @@ services:
   #       value: https://utdrs-api-gateway-1pjf.onrender.com
   #     - key: MCP_ALLOWED_HOSTS
   #       value: utdrs-mcp-server.onrender.com
+
+  # Daily backups of both databases to S3-compatible storage (Cloudflare R2, Amazon S3,
+  # Backblaze B2), each checked, restore-tested and encrypted (ops/backup/README.md).
+  # Uncomment to run it: a Render cron job, billed by the minute it runs (a minute or two a
+  # day). Atlas M0 has no backups of its own, so this is the only copy you would have.
+  # - type: cron
+  #   name: utdrs-backup
+  #   runtime: docker
+  #   plan: starter
+  #   region: frankfurt
+  #   schedule: "15 2 * * *"   # 02:15 UTC every day
+  #   dockerContext: ./ops/backup
+  #   dockerfilePath: ./ops/backup/Dockerfile
+  #   dockerCommand: bash /backup.sh once
+  #   buildFilter:
+  #     paths: ["ops/backup/**"]
+  #   envVars:
+  #     - key: MONGODB_URI          # needs readWriteAnyDatabase, for the restore test's scratch databases
+  #       sync: false
+  #     - key: BACKUP_PASSPHRASE    # keep a copy elsewhere: without it, no backup can be read
+  #       sync: false
+  #     - key: BACKUP_S3_PROVIDER   # Cloudflare, AWS, or Other
+  #       sync: false
+  #     - key: BACKUP_S3_ENDPOINT   # R2: https://<account id>.r2.cloudflarestorage.com
+  #       sync: false
+  #     - key: BACKUP_S3_REGION     # R2: auto
+  #       sync: false
+  #     - key: BACKUP_S3_BUCKET
+  #       sync: false
+  #     - key: BACKUP_S3_ACCESS_KEY_ID
+  #       sync: false
+  #     - key: BACKUP_S3_SECRET_ACCESS_KEY
+  #       sync: false
+  #     - key: BACKUP_REMOTE_KEEP_DAYS
+  #       value: "30"

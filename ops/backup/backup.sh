@@ -6,6 +6,11 @@
 #   backup.sh once                  one backup (checked, and its restore tested), then exit
 #   backup.sh restore-test [dir]    restore the newest backup (or `dir`) into scratch databases, count, drop them
 #   backup.sh restore dir           restore `dir` over the live databases (asks first)
+#   backup.sh remote-list           the backups kept off-site
+#   backup.sh fetch name            copy one off-site backup here (then restore-test or restore it)
+#
+# With BACKUP_S3_BUCKET set, each backup that passed its checks is also copied off-site,
+# checked there, and off-site copies older than BACKUP_REMOTE_KEEP_DAYS are deleted.
 #
 # Each backup is a folder, utdrs-<UTC time>, holding one compressed archive per database
 # (encrypted when BACKUP_PASSPHRASE is set) and SHA256SUMS.
@@ -24,6 +29,27 @@ BACKUP_PASSPHRASE="${BACKUP_PASSPHRASE:-}"
 BACKUP_RESTORE_TEST_EVERY="${BACKUP_RESTORE_TEST_EVERY:-1}"
 # The database whose `heartbeats` the gateway watches: it emails operators when backups stop.
 HEARTBEAT_DB="${HEARTBEAT_DB:-utdrs}"
+
+# Off-site copies, to S3-compatible storage (unset: none). The provider is one rclone knows:
+# AWS, Cloudflare (R2), Other (Backblaze B2, MinIO, Wasabi...). The keys need only to list,
+# read, write and delete in the bucket.
+BACKUP_S3_BUCKET="${BACKUP_S3_BUCKET:-}"
+BACKUP_S3_PREFIX="${BACKUP_S3_PREFIX:-utdrs/}"
+BACKUP_REMOTE_KEEP_DAYS="${BACKUP_REMOTE_KEEP_DAYS:-30}"
+# Off-site copies must be encrypted, unless this says otherwise.
+BACKUP_ALLOW_UNENCRYPTED_UPLOAD="${BACKUP_ALLOW_UNENCRYPTED_UPLOAD:-false}"
+if [ -n "$BACKUP_S3_BUCKET" ]; then
+  export RCLONE_CONFIG=/dev/null  # configured entirely from the environment
+  export RCLONE_CONFIG_OFFSITE_TYPE=s3
+  export RCLONE_CONFIG_OFFSITE_PROVIDER="${BACKUP_S3_PROVIDER:-Other}"
+  export RCLONE_CONFIG_OFFSITE_ACCESS_KEY_ID="${BACKUP_S3_ACCESS_KEY_ID:?Set BACKUP_S3_ACCESS_KEY_ID for off-site copies}"
+  export RCLONE_CONFIG_OFFSITE_SECRET_ACCESS_KEY="${BACKUP_S3_SECRET_ACCESS_KEY:?Set BACKUP_S3_SECRET_ACCESS_KEY for off-site copies}"
+  export RCLONE_CONFIG_OFFSITE_ENDPOINT="${BACKUP_S3_ENDPOINT:-}"
+  export RCLONE_CONFIG_OFFSITE_REGION="${BACKUP_S3_REGION:-}"
+  export RCLONE_CONFIG_OFFSITE_NO_CHECK_BUCKET=true
+  export RCLONE_CONFIG_OFFSITE_ENV_AUTH=false
+fi
+REMOTE="offsite:${BACKUP_S3_BUCKET}/${BACKUP_S3_PREFIX}"
 
 log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >&2; }
 
@@ -78,6 +104,27 @@ backup_once() {
   echo "$folder"
 }
 
+# Copy a backup off-site and check the copy; prunes old off-site copies. Prints where.
+upload() {
+  local folder="$1" name cutoff old
+  name="$(basename "$folder")"
+  if [ -z "$BACKUP_PASSPHRASE" ] && [ "$BACKUP_ALLOW_UNENCRYPTED_UPLOAD" != true ]; then
+    log "Refusing to copy an unencrypted backup off-site: set BACKUP_PASSPHRASE (or BACKUP_ALLOW_UNENCRYPTED_UPLOAD=true)"
+    return 1
+  fi
+  log "Copying $name off-site"
+  rclone copy --quiet "$folder" "$REMOTE$name" || { log "Copying $name off-site failed"; return 1; }
+  rclone check --one-way --quiet "$folder" "$REMOTE$name" || { log "The off-site copy of $name does not match"; return 1; }
+  # Off-site copies older than BACKUP_REMOTE_KEEP_DAYS go (by the time in their names).
+  cutoff="$(date -u -d "-$BACKUP_REMOTE_KEEP_DAYS days" +%Y%m%dT%H%M%SZ)"
+  for old in $(rclone lsf --dirs-only "$REMOTE" 2>/dev/null | sed 's#/$##' | grep -E '^utdrs-[0-9]{8}T[0-9]{6}Z$' || true); do
+    if [[ "${old#utdrs-}" < "$cutoff" ]]; then
+      rclone purge --quiet "$REMOTE$old" && log "Removed old off-site backup $old" || log "Could not remove old off-site backup $old"
+    fi
+  done
+  echo "${BACKUP_S3_BUCKET}/${BACKUP_S3_PREFIX}$name"
+}
+
 # Restore a backup into scratch databases, count what came back, drop them; prints the count.
 restore_test() {
   local folder="${1:-$(newest)}" db file collections=0 documents=0 counts
@@ -107,6 +154,10 @@ case "${1:-loop}" in
       if [ "$BACKUP_RESTORE_TEST_EVERY" -gt 0 ]; then
         report="$(restore_test "$folder")" || { heartbeat error "The restore test of $(basename "$folder") failed"; exit 1; }
         detail="$detail; restore test: $report"
+      fi
+      if [ -n "$BACKUP_S3_BUCKET" ]; then
+        where="$(upload "$folder")" || { heartbeat error "The off-site copy of $(basename "$folder") failed"; exit 1; }
+        detail="$detail; off-site: $where"
       fi
       heartbeat ok "$detail"
     else
@@ -138,11 +189,30 @@ case "${1:-loop}" in
             status=error; detail="The restore test of $(basename "$folder") failed"
           fi
         fi
+        if [ "$status" = ok ] && [ -n "$BACKUP_S3_BUCKET" ]; then
+          if where="$(upload "$folder")"; then
+            detail="$detail; off-site: $where"
+          else
+            status=error; detail="The off-site copy of $(basename "$folder") failed"
+          fi
+        fi
         heartbeat "$status" "$detail"
       else
         log "The backup failed"; cleanup_partial; heartbeat error "The backup failed: see the backup's log"
       fi
       sleep $((BACKUP_INTERVAL_HOURS * 3600))
     done ;;
-  *) echo "Usage: backup.sh [once | restore-test [folder] | restore folder]" >&2; exit 2 ;;
+  remote-list)
+    [ -n "$BACKUP_S3_BUCKET" ] || { log "Set BACKUP_S3_BUCKET (and its keys) to see off-site backups"; exit 2; }
+    rclone lsf --dirs-only "$REMOTE" | sed 's#/$##' | grep -E '^utdrs-' | sort ;;
+  fetch)
+    name="${2:?Name the off-site backup to fetch (backup.sh remote-list)}"
+    [ -n "$BACKUP_S3_BUCKET" ] || { log "Set BACKUP_S3_BUCKET (and its keys) to fetch off-site backups"; exit 2; }
+    [[ "$name" =~ ^utdrs-[0-9]{8}T[0-9]{6}Z$ ]] || { log "Not a backup's name: $name"; exit 2; }
+    mkdir -p "$BACKUP_DIR"
+    rclone copy --quiet "$REMOTE$name" "$BACKUP_DIR/$name"
+    (cd "$BACKUP_DIR/$name" && sha256sum --quiet -c SHA256SUMS) || { log "The fetched backup does not match its checksums"; exit 1; }
+    log "Fetched $name to $BACKUP_DIR/$name: now restore-test or restore it"
+    echo "$BACKUP_DIR/$name" ;;
+  *) echo "Usage: backup.sh [once | restore-test [folder] | restore folder | remote-list | fetch name]" >&2; exit 2 ;;
 esac
