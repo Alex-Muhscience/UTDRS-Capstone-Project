@@ -126,7 +126,8 @@ async def update_user(
     custom_role_id = changes.pop("custom_role_id", None)
     if "role" in changes:
         stored = await _assignable(changes["role"], custom_role_id)
-        await user_repo.collection.update_one({"_id": user["_id"]}, {"$set": {"custom_role_id": stored}})
+        # Set by hand: leaving their SCIM groups no longer changes it (a group with a role still does).
+        await user_repo.collection.update_one({"_id": user["_id"]}, {"$set": {"custom_role_id": stored, "role_source": "manual"}})
     elif custom_role_id:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail='Give the role "custom" with a custom role')
     updated = await user_repo.update_user(user_id, UserUpdate(**changes)) if changes else await find_user_or_404(user_repo, user_id)

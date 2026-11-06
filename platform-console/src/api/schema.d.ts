@@ -3188,17 +3188,41 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * List Groups
-         * @description Groups are not supported; an empty list, so identity providers that ask carry on.
-         */
+        /** List Groups */
         get: operations["list_groups_api_v1_scim_v2_Groups_get"];
         put?: never;
-        post?: never;
+        /** Create Group */
+        post: operations["create_group_api_v1_scim_v2_Groups_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/scim/v2/Groups/{group_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Group */
+        get: operations["get_group_api_v1_scim_v2_Groups__group_id__get"];
+        /** Replace Group */
+        put: operations["replace_group_api_v1_scim_v2_Groups__group_id__put"];
+        post?: never;
+        /**
+         * Delete Group
+         * @description Deleting a group takes away the role it gave its members (they fall back as their other groups say).
+         */
+        delete: operations["delete_group_api_v1_scim_v2_Groups__group_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Patch Group
+         * @description Add, remove or replace members (members, or members[value eq "id"]), and rename (displayName).
+         */
+        patch: operations["patch_group_api_v1_scim_v2_Groups__group_id__patch"];
         trace?: never;
     };
     "/api/v1/chat/events": {
@@ -4077,6 +4101,47 @@ export interface paths {
          * @description Stop SCIM: the token stops working at once (administrators only).
          */
         delete: operations["revoke_scim_token_api_v1_tenants_current_scim_token_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/current/scim/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Scim Groups
+         * @description The groups your identity provider manages through SCIM, and the role each gives (administrators only).
+         */
+        get: operations["list_scim_groups_api_v1_tenants_current_scim_groups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/current/scim/groups/{group_id}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Scim Group Role
+         * @description What a SCIM group gives its members (administrators only): a role, or nothing. Members' roles
+         *     change at once; the organisation's last active administrator is never demoted.
+         */
+        put: operations["set_scim_group_role_api_v1_tenants_current_scim_groups__group_id__role_put"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -6747,6 +6812,30 @@ export interface components {
             changes: string[];
             /** Event Id */
             event_id?: string | null;
+        };
+        /** ScimGroup */
+        ScimGroup: {
+            /** Id */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            /** Members */
+            members: number;
+            /** Role */
+            role?: string | null;
+            /** Custom Role Id */
+            custom_role_id?: string | null;
+            /** Custom Role Name */
+            custom_role_name?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /** ScimGroupRole */
+        ScimGroupRole: {
+            /** Role */
+            role?: ("admin" | "analyst" | "viewer" | "custom") | null;
+            /** Custom Role Id */
+            custom_role_id?: string | null;
         };
         /**
          * SessionInfo
@@ -13234,6 +13323,40 @@ export interface operations {
     };
     list_groups_api_v1_scim_v2_Groups_get: {
         parameters: {
+            query?: {
+                filter?: string | null;
+                startIndex?: number;
+                count?: number;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_group_api_v1_scim_v2_Groups_post: {
+        parameters: {
             query?: never;
             header?: never;
             path?: never;
@@ -13248,6 +13371,132 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_group_api_v1_scim_v2_Groups__group_id__get: {
+        parameters: {
+            query?: {
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_group_api_v1_scim_v2_Groups__group_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_group_api_v1_scim_v2_Groups__group_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_group_api_v1_scim_v2_Groups__group_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -14768,6 +15017,61 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    list_scim_groups_api_v1_tenants_current_scim_groups_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScimGroup"][];
+                };
+            };
+        };
+    };
+    set_scim_group_role_api_v1_tenants_current_scim_groups__group_id__role_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScimGroupRole"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScimGroup"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };

@@ -5,7 +5,8 @@ SCIM 2.0 (RFC 7643, 7644): an organisation's identity provider (Microsoft Entra 
 Each organisation has at most one SCIM token, made by an administrator, shown once and
 kept only as a hash. The identity provider sends it as a bearer token; it names the
 organisation. Accounts it creates are analysts with confirmed addresses, who sign in with
-single sign-on or a passkey; SCIM never changes anyone's role, and never deactivates an
+single sign-on or a passkey; their roles can then follow the groups it manages
+(scim_groups.py), as administrators decide. It never deactivates or demotes an
 organisation's last active administrator. Deactivating someone ends their sessions.
 """
 import hashlib
