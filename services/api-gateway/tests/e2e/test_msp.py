@@ -105,7 +105,7 @@ def test_nobody_reaches_an_organisation_they_do_not_manage(client, provider, mon
     assert client.get(f"{API}/alerts/", headers=as_client(client_admin, org_id(client, msp_admin))).status_code == 403
     assert client.get(f"{API}/msp", headers=stranger).json() == {"msp": False, "organisation_id": stranger_id,
                                                                  "organisation": client.get(f"{API}/tenants/current", headers=stranger).json()["name"],
-                                                                 "role_in_clients": None, "clients": []}
+                                                                 "role_in_clients": None, "staff_access": "all", "clients": []}
     assert client.get(f"{API}/msp/alerts", headers=stranger).status_code == 403
 
 
@@ -165,3 +165,44 @@ def test_operators_set_up_providers(client, monkeypatch, operator):  # noqa: F81
     assert client.patch(f"{PLATFORM}/organisations/{msp_id}", json={"msp": False}, headers=auth).status_code == 409  # it still has a client
     assert client.patch(f"{PLATFORM}/organisations/{other_id}", json={"managed_by": ""}, headers=auth).json()["managed_by"] is None
     assert client.patch(f"{PLATFORM}/organisations/{msp_id}", json={"msp": False}, headers=auth).json()["msp"] is False
+
+
+def test_a_provider_can_limit_its_staff_to_their_clients(client, provider, monkeypatch):
+    msp_admin, msp_id, client_admin, client_id, _ = provider
+    _, second_admin = sign_up(client, monkeypatch, "c3")
+    second_id = org_id(client, second_admin)
+    db(client, lambda d: d["tenants"].update_one({"_id": ObjectId(second_id)}, {"$set": {"managed_by": msp_id}}))
+    analyst, _ = colleague(client, msp_admin, "analyst")
+    new_alert(client, client_admin, "critical")
+    new_alert(client, second_admin, "critical")
+
+    # By default, staff reach every client.
+    assert client.get(f"{API}/msp", headers=analyst).json()["staff_access"] == "all"
+    assert client.get(f"{API}/alerts/", headers=as_client(analyst, second_id)).status_code == 200
+
+    # Only administrators decide, and assign.
+    assert client.put(f"{API}/msp/staff-access", json={"staff_access": "assigned"}, headers=analyst).status_code == 403
+    assert client.get(f"{API}/msp/staff", headers=analyst).status_code == 403
+    assert client.put(f"{API}/msp/staff-access", json={"staff_access": "assigned"}, headers=msp_admin).status_code == 200
+    staff = {p["role"]: p for p in client.get(f"{API}/msp/staff", headers=msp_admin).json()}
+    analyst_id = staff["analyst"]["id"]
+    # Not assigned to anything yet: no clients, and no way in.
+    assert client.get(f"{API}/msp", headers=analyst).json()["clients"] == []
+    assert client.get(f"{API}/msp/alerts", headers=analyst).json() == []
+    refused = client.get(f"{API}/alerts/", headers=as_client(analyst, client_id))
+    assert refused.status_code == 403 and "not assigned" in refused.json()["detail"] and refused.headers["X-Organisation-Refused"] == "true"
+
+    # Assigned one client: that one only.
+    _, stranger = sign_up(client, monkeypatch, "c4")
+    assert client.put(f"{API}/msp/staff/{analyst_id}/clients", json={"clients": [org_id(client, stranger)]}, headers=msp_admin).status_code == 422
+    assigned = client.put(f"{API}/msp/staff/{analyst_id}/clients", json={"clients": [client_id]}, headers=msp_admin)
+    assert assigned.status_code == 200 and assigned.json()["clients"] == [client_id]
+    assert [c["id"] for c in client.get(f"{API}/msp", headers=analyst).json()["clients"]] == [client_id]
+    assert {a["organisation_id"] for a in client.get(f"{API}/msp/alerts", headers=analyst).json()} == {client_id}
+    assert client.get(f"{API}/alerts/", headers=as_client(analyst, client_id)).status_code == 200
+    assert client.get(f"{API}/alerts/", headers=as_client(analyst, second_id)).status_code == 403
+    # Administrators still reach every client.
+    assert {c["id"] for c in client.get(f"{API}/msp", headers=msp_admin).json()["clients"]} == {client_id, second_id}
+    assert client.get(f"{API}/alerts/", headers=as_client(msp_admin, second_id)).status_code == 200
+    actions = [e["action"] for e in client.get(f"{API}/audit-log/", params={"action": "msp"}, headers=msp_admin).json()]
+    assert {"msp.staff_access_changed", "msp.clients_assigned"} <= set(actions)

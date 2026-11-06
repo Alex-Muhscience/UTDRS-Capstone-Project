@@ -9825,6 +9825,142 @@
         ]
       }
     },
+    "/api/v1/msp/staff-access": {
+      "put": {
+        "tags": [
+          "service providers"
+        ],
+        "summary": "Set Staff Access",
+        "description": "Whether your staff reach every client, or only those assigned to them (administrators only; administrators always reach all).",
+        "operationId": "set_staff_access_api_v1_msp_staff_access_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffAccess"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffAccess"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/msp/staff": {
+      "get": {
+        "tags": [
+          "service providers"
+        ],
+        "summary": "Staff",
+        "description": "Your service provider's people, and the clients assigned to each (administrators only).",
+        "operationId": "staff_api_v1_msp_staff_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StaffMember"
+                  },
+                  "type": "array",
+                  "title": "Response Staff Api V1 Msp Staff Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/msp/staff/{user_id}/clients": {
+      "put": {
+        "tags": [
+          "service providers"
+        ],
+        "summary": "Assign Clients",
+        "description": "Set the clients one of your people may work in, when staff access is \"assigned\" (administrators only).",
+        "operationId": "assign_clients_api_v1_msp_staff__user_id__clients_put",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Assignment"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffMember"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/live": {
       "get": {
         "tags": [
@@ -12838,6 +12974,20 @@
         },
         "type": "object",
         "title": "AssetUpdate"
+      },
+      "Assignment": {
+        "properties": {
+          "clients": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 1000,
+            "title": "Clients"
+          }
+        },
+        "type": "object",
+        "title": "Assignment"
       },
       "Attachment": {
         "properties": {
@@ -15946,6 +16096,11 @@
               }
             ],
             "title": "Role In Clients"
+          },
+          "staff_access": {
+            "type": "string",
+            "title": "Staff Access",
+            "default": "all"
           },
           "clients": {
             "items": {
@@ -19531,6 +19686,76 @@
         "type": "object",
         "title": "SsoUpdate"
       },
+      "StaffAccess": {
+        "properties": {
+          "staff_access": {
+            "type": "string",
+            "enum": [
+              "all",
+              "assigned"
+            ],
+            "title": "Staff Access"
+          }
+        },
+        "type": "object",
+        "required": [
+          "staff_access"
+        ],
+        "title": "StaffAccess"
+      },
+      "StaffMember": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active",
+            "default": true
+          },
+          "clients": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Clients",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username"
+        ],
+        "title": "StaffMember"
+      },
       "Step": {
         "properties": {
           "key": {
@@ -20307,6 +20532,20 @@
             "type": "boolean",
             "title": "Mfa Enabled",
             "default": false
+          },
+          "msp_clients": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Msp Clients"
           },
           "custom_role_id": {
             "anyOf": [

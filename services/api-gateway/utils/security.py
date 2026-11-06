@@ -224,6 +224,8 @@ async def _in_client(request: Request, current: User, client_id: str, session_id
     client = await msp.client(current.tenant_id, client_id)
     if not client:
         raise refused("Your service provider does not manage that organisation")
+    if not msp.reaches(home, current, client_id):
+        raise refused("You are not assigned to this organisation; ask your service provider's administrators")
     if client.get("status") == "suspended":
         raise refused("This organisation has been suspended; contact the service's operator")
     if (client.get("security") or {}).get("require_mfa") and not current.mfa_enabled and await sessions.method(session_id) not in ("sso", "passkey"):

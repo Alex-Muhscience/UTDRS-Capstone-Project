@@ -3488,6 +3488,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/msp/staff-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Staff Access
+         * @description Whether your staff reach every client, or only those assigned to them (administrators only; administrators always reach all).
+         */
+        put: operations["set_staff_access_api_v1_msp_staff_access_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/msp/staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Staff
+         * @description Your service provider's people, and the clients assigned to each (administrators only).
+         */
+        get: operations["staff_api_v1_msp_staff_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/msp/staff/{user_id}/clients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Assign Clients
+         * @description Set the clients one of your people may work in, when staff access is "assigned" (administrators only).
+         */
+        put: operations["assign_clients_api_v1_msp_staff__user_id__clients_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/live": {
         parameters: {
             query?: never;
@@ -4589,6 +4649,11 @@ export interface components {
             tags?: string[] | null;
             /** Notes */
             notes?: string | null;
+        };
+        /** Assignment */
+        Assignment: {
+            /** Clients */
+            clients?: string[];
         };
         /** Attachment */
         Attachment: {
@@ -5700,6 +5765,11 @@ export interface components {
             organisation: string;
             /** Role In Clients */
             role_in_clients?: string | null;
+            /**
+             * Staff Access
+             * @default all
+             */
+            staff_access: string;
             /**
              * Clients
              * @default []
@@ -7016,6 +7086,35 @@ export interface components {
             /** Auto Provision */
             auto_provision?: boolean | null;
         };
+        /** StaffAccess */
+        StaffAccess: {
+            /**
+             * Staff Access
+             * @enum {string}
+             */
+            staff_access: "all" | "assigned";
+        };
+        /** StaffMember */
+        StaffMember: {
+            /** Id */
+            id: string;
+            /** Username */
+            username: string;
+            /** Email */
+            email?: string | null;
+            /** Role */
+            role?: string | null;
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+            /**
+             * Clients
+             * @default []
+             */
+            clients: string[];
+        };
         /** Step */
         Step: {
             /** Key */
@@ -7332,6 +7431,8 @@ export interface components {
              * @default false
              */
             mfa_enabled: boolean;
+            /** Msp Clients */
+            msp_clients?: string[] | null;
             /** Custom Role Id */
             custom_role_id?: string | null;
             /** Custom Role Name */
@@ -13642,6 +13743,94 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CreatedClient"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_staff_access_api_v1_msp_staff_access_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffAccess"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAccess"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    staff_api_v1_msp_staff_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffMember"][];
+                };
+            };
+        };
+    };
+    assign_clients_api_v1_msp_staff__user_id__clients_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Assignment"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffMember"];
                 };
             };
             /** @description Validation Error */

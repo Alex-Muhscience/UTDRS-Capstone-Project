@@ -310,6 +310,27 @@ export function useCreateClient() {
   })
 }
 
+export function useMspStaff(enabled: boolean) {
+  return useQuery({ queryKey: ["msp", "staff"], queryFn: () => unwrap(api.GET("/api/v1/msp/staff")), enabled })
+}
+
+export function useSetStaffAccess() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (staffAccess: "all" | "assigned") => unwrap(api.PUT("/api/v1/msp/staff-access", { body: { staff_access: staffAccess } })),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["msp"] }),
+  })
+}
+
+export function useAssignClients() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ userId, clients }: { userId: string; clients: string[] }) =>
+      unwrap(api.PUT("/api/v1/msp/staff/{user_id}/clients", { params: { path: { user_id: userId } }, body: { clients } })),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["msp"] }),
+  })
+}
+
 export function useReleaseFromMsp() {
   const queryClient = useQueryClient()
   return useMutation({
