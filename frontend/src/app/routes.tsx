@@ -9,6 +9,7 @@ import { AuditLogPage } from "@/pages/admin/AuditLogPage"
 import { ConnectorsPage } from "@/pages/connectors/ConnectorsPage"
 import { ConsentedPage } from "@/pages/connectors/ConsentedPage"
 import { EmailLogPage } from "@/pages/admin/EmailLogPage"
+import { ChatPage } from "@/pages/admin/ChatPage"
 import { RetentionPage } from "@/pages/admin/RetentionPage"
 import { RolesPage } from "@/pages/admin/RolesPage"
 import { WebhooksPage } from "@/pages/admin/WebhooksPage"
@@ -144,6 +145,7 @@ export const routes: RouteObject[] = [
                   { path: "email-log", element: <EmailLogPage /> },
                   { path: "retention", element: <RetentionPage /> },
                   { path: "webhooks", element: <WebhooksPage /> },
+                  { path: "chat", element: <ChatPage /> },
                   { path: "connectors", element: <ConnectorsPage /> },
                   { path: "connectors/microsoft-365/consented", element: <ConsentedPage /> },
                 ],

@@ -215,6 +215,49 @@ export function useRevokeScimToken() {
   })
 }
 
+// ---------------------------------------------------------------------------- Slack and Teams
+
+export type NewChatChannel = Schemas["NewChatChannel"]
+
+export function useChatEvents() {
+  return useQuery({ queryKey: ["chat", "events"], queryFn: () => unwrap(api.GET("/api/v1/chat/events")), staleTime: Infinity })
+}
+
+export function useChatChannels() {
+  return useQuery({ queryKey: ["chat", "channels"], queryFn: () => unwrap(api.GET("/api/v1/chat/channels")), refetchInterval: POLL_INTERVAL_MS })
+}
+
+export function useChatMessages(channelId: string) {
+  return useQuery({
+    queryKey: ["chat", "messages", channelId],
+    queryFn: () => unwrap(api.GET("/api/v1/chat/channels/{channel_id}/messages", { params: { path: { channel_id: channelId } } })),
+    refetchInterval: 5_000,
+  })
+}
+
+function useChatMutation<TVariables, TResult>(mutationFn: (variables: TVariables) => Promise<TResult>) {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn, onSettled: () => queryClient.invalidateQueries({ queryKey: ["chat"] }) })
+}
+
+export function useCreateChatChannel() {
+  return useChatMutation((body: NewChatChannel) => unwrap(api.POST("/api/v1/chat/channels", { body })))
+}
+
+export function useUpdateChatChannel() {
+  return useChatMutation(({ id, ...body }: { id: string; enabled?: boolean; events?: string[]; min_alert_severity?: NewChatChannel["min_alert_severity"] }) =>
+    unwrap(api.PATCH("/api/v1/chat/channels/{channel_id}", { params: { path: { channel_id: id } }, body })),
+  )
+}
+
+export function useDeleteChatChannel() {
+  return useChatMutation((id: string) => unwrap(api.DELETE("/api/v1/chat/channels/{channel_id}", { params: { path: { channel_id: id } } })))
+}
+
+export function useTestChatChannel() {
+  return useChatMutation((id: string) => unwrap(api.POST("/api/v1/chat/channels/{channel_id}/test", { params: { path: { channel_id: id } } })))
+}
+
 // ---------------------------------------------------------------------------- Notifications centre
 
 export function useInbox(unreadOnly = false) {
